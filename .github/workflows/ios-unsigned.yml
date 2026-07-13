@@ -38,7 +38,7 @@ jobs:
       - name: Build archive (без подписи)
         run: |
           set -e
-          WORKSPACE=$(ls ios/*.xcworkspace -d)
+          WORKSPACE=$(ls -d ios/*.xcworkspace)
           SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{console.log(JSON.parse(s).workspace.schemes[0])})")
           echo "Workspace=$WORKSPACE  Scheme=$SCHEME"
           xcodebuild \
