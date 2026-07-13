@@ -39,7 +39,7 @@ jobs:
         run: |
           set -e
           WORKSPACE=$(ls -d ios/*.xcworkspace)
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{console.log(JSON.parse(s).workspace.schemes[0])})")
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
           echo "Workspace=$WORKSPACE  Scheme=$SCHEME"
           xcodebuild \
             -workspace "$WORKSPACE" \
