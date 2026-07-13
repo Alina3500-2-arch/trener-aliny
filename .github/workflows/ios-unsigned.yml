@@ -1,0 +1,67 @@
+name: iOS unsigned IPA (для SideStore)
+
+# Собирает НЕПОДПИСАННЫЙ .ipa на бесплатном Mac-сервере GitHub.
+# Подпишет его SideStore на телефоне бесплатным Apple ID. Запуск — вручную (Run workflow).
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      # ИИ идёт через прокси (обход 403), ключ клиенту не нужен — он на сервере прокси.
+      EXPO_PUBLIC_GROQ_PROXY: https://divine-dream-5ce0.alinatyu456.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install JS deps
+        run: npm install --no-audit --no-fund
+
+      - name: Expo prebuild (iOS)
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build archive (без подписи)
+        run: |
+          set -e
+          WORKSPACE=$(ls ios/*.xcworkspace -d)
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{console.log(JSON.parse(s).workspace.schemes[0])})")
+          echo "Workspace=$WORKSPACE  Scheme=$SCHEME"
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Собрать .ipa (Payload)
+        run: |
+          set -e
+          APP=$(ls -d "$RUNNER_TEMP/app.xcarchive/Products/Applications/"*.app | head -1)
+          echo "App=$APP"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -qr TrenerAliny-unsigned.ipa Payload
+          ls -lh TrenerAliny-unsigned.ipa
+
+      - name: Выгрузить .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrenerAliny-ipa
+          path: ${{ runner.temp }}/TrenerAliny-unsigned.ipa
+          if-no-files-found: error
