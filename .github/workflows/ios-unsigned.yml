@@ -8,12 +8,17 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       # ИИ идёт через прокси (обход 403), ключ клиенту не нужен — он на сервере прокси.
       EXPO_PUBLIC_GROQ_PROXY: https://divine-dream-5ce0.alinatyu456.workers.dev
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select newest Xcode (нужен >= 16.1)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - uses: actions/setup-node@v4
         with:
