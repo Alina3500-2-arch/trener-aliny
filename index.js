@@ -1,3 +1,5 @@
+// ВАЖНО: перехватчик ошибок ставим ПЕРВЫМ импортом, до App и его модулей.
+import './src/earlyError';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

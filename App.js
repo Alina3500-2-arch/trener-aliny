@@ -5,6 +5,7 @@ import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import ErrorBoundary from './src/ErrorBoundary';
 import { StoreProvider, useStore } from './src/store';
 import { colors } from './src/theme';
 import Onboarding from './src/Onboarding';
@@ -69,11 +70,13 @@ function Root() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <StoreProvider>
-        <StatusBar style="light" />
-        <Root />
-      </StoreProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <StoreProvider>
+          <StatusBar style="light" />
+          <Root />
+        </StoreProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
