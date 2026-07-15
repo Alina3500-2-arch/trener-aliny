@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Тренер Алины 3",
+    "name": "Тренер Алины 4",
     "slug": "trener-aliny",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
