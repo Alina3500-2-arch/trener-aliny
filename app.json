@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Тренер Алины 2",
+    "name": "Тренер Алины 3",
     "slug": "trener-aliny",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -30,11 +30,6 @@
       }
     },
     "owner": "aline456",
-    "runtimeVersion": "exposdk:54.0.0",
-    "updates": {
-      "enabled": false,
-      "url": "https://u.expo.dev/a8910373-552b-46f7-8874-d97e7a67a79e"
-    },
     "plugins": [
       "expo-audio",
       [
