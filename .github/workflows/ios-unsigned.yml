@@ -33,6 +33,8 @@ jobs:
       - name: CocoaPods
         run: |
           cd ios
+          # PRODUCTION=1 → тянуть release-вариант Hermes (не debug) для Release-сборки.
+          export PRODUCTION=1
           pod install
 
       - name: Build archive (без подписи)

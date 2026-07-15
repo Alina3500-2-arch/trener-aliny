@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "Тренер Алины 4",
+    "name": "Тренер Алины 5",
     "slug": "trener-aliny",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aline456.treneraliny",
