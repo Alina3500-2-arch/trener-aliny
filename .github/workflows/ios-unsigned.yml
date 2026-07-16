@@ -12,6 +12,9 @@ jobs:
     env:
       # ИИ идёт через прокси (обход 403), ключ клиенту не нужен — он на сервере прокси.
       EXPO_PUBLIC_GROQ_PROXY: https://divine-dream-5ce0.alinatyu456.workers.dev
+      PRODUCTION: "1"
+      RCT_USE_PREBUILT_RNCORE: "0"
+      RCT_USE_RN_DEP: "0"
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +28,7 @@ jobs:
           node-version: 20
 
       - name: Install JS deps
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Expo prebuild (iOS)
         run: npx expo prebuild --platform ios --no-install
@@ -34,7 +37,6 @@ jobs:
         run: |
           cd ios
           # PRODUCTION=1 → тянуть release-вариант Hermes (не debug) для Release-сборки.
-          export PRODUCTION=1
           pod install
 
       - name: Build archive (без подписи)
@@ -60,6 +62,10 @@ jobs:
           set -e
           APP=$(ls -d "$RUNNER_TEMP/app.xcarchive/Products/Applications/"*.app | head -1)
           echo "App=$APP"
+          find "$APP/Frameworks" -maxdepth 2 -type f -print 2>/dev/null || true
+          test ! -d "$APP/Frameworks/React.framework"
+          test ! -d "$APP/Frameworks/ReactNativeDependencies.framework"
+          test -f "$APP/main.jsbundle"
           mkdir -p "$RUNNER_TEMP/Payload"
           cp -R "$APP" "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"

@@ -8,7 +8,8 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.18.7",
     "@react-navigation/native": "^7.3.7",
-    "expo": "^54.0.0",
+    "expo": "~54.0.36",
+    "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
     "expo-image-picker": "~17.0.11",
     "expo-linear-gradient": "~15.0.8",
@@ -28,8 +29,5 @@
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true,
-  "devDependencies": {
-    "eas-cli": "^20.5.1"
-  }
+  "private": true
 }
