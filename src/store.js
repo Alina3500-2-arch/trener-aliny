@@ -9,6 +9,9 @@ const StoreContext = createContext(null);
 export function StoreProvider({ children }) {
   const [state, setState] = useState(emptyState);
   const [ready, setReady] = useState(false);
+  // Просматриваемая дата (для дневника питания и правки прошлых дней).
+  // Хранится в памяти, НЕ сохраняется — при перезапуске всегда «сегодня».
+  const [viewDate, setViewDate] = useState(todayStr());
 
   useEffect(() => {
     loadState().then((s) => {
@@ -44,9 +47,9 @@ export function StoreProvider({ children }) {
   const addMeal = useCallback((meal) => {
     setState((prev) => ({
       ...prev,
-      meals: [...prev.meals, { id: uid(), date: todayStr(), ...meal }],
+      meals: [...prev.meals, { id: uid(), date: viewDate, ...meal }],
     }));
-  }, []);
+  }, [viewDate]);
 
   const removeMeal = useCallback((id) => {
     setState((prev) => ({ ...prev, meals: prev.meals.filter((m) => m.id !== id) }));
@@ -168,6 +171,8 @@ export function StoreProvider({ children }) {
   const value = {
     state,
     ready,
+    viewDate,
+    setViewDate,
     update,
     addMeal,
     removeMeal,

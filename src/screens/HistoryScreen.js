@@ -14,8 +14,8 @@ const MEAL_ORDER = ['breakfast', 'brunch', 'lunch', 'snack', 'dinner'];
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 
-export default function HistoryScreen() {
-  const { state } = useStore();
+export default function HistoryScreen({ navigation }) {
+  const { state, setViewDate } = useStore();
   const target = dailyTarget(state);
   const weightKg = latestWeight(state);
   const todayS = todayStr();
@@ -93,6 +93,15 @@ export default function HistoryScreen() {
           </View>
           {dayBurned > 0 && <Muted>🔥 нагрузка: −{dayBurned} ккал</Muted>}
 
+          {/* Правка этого дня: открываем дневник питания на выбранной дате */}
+          <TouchableOpacity
+            style={styles.editDayBtn}
+            activeOpacity={0.85}
+            onPress={() => { setViewDate(selected); navigation.navigate('Питание'); }}
+          >
+            <Text style={styles.editDayText}>✏️ Редактировать этот день</Text>
+          </TouchableOpacity>
+
           {dayMeals.length === 0 ? (
             <Muted style={{ marginTop: spacing(1) }}>В этот день ничего не записано.</Muted>
           ) : (
@@ -156,6 +165,8 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { color: colors.textDim, fontSize: 12 },
+  editDayBtn: { marginTop: spacing(1.25), alignSelf: 'flex-start', paddingVertical: spacing(1), paddingHorizontal: spacing(2), borderRadius: 999, backgroundColor: colors.primaryDim, borderWidth: 1, borderColor: colors.primary },
+  editDayText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
   detHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   detKcal: { color: colors.accent, fontSize: 15, fontWeight: '800' },

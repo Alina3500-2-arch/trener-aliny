@@ -28,10 +28,13 @@ const ALERT_RED = '#FF6B6B';  // перебор / стоп
 const LOW_AMBER = '#FFCE5A';  // недобор (например, белка)
 
 export default function TodayScreen() {
-  const { state, addMeal, removeMeal, updateMeal, addCustomFood, removeCustomFood, addFavorite, removeFavorite } = useStore();
+  const { state, viewDate, setViewDate, addMeal, removeMeal, updateMeal, addCustomFood, removeCustomFood, addFavorite, removeFavorite } = useStore();
   const [editMeal, setEditMeal] = useState(null);
   const [mealSheet, setMealSheet] = useState(null); // открытый приём (ключ) в нижнем окне
-  const date = todayStr();
+  const today = todayStr();
+  const date = viewDate;          // просматриваемый день (сегодня или прошлый)
+  const isToday = date === today;
+  const shiftDate = (delta) => setViewDate(addDays(date, delta));
   const baseTarget = dailyTarget(state);
   const weightKg = latestWeight(state);
   const burned = burnedToday(state, date, weightKg); // нагрузка за день (прогулка/огород/зал/тренировки)
@@ -101,7 +104,7 @@ export default function TodayScreen() {
 
   // Совет тренера подгружаем сам и ОБНОВЛЯЕМ, когда меняется нагрузка (запас калорий) или число приёмов.
   // Пока грузится — показываем локальный совет (он тоже учитывает нагрузку и остаток).
-  useEffect(() => { if (!over) askAlina(); }, [burned, meals.length]);
+  useEffect(() => { if (!over) askAlina(); }, [burned, meals.length, date]);
 
   const openAdd = (type) => setModal(type);
 
@@ -113,7 +116,29 @@ export default function TodayScreen() {
       {/* Фиолетовая шапка-дневник */}
       <LinearGradient colors={GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
         <Text style={styles.heroTitle}>Дневник питания</Text>
-        <Text style={styles.heroDate}>{niceDate(date)}</Text>
+
+        {/* Навигация по дням: ‹ дата › — можно листать и править прошлое */}
+        <View style={styles.dateNav}>
+          <TouchableOpacity style={styles.dateArrow} activeOpacity={0.7} onPress={() => shiftDate(-1)}>
+            <Text style={styles.dateArrowText}>‹</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.dateCenter}
+            activeOpacity={0.7}
+            onPress={() => !isToday && setViewDate(today)}
+          >
+            <Text style={styles.heroDate}>{isToday ? 'Сегодня' : niceDate(date)}</Text>
+            {!isToday && <Text style={styles.dateToday}>вернуться к сегодня</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dateArrow, isToday && styles.dateArrowOff]}
+            activeOpacity={0.7}
+            disabled={isToday}
+            onPress={() => shiftDate(1)}
+          >
+            <Text style={styles.dateArrowText}>›</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.heroRingRow}>
           <View style={styles.heroSide}>
@@ -339,12 +364,28 @@ function niceDate(s) {
   return `${Number(d)} ${months[Number(m) - 1]} ${y}`;
 }
 
+// Сдвиг даты 'YYYY-MM-DD' на delta дней (через полдень — без сюрпризов с часовыми поясами).
+function addDays(s, delta) {
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + delta, 12, 0, 0);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   // Шапка-дневник
   hero: { paddingTop: spacing(6.5), paddingBottom: spacing(2), paddingHorizontal: spacing(2.5), borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
   heroTitle: { color: '#fff', fontSize: 18, fontWeight: '800', textAlign: 'center' },
-  heroDate: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 3, textTransform: 'capitalize' },
+  heroDate: { color: 'rgba(255,255,255,0.95)', fontSize: 13, fontWeight: '700', textAlign: 'center', textTransform: 'capitalize' },
+  dateNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  dateArrow: { width: 34, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  dateArrowOff: { opacity: 0.3 },
+  dateArrowText: { color: '#fff', fontSize: 24, fontWeight: '800', lineHeight: 26 },
+  dateCenter: { minWidth: 150, alignItems: 'center', paddingHorizontal: spacing(1) },
+  dateToday: { color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: '600', marginTop: 1 },
   heroRingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing(1.5) },
   heroSide: { flex: 1, alignItems: 'center' },
   heroSideVal: { color: '#fff', fontSize: 20, fontWeight: '800' },
