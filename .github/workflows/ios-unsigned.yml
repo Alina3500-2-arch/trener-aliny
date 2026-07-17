@@ -6,6 +6,9 @@ name: iOS unsigned IPA (для SideStore)
 on:
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -72,9 +75,18 @@ jobs:
           zip -qr TrenerAliny-unsigned.ipa Payload
           ls -lh TrenerAliny-unsigned.ipa
 
-      - name: Выгрузить .ipa
+      - name: Выгрузить .ipa (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: TrenerAliny-ipa
           path: ${{ runner.temp }}/TrenerAliny-unsigned.ipa
           if-no-files-found: error
+
+      # Публикуем .ipa как ассет GitHub Release — его можно скачать напрямую
+      # (в т.ч. из автоматизации), не только через вкладку Actions.
+      - name: Опубликовать .ipa в Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ipa-build-${{ github.run_number }}
+          name: TrenerAliny .ipa (build ${{ github.run_number }})
+          files: ${{ runner.temp }}/TrenerAliny-unsigned.ipa
