@@ -421,18 +421,20 @@ function renderTabBar(){
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   size=size||124; stroke=stroke||16; color=color||'#B98CFF'; centerColor=centerColor||'#FFFFFF';
-  var r=(size-stroke)/2, c=2*Math.PI*r, pct=target>0?Math.min(Math.max(eaten/target,0),1):0, cx=size/2;
+  var pad=Math.round(size*0.22); var box=size+pad*2;
+  var r=(size-stroke)/2, c=2*Math.PI*r, pct=target>0?Math.min(Math.max(eaten/target,0),1):0, cx=box/2;
   var sweep=0.75, arcLen=c*sweep, filled=arcLen*pct, gid='rg'+Math.round(size);
   var over=color==='var(--alert)';
-  return '<div class="ringWrap" style="width:'+size+'px;height:'+size+'px">'+
-    '<svg width="'+size+'" height="'+size+'">'+
+  var glowColor=over?'rgba(255,92,92,':'rgba(170,130,255,';
+  return '<div class="ringWrap" style="width:'+box+'px;height:'+box+'px">'+
+    '<svg width="'+box+'" height="'+box+'">'+
     '<defs><linearGradient id="'+gid+'" x1="0%" y1="0%" x2="100%" y2="100%">'+
-      (over?'<stop offset="0%" stop-color="#FF9A8B"/><stop offset="100%" stop-color="#FF5C5C"/>':'<stop offset="0%" stop-color="#E3B8FF"/><stop offset="100%" stop-color="#8B5CF6"/>')+
+      (over?'<stop offset="0%" stop-color="#FF9A8B"/><stop offset="100%" stop-color="#FF5C5C"/>':'<stop offset="0%" stop-color="#E7C6FF"/><stop offset="100%" stop-color="#8B5CF6"/>')+
     '</linearGradient></defs>'+
-    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="rgba(255,255,255,0.1)" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+arcLen+' '+c+'" transform="rotate(135 '+cx+' '+cx+')"/>'+
-    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="url(#'+gid+')" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+filled+' '+c+'" transform="rotate(135 '+cx+' '+cx+')" style="filter:drop-shadow(0 0 6px '+(over?'rgba(255,92,92,.7)':'rgba(155,125,255,.75)')+')"/>'+
+    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="rgba(255,255,255,0.08)" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+arcLen+' '+c+'" transform="rotate(135 '+cx+' '+cx+')"/>'+
+    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="url(#'+gid+')" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+filled+' '+c+'" transform="rotate(135 '+cx+' '+cx+')" style="filter:drop-shadow(0 0 3px '+glowColor+'.9)) drop-shadow(0 0 14px '+glowColor+'.8)) drop-shadow(0 0 30px '+glowColor+'.55))"/>'+
     '</svg>'+
-    '<div class="ringCenter"><div style="font-size:'+Math.round(size*0.34)+'px;font-weight:800;color:'+centerColor+'">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.11)+'px;color:rgba(255,255,255,.7);margin-top:-2px;font-weight:700">ккал</div></div>'+
+    '<div class="ringCenter"><div style="font-size:'+Math.round(size*0.4)+'px;font-weight:800;color:'+centerColor+';letter-spacing:-1px">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.12)+'px;color:rgba(255,255,255,.65);margin-top:-3px;font-weight:700">ккал</div></div>'+
   '</div>';
 }
 
@@ -585,43 +587,42 @@ function renderToday(){
   var hiddenOptional=MEAL_TYPES.filter(function(m){ return m.optional&&!todayLocal.extraMeals.includes(m.key)&&!meals.some(function(x){return x.type===m.key;}); });
   var predColor=predGrams>0?'var(--alert)':'var(--good)';
   var showPred=eaten.kcal>0;
-  var h='<div style="background:#0B0B10;padding:calc(8px + var(--sat)) 16px 10px;border-radius:0 0 22px 22px;color:#fff">'+
-    '<div style="font-size:16px;font-weight:800;text-align:center">Дневник питания</div>'+
-    '<div style="display:flex;align-items:center;justify-content:center;margin-top:1px">'+
+  var divider='<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.12);margin:1px 12px"></div>';
+  var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 8px;border-radius:0 0 22px 22px;color:#fff">'+
+    '<div style="font-size:17px;font-weight:800;text-align:center">Дневник питания</div>'+
+    '<div style="display:flex;align-items:center;justify-content:center;margin-top:0px">'+
       '<button style="width:28px;height:20px;color:#fff;font-size:18px;font-weight:800" onclick="shiftDate(-1)">‹</button>'+
       '<button style="min-width:150px;color:#fff" onclick="'+(isToday?'':'gotoToday()')+'"><div style="font-size:12px;font-weight:700;color:#B98CFF;text-transform:capitalize">'+(isToday?'Сегодня':niceDate(date))+'</div>'+(isToday?'':'<div style="font-size:9px;color:rgba(255,255,255,.6)">вернуться к сегодня</div>')+'</button>'+
       '<button style="width:28px;height:20px;color:#fff;font-size:18px;font-weight:800;'+(isToday?'opacity:.3':'')+'" '+(isToday?'disabled':'onclick="shiftDate(1)"')+'>›</button>'+
     '</div>'+
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">'+
-      '<div style="flex:1;text-align:center"><div style="font-size:17px;font-weight:800">'+budget+'</div><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700">норма</div>'+(burned>0?'<div style="color:var(--good);font-size:10px;font-weight:800;margin-top:1px">🔥 +'+burned+'</div>':'')+'</div>'+
-      calorieRingSVG(eaten.kcal,budget,82,12,over?'var(--alert)':'#B98CFF','#FFFFFF')+
-      '<div style="flex:1;text-align:center"><div style="font-size:17px;font-weight:800;'+(over?'color:var(--alert)':'')+'">'+(over?'+':'')+Math.round(over?eaten.kcal-budget:budget-eaten.kcal)+'</div><div style="font-size:10px;color:rgba(255,255,255,.6);font-weight:700">'+(over?'перебор':'осталось')+'</div>'+
-        (showPred?('<div style="font-size:10px;font-weight:800;margin-top:2px;color:'+predColor+'">на весах ≈ '+(predGrams>0?'+':predGrams<0?'−':'')+Math.abs(predGrams)+' г</div>'+
-        '<div style="font-size:8px;font-weight:800;color:'+predColor+'">'+(predGrams>0?'⚠️ жир копится!':predGrams<0?'жир уходит 💪':'вес держится')+'</div>'):'')+'</div>'+
+    '<div style="display:flex;align-items:center;justify-content:center">'+
+      '<div style="flex:1;text-align:center"><div style="font-size:24px;font-weight:800;letter-spacing:-.5px">'+budget+'</div><div style="font-size:11px;color:rgba(255,255,255,.55);font-weight:700">норма</div>'+(burned>0?'<div style="color:var(--good);font-size:10px;font-weight:800;margin-top:1px">🔥 +'+burned+'</div>':'')+'</div>'+
+      calorieRingSVG(eaten.kcal,budget,116,17,over?'var(--alert)':'#B98CFF','#FFFFFF')+
+      '<div style="flex:1;text-align:center"><div style="font-size:24px;font-weight:800;letter-spacing:-.5px;'+(over?'color:var(--alert)':'')+'">'+(over?'+':'')+Math.round(over?eaten.kcal-budget:budget-eaten.kcal)+'</div><div style="font-size:11px;color:rgba(255,255,255,.55);font-weight:700">'+(over?'перебор':'осталось')+'</div>'+
+        (showPred?('<div style="font-size:11px;font-weight:800;margin-top:2px;color:'+predColor+'">на весах ≈ '+(predGrams>0?'+':predGrams<0?'−':'')+Math.abs(predGrams)+' г</div>'+
+        '<div style="font-size:9px;font-weight:800;color:'+predColor+'">'+(predGrams>0?'⚠️ жир копится!':predGrams<0?'жир уходит 💪':'вес держится')+'</div>'):'')+'</div>'+
     '</div>'+
-    '<div style="display:flex;gap:14px;margin-top:6px">'+heroMacro('Белки',eaten.protein,mt.protein,'protein')+heroMacro('Жиры',eaten.fat,mt.fat,'limit')+heroMacro('Углеводы',eaten.carbs,mt.carbs,'limit')+'</div>'+
+    '<div style="display:flex;align-items:stretch;margin-top:2px">'+heroMacro('Белки',eaten.protein,mt.protein,'protein')+divider+heroMacro('Жиры',eaten.fat,mt.fat,'limit')+divider+heroMacro('Углеводы',eaten.carbs,mt.carbs,'limit')+'</div>'+
   '</div>';
-  var timeIcon={breakfast:'🌅',brunch:'🥪',lunch:'☀️',snack:'🍏',dinner:'🌙'};
-  h+='<div class="body-pad" style="padding:8px 12px">'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:14px;font-weight:800">Приёмы пищи</div>'+
-      '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:5px 10px;color:var(--primary);font-size:11px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>';
+  h+='<div class="body-pad" style="padding:10px 14px 8px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:15px;font-weight:800">Приёмы пищи</div>'+
+      '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:6px 12px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>';
   visibleMeals.forEach(function(m){
     var items=meals.filter(function(x){return x.type===m.key;});
     var sum=items.reduce(function(a,x){return a+(x.kcal||0);},0);
     var goal=Math.round(baseTarget*m.frac);
-    h+='<button style="display:flex;align-items:center;width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:7px 10px;margin-bottom:5px;text-align:left;gap:12px" onclick="openMealSheet(\''+m.key+'\')">'+
-      '<div style="width:36px;height:36px;min-width:36px;border-radius:50%;background:var(--primaryDim);display:flex;align-items:center;justify-content:center;font-size:16px">'+(timeIcon[m.key]||m.icon)+'</div>'+
-      '<div style="flex:1"><div style="font-size:13px;font-weight:800;color:var(--text)">'+m.label+'</div>'+
-      '<div style="font-size:11px;color:var(--textDim);margin-top:1px">'+Math.round(sum)+' ккал из '+goal+' ккал</div></div>'+
-      (items.length>0?('<div style="color:var(--primary);font-size:12px;font-weight:800;white-space:nowrap;background:var(--cardAlt);border-radius:999px;padding:5px 10px">'+m.time+'</div>'+
-        '<div style="width:30px;height:30px;min-width:30px;border-radius:10px;background:var(--cardAlt);display:flex;align-items:center;justify-content:center;font-size:15px">'+m.icon+'</div>')
+    h+='<button style="display:flex;align-items:center;width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:9px 12px;margin-bottom:8px;text-align:left;gap:12px" onclick="openMealSheet(\''+m.key+'\')">'+
+      '<div style="width:40px;height:40px;min-width:40px;border-radius:50%;background:var(--primaryDim);display:flex;align-items:center;justify-content:center;font-size:19px">'+m.icon+'</div>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--text)">'+m.label+'</div>'+
+      '<div style="font-size:11px;color:var(--textDim);margin-top:2px">'+Math.round(sum)+' ккал из '+goal+' ккал</div></div>'+
+      (items.length>0?'<div style="color:var(--primary);font-size:12px;font-weight:800;white-space:nowrap;background:var(--cardAlt);border-radius:999px;padding:6px 11px">'+m.time+'</div>'
         :'<div style="color:var(--primary);font-size:13px;font-weight:800;white-space:nowrap">+ Добавить</div>')+
       '<div style="color:var(--primary);font-size:20px">›</div></button>';
   });
   hiddenOptional.forEach(function(m){
-    h+='<button style="display:flex;align-items:center;width:100%;background:var(--card);border:1px dashed var(--line);border-radius:18px;padding:7px 10px;margin-bottom:5px;text-align:left;gap:12px" onclick="addExtraMeal(\''+m.key+'\')">'+
-      '<div style="width:36px;height:36px;min-width:36px;border-radius:50%;background:var(--cardAlt);display:flex;align-items:center;justify-content:center;font-size:16px">'+(timeIcon[m.key]||m.icon)+'</div>'+
-      '<div style="flex:1"><div style="font-size:15px;font-weight:600;color:var(--textDim)">'+m.label+'</div></div>'+
+    h+='<button style="display:flex;align-items:center;width:100%;background:var(--card);border:1px dashed var(--line);border-radius:18px;padding:9px 12px;margin-bottom:8px;text-align:left;gap:12px" onclick="addExtraMeal(\''+m.key+'\')">'+
+      '<div style="width:40px;height:40px;min-width:40px;border-radius:50%;background:var(--cardAlt);display:flex;align-items:center;justify-content:center;font-size:19px">'+m.icon+'</div>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--textDim)">'+m.label+'</div></div>'+
       '<div style="color:var(--primary);font-size:20px;font-weight:800">＋</div></button>';
   });
   h+='</div>';
