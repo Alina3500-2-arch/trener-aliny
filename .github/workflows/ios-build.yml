@@ -1,0 +1,86 @@
+name: iOS WebView wrapper (unsigned IPA)
+
+# Собирает НЕПОДПИСАННЫЙ .ipa тонкой нативной обёртки (WKWebView) из ios-native/.
+# Подпишет его SideStore на телефоне бесплатным Apple ID.
+#
+# ВАЖНО: этот workflow срабатывает ТОЛЬКО когда меняется сама нативная часть
+# (ios-native/** или этот файл). Обычные правки самого приложения живут в
+# docs/index.html и публикуются МГНОВЕННО через GitHub Pages — БЕЗ пересборки
+# .ipa: приложение перезагружает веб-страницу при следующем открытии.
+# Пересборка нужна только если поменялась нативная обёртка (Swift/Info.plist/иконка).
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'ios-native/**'
+      - '.github/workflows/ios-build.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build archive (без подписи)
+        run: |
+          set -e
+          xcodebuild \
+            -project ios-native/TrenerAliny.xcodeproj \
+            -scheme TrenerAliny \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Собрать .ipa (Payload)
+        run: |
+          set -e
+          APP=$(ls -d "$RUNNER_TEMP/app.xcarchive/Products/Applications/"*.app | head -1)
+          echo "App=$APP"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -qr TrenerAliny-unsigned.ipa Payload
+          ls -lh TrenerAliny-unsigned.ipa
+
+      - name: Выгрузить .ipa (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrenerAliny-ipa
+          path: ${{ runner.temp }}/TrenerAliny-unsigned.ipa
+          if-no-files-found: error
+
+      # Публикуем .ipa как ассет GitHub Release — его можно скачать напрямую.
+      - name: Опубликовать .ipa в Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ipa-build-${{ github.run_number }}
+          name: TrenerAliny .ipa (build ${{ github.run_number }})
+          files: ${{ runner.temp }}/TrenerAliny-unsigned.ipa
+
+      # Кладём .ipa в отдельную orphan-ветку `ipa` (force-push, всегда 1 коммит).
+      - name: Положить .ipa в ветку ipa
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          cp "$RUNNER_TEMP/TrenerAliny-unsigned.ipa" ./TrenerAliny-unsigned.ipa
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan ipa
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          git add -f TrenerAliny-unsigned.ipa
+          git commit -m "ipa build ${{ github.run_number }}"
+          git push -f origin ipa
