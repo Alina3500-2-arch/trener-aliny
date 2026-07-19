@@ -150,3 +150,51 @@ extension WebViewController: WKScriptMessageHandler {
         return (h, m)
     }
 }
+
+// MARK: - Тап по уведомлению открывает конкретный экран приложения
+// Грузим appURL с #open=meal:<type> или #open=tab:<name> — веб-часть
+// (docs/index.html, функция applyDeepLink) сама переключает вкладку/окно при загрузке.
+extension WebViewController: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        // Показывать уведомление баннером, даже если приложение открыто на экране.
+        completionHandler([.banner, .sound, .list])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if let target = Self.deepLinkTarget(for: response.notification.request.identifier) {
+            openDeepLink(target)
+        }
+        completionHandler()
+    }
+
+    private static func deepLinkTarget(for identifier: String) -> String? {
+        switch identifier {
+        case "reminder-breakfast": return "meal:breakfast"
+        case "reminder-lunch": return "meal:lunch"
+        case "reminder-dinner": return "meal:dinner"
+        case "reminder-weigh": return "tab:weight"
+        case "reminder-workout": return "tab:workout"
+        default:
+            return identifier.hasPrefix("workout-") ? "tab:workout" : nil
+        }
+    }
+
+    private func openDeepLink(_ target: String) {
+        // query-параметр, не #fragment: переход, отличающийся только якорем,
+        // WKWebView (как и большинство браузеров) может посчитать навигацией
+        // внутри документа и не перезагрузить страницу — тогда JS отработавший
+        // на предыдущей загрузке deep-link просто не увидит новое значение.
+        guard var comps = URLComponents(url: appURL, resolvingAgainstBaseURL: false) else { return }
+        comps.queryItems = [URLQueryItem(name: "open", value: target)]
+        guard let url = comps.url else { return }
+        webView.load(URLRequest(url: url))
+    }
+}

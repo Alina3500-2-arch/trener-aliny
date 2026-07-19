@@ -1479,8 +1479,23 @@ function afterWorkoutRender(){
   var todayDow=dowOf(new Date()); var didToday=(state.workouts||[]).some(function(w){return w.date===todayStr();});
   if(plan&&wDays.includes(todayDow)&&!didToday){ wl.nagged=true; setTimeout(function(){ alert('💪 Сегодня тренировка! По плану у тебя сегодня тренировка. Не пропускай — я в тебя верю 💜'); },300); }
 }
+/* ===== DEEP LINK (открыть конкретный экран по тапу на уведомление) ===== */
+// Используем query-параметр (?open=...), а не #hash: переход, отличающийся
+// только якорем, браузер (в т.ч. WKWebView) может обработать как навигацию
+// внутри документа БЕЗ перезагрузки страницы — тогда этот код просто не
+// выполнится повторно. Разница в query-строке всегда даёт полную загрузку.
+function applyDeepLink(){
+  if(!state.onboarded) return;
+  var m=location.search.match(/[?&]open=([^&]+)/); if(!m) return;
+  var val=decodeURIComponent(m[1]); if(!val) return;
+  var parts=val.split(':'); var kind=parts[0], arg=parts[1];
+  if(kind==='meal'&&arg){ ui.tab='today'; render(); openMealSheet(arg); }
+  else if(kind==='tab'&&arg){ setTab(arg); }
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+}
 /* ===== BOOT ===== */
 ensureFoods();
 commitNoRender();
 render();
+applyDeepLink();
 </script>

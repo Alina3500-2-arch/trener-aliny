@@ -17,8 +17,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // алерт появился при первом запуске, а не только на экране напоминаний.
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
+        let webViewController = WebViewController()
+        // Делегат нужен до того, как система может доставить тап по уведомлению
+        // (в т.ч. при холодном старте приложения по нажатию на уведомление).
+        UNUserNotificationCenter.current().delegate = webViewController
+
         let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = WebViewController()
+        window.rootViewController = webViewController
         window.makeKeyAndVisible()
         self.window = window
         return true
