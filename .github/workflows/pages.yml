@@ -1,0 +1,40 @@
+name: Deploy GitHub Pages
+
+# Публикует папку docs/ на GitHub Pages автоматически — без единого клика в
+# Settings → Pages. Официальный экшен actions/configure-pages сам включает
+# Pages для репозитория (source: GitHub Actions) при первом запуске, если
+# он ещё не включён. Срабатывает на каждый пуш, меняющий docs/.
+
+on:
+  push:
+    branches:
+      - master
+      - claude/fitness-tracker-html-migration-orrpaw
+    paths:
+      - 'docs/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deployment
+        uses: actions/deploy-pages@v4
