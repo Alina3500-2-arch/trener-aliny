@@ -597,32 +597,35 @@ function renderToday(){
     '<div style="display:flex;gap:10px;margin-top:6px">'+heroMacro('Белки',eaten.protein,mt.protein,'protein')+heroMacro('Жиры',eaten.fat,mt.fat,'limit')+heroMacro('Углеводы',eaten.carbs,mt.carbs,'limit')+'</div>'+
   '</div>';
   h+='<div class="body-pad" style="padding:8px 12px">'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:14px;font-weight:800">Приёмы пищи</div>'+
-      '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:5px 10px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>'+
-    '<div class="grid">';
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:14px;font-weight:800">Приёмы пищи</div>'+
+      '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:5px 10px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>';
   visibleMeals.forEach(function(m){
     var items=meals.filter(function(x){return x.type===m.key;});
     var sum=items.reduce(function(a,x){return a+(x.kcal||0);},0);
     var goal=Math.round(baseTarget*m.frac);
-    h+='<button class="gridCard" style="padding:7px 9px;min-height:50px;margin-bottom:6px" onclick="openMealSheet(\''+m.key+'\')">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:800">'+m.label+'</span>'+
-      (items.length>0?'<span style="color:var(--primary);font-size:9px;font-weight:700;background:var(--cardAlt);border-radius:8px;padding:1px 5px">'+m.time+'</span>':'<span style="color:var(--primary);font-size:16px;font-weight:800">＋</span>')+'</div>'+
-      '<div style="font-size:16px;font-weight:800;margin-top:1px">'+Math.round(sum)+' <span style="color:var(--textDim);font-size:10px;font-weight:600">ккал</span></div>'+
-      '<div style="color:var(--textDim);font-size:10px">из '+goal+' ккал</div>'+
-      '<span style="position:absolute;right:5px;bottom:3px;font-size:17px">'+m.icon+'</span></button>';
+    h+='<button style="display:flex;align-items:center;width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:8px;text-align:left;gap:10px" onclick="openMealSheet(\''+m.key+'\')">'+
+      '<div style="font-size:24px;min-width:40px;text-align:center">'+m.icon+'</div>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:var(--text)">'+m.label+'</div>'+
+      '<div style="font-size:12px;color:var(--textDim);margin-top:2px">'+Math.round(sum)+' ккал из '+goal+' ккал</div></div>'+
+      (items.length>0?'<div style="color:var(--primary);font-size:11px;font-weight:700;white-space:nowrap;margin-right:8px">'+m.time+'</div>':'<div style="color:var(--primary);font-size:20px;font-weight:800;min-width:24px;text-align:center">＋</div>')+
+      '<div style="color:var(--primary);font-size:20px">›</div></button>';
   });
   hiddenOptional.forEach(function(m){
-    h+='<button class="gridCard add" style="padding:7px 9px;min-height:50px;margin-bottom:6px" onclick="addExtraMeal(\''+m.key+'\')"><span style="color:var(--primary);font-size:16px;font-weight:800">＋</span><span style="color:var(--textDim);font-size:11px;font-weight:700">'+m.label+'</span></button>';
+    h+='<button style="display:flex;align-items:center;width:100%;background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:12px;margin-bottom:8px;text-align:left;gap:10px" onclick="addExtraMeal(\''+m.key+'\')">'+
+      '<div style="font-size:24px;min-width:40px;text-align:center">'+m.icon+'</div>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--textDim)">'+m.label+'</div></div>'+
+      '<div style="color:var(--primary);font-size:20px;font-weight:800">＋</div></button>';
   });
   h+='</div>';
   // coach card
   if(over){
-    h+='<div class="card" style="border:1.5px solid var(--alert);background:var(--dangerBg);padding:9px;margin-bottom:0"><div style="color:var(--alert);font-size:12px;font-weight:800;margin-bottom:3px">❗ Стоп, перебор</div>'+
+    h+='<div class="card" style="border:1.5px solid var(--alert);background:var(--dangerBg);padding:12px;margin-bottom:0"><div style="color:var(--alert);font-size:12px;font-weight:800;margin-bottom:4px">❗ Стоп, перебор</div>'+
       '<div style="color:var(--alert);font-size:12px;line-height:16px;font-weight:700">Алина, стоп! Ты перебрала дневную норму на '+overTarget+' ккал. На сегодня хватит — попей воды или травяной чай без сахара. Завтра начнём с чистого листа! 💪</div></div>';
   } else {
-    h+='<div class="card" style="border-color:var(--primaryDim);padding:9px;margin-bottom:0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><div style="color:var(--primary);font-size:12px;font-weight:800">💜 Совет тренера</div>'+
-      '<button onclick="askAlina()" style="color:var(--primary);font-size:16px;font-weight:800;padding:2px 6px">'+(todayLocal.tipLoading?'<span class="spin" style="width:14px;height:14px;margin:0;border-width:2px"></span>':'↻')+'</button></div>'+
-      '<div style="color:var(--text);font-size:12px;line-height:16px">'+esc(todayLocal.aiTip||advice)+'</div></div>';
+    h+='<div class="card" style="border-color:var(--primaryDim);padding:12px;margin-bottom:0;display:flex;gap:12px;align-items:flex-start"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="color:var(--primary);font-size:18px">💜</div><div style="color:var(--primary);font-size:12px;font-weight:800">Совет тренера</div></div>'+
+      '<div style="color:var(--text);font-size:12px;line-height:16px">'+esc(todayLocal.aiTip||advice)+'</div>'+
+      '<button onclick="askAlina()" style="color:var(--primary);font-size:14px;font-weight:800;padding:4px 8px;margin-top:8px;background:transparent;border:none">'+(todayLocal.tipLoading?'<span class="spin" style="width:12px;height:12px;margin:0;border-width:1.5px"></span>':'↻')+'</button></div>'+
+      '<div style="font-size:48px;opacity:.4;min-width:48px;text-align:center">💪</div></div>';
   }
   h+='</div>';
   return h;
