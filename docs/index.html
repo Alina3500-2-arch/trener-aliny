@@ -448,9 +448,9 @@ function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload()
 var TABS=[
   {key:'today',label:'Питание',ico:'🍽️'},
   {key:'workout',label:'Тренировки',ico:'💪'},
-  {key:'goal',label:'Цель',ico:'🎯'},
-  {key:'weight',label:'Вес',ico:'⚖️'},
-  {key:'history',label:'История',ico:'📅'},
+  {key:'activity',label:'Нагрузка',ico:'🏃'},
+  {key:'progress',label:'Прогресс',ico:'📈'},
+  {key:'settings',label:'Настройки',ico:'⚙️'},
 ];
 function setTab(t){ ui.tab=t; window.scrollTo(0,0); render(); }
 function renderTabBar(){
@@ -506,9 +506,9 @@ function render(){
     var html='';
     if(ui.tab==='today') html=renderToday();
     else if(ui.tab==='workout') html=renderWorkout();
-    else if(ui.tab==='goal') html=renderGoal();
-    else if(ui.tab==='weight') html=renderWeight();
-    else if(ui.tab==='history') html=renderHistory();
+    else if(ui.tab==='activity') html=renderActivity();
+    else if(ui.tab==='progress') html=renderProgress();
+    else if(ui.tab==='settings') html=renderSettings();
     app.innerHTML=html;
     renderTabBar();
     renderModals();
@@ -1369,6 +1369,201 @@ function renderHistory(){
 function histSelect(ds){ histLocal.selected=ds; render(); }
 function histEditDay(ds){ ui.viewDate=ds; todayLocal.aiTip=null; todayLocal.tipKey=null; setTab('today'); }
 
+/* ===== ACTIVITY SCREEN ===== */
+function renderActivity(){
+  var weightKg=latestWeight(state); var todayS=todayStr();
+  var todayActs=(state.activities||[]).filter(function(a){return a.date===todayS;});
+  var todayWks=(state.workouts||[]).filter(function(w){return w.date===todayS;});
+  var actBurn=todayActs.reduce(function(s,a){return s+(a.kcal||0);},0);
+  var wkBurn=todayWks.reduce(function(s,w){return s+workoutKcal(w,weightKg);},0);
+  var totalBurn=Math.round(actBurn+wkBurn);
+  var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+    '<div style="font-size:17px;font-weight:800;text-align:center">Нагрузка</div>'+
+    '<div style="font-size:13px;color:#B98CFF;font-weight:700;text-align:center;margin-top:2px">за сегодня</div>'+
+    (totalBurn>0?
+      '<div style="text-align:center;margin-top:10px"><span style="font-size:36px;font-weight:900;color:#fff">+'+totalBurn+'</span><span style="font-size:14px;color:rgba(255,255,255,.55);font-weight:700"> ккал</span>'+
+      '<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:2px">добавлено к дневному лимиту 🎯</div></div>':
+      '<div style="text-align:center;margin-top:10px;color:rgba(255,255,255,.4);font-size:13px">Пока нет активности сегодня</div>')+
+  '</div>';
+  h+='<div class="body-pad">';
+  // Today's activity log
+  if(todayActs.length||todayWks.length){
+    h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:8px">Сегодня</div>';
+    todayWks.forEach(function(w){
+      h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">'+
+        '<span style="font-size:20px;margin-right:10px">💪</span>'+
+        '<div style="flex:1"><div style="font-size:14px;font-weight:700">'+esc(w.title)+'</div><div class="muted">тренировка</div></div>'+
+        '<span style="color:var(--accent);font-weight:800">+'+Math.round(workoutKcal(w,weightKg))+' ккал</span></div>';
+    });
+    todayActs.forEach(function(a){
+      h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">'+
+        '<span style="font-size:20px;margin-right:10px">'+(a.emoji||'⚡')+'</span>'+
+        '<div style="flex:1"><div style="font-size:14px;font-weight:700">'+esc(a.name)+'</div><div class="muted">'+a.minutes+' мин</div></div>'+
+        '<span style="color:var(--accent);font-weight:800;margin-right:8px">+'+a.kcal+' ккал</span>'+
+        '<button style="color:var(--danger);padding:4px;font-size:16px" onclick="removeActivity(\''+a.id+'\')">✕</button></div>';
+    });
+    h+='</div>';
+  }
+  // Add activity buttons
+  h+='<div style="font-size:15px;font-weight:800;margin-bottom:10px;margin-top:4px">Добавить нагрузку</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+
+    ACTIVITY_TYPES.map(function(t){
+      return '<button style="padding:12px 6px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px" onclick="openActModal(\''+t.key+'\')">'+
+        '<span style="font-size:26px">'+t.emoji+'</span>'+
+        '<span style="font-size:11px;font-weight:700;color:var(--textDim)">'+t.label+'</span></button>';
+    }).join('')+'</div>';
+  // Recent history (last 7 days)
+  var recent=[];
+  for(var i=1;i<=7;i++){var d=new Date();d.setDate(d.getDate()-i);var ds=todayStr(d);var acts=(state.activities||[]).filter(function(a){return a.date===ds;});var wks=(state.workouts||[]).filter(function(w){return w.date===ds;});if(acts.length||wks.length)recent.push({ds:ds,acts:acts,wks:wks});}
+  if(recent.length){
+    h+='<div class="card" style="margin-top:12px"><div style="font-size:15px;font-weight:800;margin-bottom:8px">Последние дни</div>';
+    recent.forEach(function(r){
+      var burn=Math.round(r.acts.reduce(function(s,a){return s+a.kcal;},0)+r.wks.reduce(function(s,w){return s+workoutKcal(w,weightKg);},0));
+      var parts=r.wks.map(function(w){return '💪 '+w.title;}).concat(r.acts.map(function(a){return (a.emoji||'⚡')+' '+a.name;}));
+      h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">'+
+        '<div style="flex:1"><div style="font-size:13px;font-weight:700">'+niceDate(r.ds)+'</div><div class="muted" style="font-size:12px">'+parts.join(' · ')+'</div></div>'+
+        '<span style="color:var(--accent);font-size:13px;font-weight:800">+'+burn+' ккал</span></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+/* ===== PROGRESS SCREEN ===== */
+var progressLocal={val:''};
+function renderProgress(){
+  var weights=state.weights||[]; var current=latestWeight(state);
+  var goal=state.goal; var startW=goal&&goal.startWeight!=null?goal.startWeight:(weights[0]?weights[0].kg:null);
+  var changed=current!=null&&startW!=null?current-startW:null;
+  var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+    '<div style="font-size:17px;font-weight:800;text-align:center">Прогресс</div>'+
+    '<div style="display:flex;justify-content:space-around;margin-top:10px">'+
+    '<div style="text-align:center"><div style="font-size:30px;font-weight:900">'+(current!=null?current:'—')+'</div><div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700">кг сейчас</div></div>'+
+    (startW!=null?'<div style="text-align:center"><div style="font-size:30px;font-weight:900">'+startW+'</div><div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700">кг старт</div></div>':'')+
+    (changed!=null?'<div style="text-align:center"><div style="font-size:30px;font-weight:900;color:'+(changed<=0?'#34d399':'#f87171')+'">'+(changed>0?'+':'')+changed.toFixed(1)+'</div><div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700">изменение</div></div>':'')+
+    '</div>'+
+  '</div>';
+  h+='<div class="body-pad">';
+  // Weight entry
+  h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:6px">Записать вес</div>'+
+    '<p class="muted">Взвешивайся утром, натощак.</p>'+
+    '<div class="row g8 mt8" style="align-items:flex-end">'+
+    '<input class="field" style="flex:1" inputmode="decimal" placeholder="напр. 64.3" value="'+esc(progressLocal.val)+'" oninput="progressLocal.val=this.value">'+
+    '<button class="btn" style="width:auto;padding:12px 20px" onclick="progressWeightSave()">Сохранить</button></div></div>';
+  // Weight chart (SVG line chart)
+  if(weights.length>=2){
+    var W=340,H=120,pad=30;
+    var kgs=weights.map(function(w){return w.kg;});
+    var maxK=Math.max.apply(null,kgs),minK=Math.min.apply(null,kgs);
+    var rng=Math.max(maxK-minK,0.5);
+    var pts=weights.map(function(w,i){
+      var x=pad+(i/(weights.length-1))*(W-pad*2);
+      var y=H-pad-((w.kg-minK)/rng)*(H-pad*2);
+      return [x,y];
+    });
+    var pathD=pts.map(function(p,i){return (i===0?'M':'L')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
+    var areaD=pathD+' L'+pts[pts.length-1][0].toFixed(1)+' '+(H-pad)+' L'+pts[0][0].toFixed(1)+' '+(H-pad)+' Z';
+    h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:8px">График веса</div>'+
+      '<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="overflow:visible">'+
+      '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8B5CF6" stop-opacity=".4"/><stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/></linearGradient></defs>'+
+      '<path d="'+areaD+'" fill="url(#wg)"/>'+
+      '<path d="'+pathD+'" fill="none" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'+
+      pts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.5" fill="#8B5CF6"/>';}).join('')+
+      '<text x="'+pad+'" y="'+(H-pad+14)+'" fill="rgba(255,255,255,.4)" font-size="10">'+weights[0].date.slice(5)+'</text>'+
+      '<text x="'+(W-pad)+'" y="'+(H-pad+14)+'" fill="rgba(255,255,255,.4)" font-size="10" text-anchor="end">'+weights[weights.length-1].date.slice(5)+'</text>'+
+      '<text x="'+pad+'" y="'+(pts[0][1]-6)+'" fill="rgba(255,255,255,.6)" font-size="11">'+minK+'</text>'+
+      '<text x="'+pad+'" y="'+(pad-4)+'" fill="rgba(255,255,255,.6)" font-size="11">'+maxK+'</text>'+
+      '</svg></div>';
+  }
+  // Calorie trend (last 14 days bar chart)
+  var days14=[];for(var i=13;i>=0;i--){var d=new Date();d.setDate(d.getDate()-i);days14.push(todayStr(d));}
+  var target=dailyTarget(state);
+  var kcalByDay=days14.map(function(ds){return{ds:ds,kcal:state.meals.filter(function(m){return m.date===ds;}).reduce(function(s,m){return s+(m.kcal||0);},0)};}).filter(function(x){return x.kcal>0;});
+  if(kcalByDay.length>=3){
+    var maxKcal=Math.max.apply(null,kcalByDay.map(function(x){return x.kcal;}));
+    var BW=340,BH=80,barW=Math.floor((BW-20)/kcalByDay.length)-2;
+    h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:8px">Калории за 14 дней</div>'+
+      '<svg width="100%" viewBox="0 0 '+BW+' '+BH+'" style="overflow:visible">';
+    kcalByDay.forEach(function(x,i){
+      var bh=Math.max(4,Math.round((x.kcal/maxKcal)*(BH-16)));
+      var bx=10+i*(barW+2);
+      var by=BH-bh;
+      var over=x.kcal>target;
+      h+='<rect x="'+bx+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="3" fill="'+(over?'#f87171':'#8B5CF6')+'"/>';
+    });
+    // target line
+    var tY=Math.round(BH-(target/maxKcal)*(BH-16));
+    h+='<line x1="8" y1="'+tY+'" x2="'+(BW-8)+'" y2="'+tY+'" stroke="#34d399" stroke-width="1.5" stroke-dasharray="4,3"/>'+
+      '<text x="'+(BW-6)+'" y="'+(tY-3)+'" fill="#34d399" font-size="9" text-anchor="end">цель</text>';
+    h+='</svg>'+
+      '<div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:10px;color:var(--textDim)">14 дней назад</span><span style="font-size:10px;color:var(--textDim)">сегодня</span></div>'+
+      '<div style="display:flex;gap:12px;margin-top:6px"><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:10px;border-radius:2px;background:#8B5CF6;display:inline-block"></span>норма</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:10px;border-radius:2px;background:#f87171;display:inline-block"></span>перебор</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:2px;background:#34d399;display:inline-block"></span>цель</span></div>'+
+    '</div>';
+  }
+  // Weight log list
+  if(weights.length){
+    h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:8px">История взвешиваний</div>';
+    weights.slice().reverse().slice(0,10).forEach(function(w){
+      h+='<div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)">'+
+        '<div style="flex:1;font-size:14px;font-weight:600">'+niceDate(w.date)+'</div>'+
+        '<div style="font-size:16px;font-weight:800;color:var(--primary)">'+w.kg+' кг</div></div>';
+    });
+    h+='</div>';
+  } else {
+    h+='<p class="muted" style="text-align:center;margin-top:16px">Запиши первое взвешивание выше.</p>';
+  }
+  h+='</div>';
+  return h;
+}
+function progressWeightSave(){ var kg=parseFloat(String(progressLocal.val).replace(',','.')); if(!kg||kg<20||kg>400) return; addWeight(Number(kg.toFixed(1))); progressLocal.val=''; commit(); }
+
+/* ===== SETTINGS SCREEN ===== */
+function renderSettings(){
+  var p=state.profile||{}; var goal=state.goal;
+  var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+    '<div style="font-size:17px;font-weight:800;text-align:center">Настройки</div>'+
+    (p.name?'<div style="font-size:13px;color:#B98CFF;font-weight:700;text-align:center;margin-top:2px">'+esc(p.name)+'</div>':'')+
+  '</div>';
+  h+='<div class="body-pad">';
+  // Profile
+  h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:10px">Профиль</div>'+
+    '<div class="row g8 mt8">'+
+    '<div style="flex:1"><label class="flabel">Имя</label><input class="field" value="'+esc(p.name||'')+'" oninput="settingsSetProfile(\'name\',this.value)"></div>'+
+    '</div>'+
+    '<div class="chips mt8">'+
+      '<button class="chip'+(p.sex==='f'?' on':'')+'" onclick="settingsSetProfile(\'sex\',\'f\');render()">Женский</button>'+
+      '<button class="chip'+(p.sex==='m'?' on':'')+'" onclick="settingsSetProfile(\'sex\',\'m\');render()">Мужской</button>'+
+    '</div>'+
+    '<div class="row g8 mt8">'+
+    '<div style="flex:1"><label class="flabel">Возраст</label><input class="field" inputmode="numeric" value="'+esc(String(p.age||''))+'" oninput="settingsSetProfile(\'age\',+this.value)"></div>'+
+    '<div style="flex:1"><label class="flabel">Рост, см</label><input class="field" inputmode="numeric" value="'+esc(String(p.height||''))+'" oninput="settingsSetProfile(\'height\',+this.value)"></div>'+
+    '</div>'+
+    '<label class="flabel" style="margin-top:8px">Уровень активности:</label>'+
+    '<div class="chips">'+ACT_OPTS.map(function(a){return '<button class="chip'+(p.activity===a.v?' on':'')+'" onclick="settingsSetProfile(\'activity\','+a.v+');render()">'+a.label+'</button>';}).join('')+'</div>'+
+    '<button class="btn mt12" onclick="settingsSaveProfile()">Сохранить профиль</button></div>';
+  // Goal
+  h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:6px">Цель по весу</div>'+
+    (goal?
+      '<div style="font-size:18px;font-weight:800;color:var(--primary);margin-bottom:4px">'+(goal.targetDeltaKg<0?'Сбросить':'Набрать')+' '+Math.abs(goal.targetDeltaKg)+' кг за '+goal.periodDays+' дн.</div>'+
+      '<div class="muted">Норма: '+dailyTarget(state)+' ккал/день</div>':
+      '<p class="muted">Цель пока не задана.</p>')+
+    '<button class="btn mt8" onclick="openGoalEdit()">'+(goal?'✏️ Изменить цель':'🎯 Поставить цель')+'</button></div>';
+  // Workout program
+  h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:6px">Программа тренировок</div>'+
+    (state.workoutPlan?
+      '<div style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:8px">'+esc(state.workoutPlan.name)+'</div>':
+      '<p class="muted">Программа не выбрана.</p>')+
+    '<button class="btn '+(state.workoutPlan?'ghost':'')+' mt4" onclick="settingsOpenProgram()">'+(state.workoutPlan?'Изменить программу':'Подобрать программу')+'</button></div>';
+  // Reminders
+  h+=renderRemindersCard();
+  h+='</div>';
+  return h;
+}
+function settingsSetProfile(key,val){ state.profile=Object.assign({},state.profile); state.profile[key]=val; commitNoRender(); }
+function settingsSaveProfile(){ commitNoRender(); alert('Профиль сохранён. Норма калорий пересчитана.'); }
+function settingsOpenProgram(){ if(workoutLocal) workoutLocal.phase='setup'; setTab('workout'); }
+
 /* ===== WORKOUT SCREEN ===== */
 var W_WEEKDAYS=[{d:1,label:'Пн'},{d:2,label:'Вт'},{d:3,label:'Ср'},{d:4,label:'Чт'},{d:5,label:'Пт'},{d:6,label:'Сб'},{d:0,label:'Вс'}];
 var W_GOALS=[{key:'похудение',label:'Похудение',emoji:'🔥'},{key:'набор мышечной массы',label:'Набор мышц',emoji:'💪'},{key:'тонус и поддержание',label:'Тонус',emoji:'✨'}];
@@ -1478,7 +1673,7 @@ function workoutDashboard(){
     '<div style="text-align:center;padding:max(10px,var(--sat)) 0 14px"><div style="font-size:22px;font-weight:900;color:#fff">Тренировки</div>'+
     '<div style="font-size:13px;color:#8B5CF6;font-weight:700;margin-top:2px">Сегодня</div></div>'+
     hero+workoutTypeProgressRow(plan)+workoutTodayPlanSection(plan,wDays,wkg,tdIdx)+
-    workoutProgramsSection(plan)+coachCard+workoutActivitySection()+calToggle+calSection+
+    workoutProgramsSection(plan)+coachCard+calToggle+calSection+
   '</div>';
 }
 function workoutTypeProgressRow(plan){
@@ -1590,7 +1785,7 @@ function renderWorkout(){
 }
 function workoutSetup(){
   var wl=workoutLocal;
-  var h=workoutActivitySection()+'<p class="muted mt16">Ответь на пару вопросов — тренер предложит программы.</p><div class="card mt16">'+
+  var h='<p class="muted mt16">Ответь на пару вопросов — тренер предложит программы.</p><div class="card mt16">'+
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">Какая цель?</div><div class="chips">'+W_GOALS.map(function(g){return '<button class="chip'+(wl.goal===g.key?' on':'')+'" onclick="workoutLocal.goal=\''+g.key+'\';render()">'+g.emoji+' '+g.label+'</button>';}).join('')+'</div>'+
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">На что упор? (можно несколько)</div><div class="chips">'+W_FOCUS.map(function(f){return '<button class="chip'+(wl.focus.includes(f.key)?' on':'')+'" onclick="workoutToggleFocus(\''+f.key+'\')">'+f.label+'</button>';}).join('')+'</div>'+
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">Дней в неделю</div><div class="chips">'+W_DAYS_OPTS.map(function(d){return '<button class="chip'+(wl.days===d?' on':'')+'" onclick="workoutLocal.days='+d+';render()">'+d+'</button>';}).join('')+'</div>'+
