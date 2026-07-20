@@ -105,6 +105,7 @@ private struct TrenerWidgetView: View {
 
     var body: some View {
         content
+            .widgetURL(URL(string: "treneraliny://open?tab=workout"))
             .containerBackground(for: .widget) { widgetBackground }
     }
 
