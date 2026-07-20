@@ -133,7 +133,7 @@ function syncWidget(){
   try{ localStorage.setItem('widget_payload',JSON.stringify(payload)); }catch(e){}
   // Отправляем на Worker (виджет получит оттуда)
   try{
-    fetch(GROQ_PROXY+'/widget/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+    fetch(WIDGET_PROXY+'/widget/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
   }catch(e){}
   // Также отправляем через native bridge, на случай если App Groups всё-таки работает
   try{
@@ -333,6 +333,7 @@ function makeItem(name,grams,per100){ var g=Math.round(Number(grams)||0); var s=
 
 /* ===== AI (Groq via Cloudflare Worker proxy) ===== */
 var GROQ_PROXY='https://divine-dream-5ce0.alinatyu456.workers.dev';
+var WIDGET_PROXY='https://trener-aliny-widget.alina-3500-2.workers.dev';
 var AI_MODEL='llama-3.3-70b-versatile';
 var AI_VISION='meta-llama/llama-4-maverick-17b-128e-instruct';
 var AI_BASE=GROQ_PROXY;
