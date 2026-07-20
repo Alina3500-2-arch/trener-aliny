@@ -589,7 +589,7 @@ function renderToday(){
   var divider='<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.12);margin:1px 12px"></div>';
   var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 8px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center">'+
-      '<button onclick="openTodayDatePicker()" style="position:absolute;left:0;top:50%;transform:translateY(-50%);color:#B98CFF;font-size:19px;padding:4px 8px" aria-label="Выбрать дату">📅</button>'+
+      '<button onclick="openTodayDatePicker()" style="position:absolute;left:0;top:50%;transform:translateY(-50%);padding:4px 8px" aria-label="Выбрать дату"><img src="img/calendar-icon.png" style="width:22px;height:auto;display:block"></button>'+
       '<div style="font-size:17px;font-weight:800;text-align:center">Дневник питания</div>'+
       '<input type="date" id="todayDatePicker" value="'+date+'" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none" onchange="ui.viewDate=this.value;todayLocal.aiTip=null;todayLocal.tipKey=null;render()">'+
     '</div>'+
