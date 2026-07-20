@@ -425,7 +425,7 @@ function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   size=size||200; stroke=stroke||14; centerColor=centerColor||'#FFFFFF';
   var pct=target>0?Math.min(Math.max(eaten/target,0),1):0;
   var over=color==='var(--alert)';
-  var rx=(size-stroke)/2, ry=rx*0.72;
+  var rx=(size-stroke)/2, ry=rx*0.92;
   var visH=ry+stroke;
   var pad=26; var boxW=size+pad*2, boxH=visH+pad*2;
   var cx=pad+size/2, cy=pad+ry+stroke/2;
@@ -662,7 +662,7 @@ function renderToday(){
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:15px;font-weight:800">Приёмы пищи</div>'+
       '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:6px 12px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>'+
     '<div style="display:flex;gap:8px;align-items:flex-start">'+
-    '<div style="flex:1.5;min-width:0">';
+    '<div style="flex:'+(isToday?'1.5':'1')+';min-width:0">';
   visibleMeals.forEach(function(m){
     var items=meals.filter(function(x){return x.type===m.key;});
     var sum=items.reduce(function(a,x){return a+(x.kcal||0);},0);
@@ -682,8 +682,10 @@ function renderToday(){
       '<div style="color:var(--primary);font-size:17px;font-weight:800">＋</div></button>';
   });
   h+='</div>';
-  // coach column
-  if(over){
+  // coach column — only relevant for the current day
+  if(!isToday){
+    // no coach card for past/future days
+  } else if(over){
     h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;border:1.5px solid var(--alert);background:var(--dangerBg);border-radius:16px;padding:10px;text-align:left">'+
       '<div style="color:var(--alert);font-size:12px;font-weight:800;margin-bottom:4px">❗ Перебор</div>'+
       '<div style="color:var(--alert);font-size:11px;line-height:14px;font-weight:700">Стоп! Перебор на '+overTarget+' ккал. На сегодня хватит — попей воды. Завтра с чистого листа! 💪</div></div>';
@@ -699,7 +701,8 @@ function renderToday(){
 }
 function addExtraMeal(k){ todayLocal.extraMeals.push(k); render(); }
 function afterTodayRender(){
-  var date=ui.viewDate; var weightKg=latestWeight(state); var burned=burnedToday(state,date,weightKg);
+  var date=ui.viewDate; if(date!==todayStr()) return;
+  var weightKg=latestWeight(state); var burned=burnedToday(state,date,weightKg);
   var budget=dailyTarget(state)+burned; var eaten=eatenToday(state,date); var over=eaten.kcal>budget;
   var meals=todayMeals(state,date);
   var key=date+'|'+burned+'|'+meals.length;
