@@ -421,15 +421,16 @@ function renderTabBar(){
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   size=size||124; stroke=stroke||16; color=color||'#B98CFF'; centerColor=centerColor||'#FFFFFF';
+  var ratio=0.67; var visH=size*ratio;
   var pad=44; var box=size+pad*2;
   var r=(size-stroke)/2, c=2*Math.PI*r, pct=target>0?Math.min(Math.max(eaten/target,0),1):0, cx=box/2;
   var sweep=0.75, arcLen=c*sweep, filled=arcLen*pct, gid='rg'+Math.round(size);
   var over=color==='var(--alert)';
   var glowRGB=over?'255,107,107':'176,138,255';
-  return '<div class="ringWrap" style="width:'+size+'px;height:'+size+'px;margin:0 4px">'+
-    '<div style="position:absolute;left:50%;top:50%;width:'+(size*0.86)+'px;height:'+(size*0.86)+'px;transform:translate(-50%,-50%);border-radius:50%;'+
+  return '<div class="ringWrap" style="width:'+size+'px;height:'+visH+'px;margin:0 4px">'+
+    '<div style="position:absolute;left:50%;top:50%;width:'+(size*0.86)+'px;height:'+(size*0.86*ratio)+'px;transform:translate(-50%,-50%);border-radius:50%;'+
       'background:radial-gradient(circle,rgba('+glowRGB+',.65) 0%,rgba('+glowRGB+',.28) 45%,rgba('+glowRGB+',0) 72%);filter:blur(9px)"></div>'+
-    '<svg width="'+box+'" height="'+box+'" style="position:absolute;left:'+(-pad)+'px;top:'+(-pad)+'px;overflow:visible">'+
+    '<svg width="'+box+'" height="'+box+'" style="position:absolute;left:'+(-pad)+'px;top:'+(-pad)+'px;overflow:visible;transform:scaleY('+ratio+')">'+
     '<defs><linearGradient id="'+gid+'" x1="0%" y1="0%" x2="100%" y2="100%">'+
       (over?'<stop offset="0%" stop-color="#FF9A8B"/><stop offset="100%" stop-color="#FF5C5C"/>':'<stop offset="0%" stop-color="#EDD8FF"/><stop offset="100%" stop-color="#8B5CF6"/>')+
     '</linearGradient></defs>'+
@@ -604,7 +605,7 @@ function renderToday(){
         (showPred?('<div style="font-size:10px;font-weight:800;margin-top:2px;color:'+predColor+'">на весах ≈ '+(predGrams>0?'+':predGrams<0?'−':'')+Math.abs(predGrams)+' г</div>'+
         '<div style="font-size:8px;font-weight:800;color:'+predColor+'">'+(predGrams>0?'⚠️ жир копится!':predGrams<0?'жир уходит 💪':'вес держится')+'</div>'):'')+'</div>'+
     '</div>'+
-    '<div style="display:flex;align-items:stretch;margin-top:2px">'+heroMacro('Белки',eaten.protein,mt.protein,'protein')+divider+heroMacro('Жиры',eaten.fat,mt.fat,'limit')+divider+heroMacro('Углеводы',eaten.carbs,mt.carbs,'limit')+'</div>'+
+    '<div style="display:flex;align-items:stretch;margin-top:14px">'+heroMacro('Белки',eaten.protein,mt.protein,'protein')+divider+heroMacro('Жиры',eaten.fat,mt.fat,'limit')+divider+heroMacro('Углеводы',eaten.carbs,mt.carbs,'limit')+'</div>'+
   '</div>';
   h+='<div class="body-pad" style="padding:10px 14px 8px">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:15px;font-weight:800">Приёмы пищи</div>'+
