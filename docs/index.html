@@ -1400,6 +1400,7 @@ function daySummary(ds,done,activities,wDays,weightKg,todayS){
 /* ===== WORKOUT DASHBOARD ===== */
 function wDayType(day){var s=((day.title||'')+(day.ex||[]).join(' ')).toLowerCase().replace(/ё/g,'е');if(/кардио|бег\b|ходьб|прыж|скакалк|берпи|джампинг|интервал/.test(s))return'cardio';if(/растяжк|стретч|йога|пилатес|мобильн/.test(s))return'stretch';return'strength';}
 function wDayEmoji(day){var m=musclesForDay(day.ex||[]);if(m.includes('ягодицы'))return'🍑';if(m.includes('грудь'))return'💪';if(m.includes('спина'))return'🏋';if(m.includes('пресс'))return'⚡';var t=wDayType(day);if(t==='cardio')return'🏃';if(t==='stretch')return'🧘';return'💪';}
+function wDayPhoto(day){var m=musclesForDay(day.ex||[]);var s=((day.title||'')+(day.ex||[]).join(' ')).toLowerCase().replace(/ё/g,'е');if(m.includes('ягодицы')||/ног|выпад|присед|мостик/.test(s))return'img/workout_glutes.png';var t=wDayType(day);if(t==='cardio')return'img/workout_cardio.png';return'img/workout_back.png';}
 function wDayMins(day){return Math.max(25,Math.min(60,10+(day.ex||[]).length*5));}
 function wDayKcal(day,wkg){return Math.round((wDayType(day)==='cardio'?8:5.5)*(wkg||60)*wDayMins(day)/60);}
 function todayPlanDayIdx(plan,wDays){if(!plan||!plan.days||!plan.days.length||!wDays||!wDays.length)return-1;var s=wDays.slice().sort(function(a,b){return a-b;});var p=s.indexOf(dowOf(new Date()));return p<0?-1:p%plan.days.length;}
@@ -1474,7 +1475,7 @@ function workoutDashboard(){
     '<span>📅 История тренировок</span><span style="margin-left:auto">'+(wl.showCal?'▲':'▼')+'</span></button>';
   var calSection=wl.showCal?workoutCalendarSection():'';
   return '<div class="body-pad">'+
-    '<div style="text-align:center;padding:10px 0 14px"><div style="font-size:22px;font-weight:900;color:#fff">Тренировки</div>'+
+    '<div style="text-align:center;padding:max(10px,var(--sat)) 0 14px"><div style="font-size:22px;font-weight:900;color:#fff">Тренировки</div>'+
     '<div style="font-size:13px;color:#8B5CF6;font-weight:700;margin-top:2px">Сегодня</div></div>'+
     hero+workoutTypeProgressRow(plan)+workoutTodayPlanSection(plan,wDays,wkg,tdIdx)+
     workoutProgramsSection(plan)+coachCard+workoutActivitySection()+calToggle+calSection+
@@ -1515,12 +1516,12 @@ function workoutTodayPlanSection(plan,wDays,wkg,tdIdx){
     '<button onclick="workoutStartEdit()" style="display:flex;align-items:center;gap:4px;border:1px solid rgba(139,92,246,0.4);border-radius:999px;padding:5px 10px;background:rgba(139,92,246,0.1);color:#a78bfa;font-size:11px;font-weight:700"><span>📅</span> Изменить план</button></div>';
   plan.days.forEach(function(day,di){
     var isToday=di===tdIdx;
-    var mins=wDayMins(day);var kcal=wDayKcal(day,wkg);var emoji=wDayEmoji(day);
+    var mins=wDayMins(day);var kcal=wDayKcal(day,wkg);var photo=wDayPhoto(day);
     var bg=isToday?'rgba(139,92,246,0.15)':'rgba(255,255,255,0.03)';
     var bd=isToday?'1px solid rgba(139,92,246,0.5)':'1px solid rgba(255,255,255,0.06)';
     var arrBg=isToday?'#7C3AED':'rgba(255,255,255,0.1)';
     h+='<button style="width:100%;background:'+bg+';border:'+bd+';border-radius:16px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;text-align:left" onclick="workoutLocal.dayDetail='+di+';render()">'+
-      '<div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,rgba(139,92,246,0.4),rgba(109,40,217,0.6));display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'+emoji+'</div>'+
+      '<img src="'+photo+'" style="width:56px;height:56px;border-radius:28px;object-fit:cover;flex-shrink:0;border:2px solid rgba(139,92,246,0.35)" onerror="this.style.display=\'none\'">'+
       '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:3px">'+esc(tidyDayTitle(day.title,di))+'</div>'+
       '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:rgba(255,255,255,0.45)">⏱ '+mins+' мин</span><span style="font-size:11px;color:rgba(255,255,255,0.45)">🔥 ~'+kcal+' ккал</span></div>'+
       (isToday?'<div style="display:inline-block;background:rgba(139,92,246,0.25);color:#c4b5fd;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-top:4px">Рекомендуется сегодня</div>':'')+
@@ -1576,7 +1577,7 @@ function renderWorkout(){
   if(wl.phase==='edit')return'<div class="body-pad"><div style="text-align:center;padding:10px 0 14px"><div style="font-size:22px;font-weight:900;color:#fff">Редактор программы</div></div>'+workoutEditor()+'</div>';
   var dayD=wl.dayDetail!==null&&plan&&plan.days?plan.days[wl.dayDetail]:null;
   if(dayD){
-    var h='<div class="body-pad"><button style="color:var(--primary);font-size:14px;font-weight:800;padding:4px 0" onclick="workoutLocal.dayDetail=null;render()">‹ Назад</button>'+
+    var h='<div class="body-pad" style="padding-top:max(12px,var(--sat))"><button style="color:var(--primary);font-size:14px;font-weight:800;padding:4px 0" onclick="workoutLocal.dayDetail=null;render()">‹ Назад</button>'+
       '<div style="font-size:20px;font-weight:800;margin:8px 0">'+esc(tidyDayTitle(dayD.title,wl.dayDetail))+'</div>';
     var mus=musclesForDay(dayD.ex);
     if(mus.length)h+='<div class="chips" style="margin-bottom:8px">'+mus.map(function(x){return'<span style="background:var(--primaryDim);border-radius:999px;padding:3px 10px;color:var(--primary);font-size:12px;font-weight:700">'+x+'</span>';}).join('')+'</div>';
