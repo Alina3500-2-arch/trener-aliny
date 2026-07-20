@@ -806,25 +806,40 @@ function renderToday(){
       '<div style="color:var(--alert);font-size:12px;font-weight:800;margin-bottom:4px">❗ Перебор</div>'+
       '<div style="color:var(--alert);font-size:11px;line-height:14px;font-weight:700">Стоп! Перебор на '+overTarget+' ккал. На сегодня хватит — попей воды. Завтра с чистого листа! 💪</div></div>';
   } else {
-    h+='<button onclick="askAlina()" style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:10px">'+
+    h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:10px">'+
       '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">💜</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
       '<div style="color:var(--text);font-size:11px;line-height:14px">'+esc(todayLocal.aiTip||advice)+'</div>'+
-      '<div style="display:flex;justify-content:flex-end;margin-top:6px"><img src="img/trainer.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
-      '</button>';
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px"><button onclick="askAlina(true)" style="border:1px solid rgba(155,125,255,.35);border-radius:999px;padding:4px 9px;color:#bda8ff;font-size:10px;font-weight:800;background:rgba(155,125,255,.10)">Обновить</button><img src="img/trainer.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
+      '</div>';
   }
   h+='</div></div>';
   return h;
 }
 function addExtraMeal(k){ todayLocal.extraMeals.push(k); render(); }
+function todayAdviceKey(){
+  var date=ui.viewDate,weightKg=latestWeight(state),burned=burnedToday(state,date,weightKg);
+  var eaten=eatenToday(state,date),meals=todayMeals(state,date);
+  return date+'|'+burned+'|'+meals.length+'|'+Math.round(eaten.kcal)+'|'+Math.round(eaten.protein)+'|'+Math.round(eaten.fat)+'|'+Math.round(eaten.carbs);
+}
 function afterTodayRender(){
   var date=ui.viewDate; if(date!==todayStr()) return;
-  var weightKg=latestWeight(state); var burned=burnedToday(state,date,weightKg);
-  var budget=dailyTarget(state)+burned; var eaten=eatenToday(state,date); var over=eaten.kcal>budget;
-  var meals=todayMeals(state,date);
-  var key=date+'|'+burned+'|'+meals.length;
-  if(!over&&key!==todayLocal.tipKey){ todayLocal.tipKey=key; askAlina(); }
+  var weightKg=latestWeight(state),burned=burnedToday(state,date,weightKg);
+  var budget=dailyTarget(state)+burned,eaten=eatenToday(state,date),meals=todayMeals(state,date);
+  var key=todayAdviceKey();
+  if(todayLocal.tipKey===key) return;
+  try{
+    var saved=JSON.parse(localStorage.getItem('trainer_advice_'+date)||'null');
+    if(saved&&saved.key===key&&saved.text){
+      todayLocal.tipKey=key; todayLocal.aiTip=saved.text; render(); return;
+    }
+  }catch(e){}
+  todayLocal.tipKey=key;
+  if(eaten.kcal>budget) return;
+  // Без новых записей оставляем стабильный локальный совет и не обращаемся к ИИ.
+  if(!meals.length&&burned<=0){ todayLocal.aiTip=null; return; }
+  askAlina(false);
 }
-function askAlina(){
+function askAlina(manual){
   var date=ui.viewDate; var weightKg=latestWeight(state); var burned=burnedToday(state,date,weightKg);
   var budget=dailyTarget(state)+burned; var eaten=eatenToday(state,date); var mt=macroTargets(state); var meals=todayMeals(state,date);
   if(eaten.kcal>budget) return;
@@ -834,7 +849,7 @@ function askAlina(){
   coachTip({name:(state.profile&&state.profile.name)||'Алина',goalText:goalText,target:budget,eaten:Math.round(eaten.kcal),left:Math.round(budget-eaten.kcal),burned:burned,
     protein:Math.round(eaten.protein),pTarget:mt.protein,fat:Math.round(eaten.fat),fTarget:mt.fat,carbs:Math.round(eaten.carbs),cTarget:mt.carbs,
     hour:new Date().getHours(),meals:meals.map(function(m){return m.name;}),avoid:todayLocal.aiTip,nonce:Math.floor(Math.random()*1000)})
-  .then(function(tip){ todayLocal.aiTip=tip; todayLocal.tipLoading=false; if(ui.tab==='today') render(); })
+  .then(function(tip){ todayLocal.aiTip=tip; todayLocal.tipKey=todayAdviceKey(); todayLocal.tipLoading=false; try{localStorage.setItem('trainer_advice_'+ui.viewDate,JSON.stringify({key:todayLocal.tipKey,text:tip}));}catch(e){} if(ui.tab==='today') render(); })
   .catch(function(){ todayLocal.tipLoading=false; if(loaderBtn) loaderBtn.innerHTML='↻'; });
 }
 /* ===== MODALS DISPATCH ===== */
