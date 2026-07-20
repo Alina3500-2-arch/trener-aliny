@@ -508,7 +508,7 @@ function setTab(t,keepDeepLink){
 }
 function tabIcon(key){
   var paths={
-    today:'<circle cx="12" cy="12" r="7.5"/><path d="M4.5 4.5v6M2.8 4.5v3.2c0 1 .7 1.8 1.7 1.8s1.7-.8 1.7-1.8V4.5M19.5 4.5v15M19.5 4.5c-2 1.2-2.8 3-2.8 5.2h2.8"/>',
+    today:'<circle cx="12" cy="12" r="6"/><path d="M3.5 4v6M2 4v4c0 1 .7 2 1.5 2S5 9 5 8V4M3.5 10v10M20 4v16M20 4c-2 1.4-2.8 3.4-2.8 6H20"/>',
     workout:'<path d="M6 9v6M3.5 10.5v3M18 9v6M20.5 10.5v3M6 12h12"/>',
     activity:'<circle cx="14.5" cy="4.5" r="2"/><path d="m12.5 8-3 4 3 2.5 2.2 5M12 9l4 2 2.5-2M9.5 12 5 18M12.5 14.5l-5 1"/>',
     progress:'<path d="M4 19V5M4 19h16"/><path d="m7 15 3-4 3 2 5-6"/>',
@@ -845,6 +845,17 @@ function afterTodayRender(){
   if(!meals.length&&burned<=0){ todayLocal.aiTip=null; return; }
   askAlina(false);
 }
+function fallbackCoachTip(previous){
+  var left=Math.max(0,Math.round(dailyTarget(state)+burnedToday(state,ui.viewDate,latestWeight(state))-eatenToday(state,ui.viewDate).kcal));
+  var variants=[
+    'Алина, собери следующий приём из белка, овощей и небольшого гарнира — ориентируйся примерно на '+Math.min(left,420)+' ккал.',
+    'Алина, сегодня сделай ставку на белок: курица, рыба или творог с овощами помогут спокойно уложиться в норму.',
+    'Алина, перед следующим приёмом выпей воды, а затем выбери полноценную порцию без спешки — так легче почувствовать сытость.',
+    'Алина, если захочется перекусить, выбери йогурт или творог с ягодами и оставь запас калорий на основной приём.'
+  ];
+  var clean=String(previous||'').trim();
+  return variants.find(function(v){return v!==clean;})||variants[(Date.now()>>>4)%variants.length];
+}
 function askAlina(manual){
   var date=ui.viewDate; var weightKg=latestWeight(state); var burned=burnedToday(state,date,weightKg);
   var budget=dailyTarget(state)+burned; var eaten=eatenToday(state,date); var mt=macroTargets(state); var meals=todayMeals(state,date);
@@ -855,8 +866,8 @@ function askAlina(manual){
   coachTip({name:(state.profile&&state.profile.name)||'Алина',goalText:goalText,target:budget,eaten:Math.round(eaten.kcal),left:Math.round(budget-eaten.kcal),burned:burned,
     protein:Math.round(eaten.protein),pTarget:mt.protein,fat:Math.round(eaten.fat),fTarget:mt.fat,carbs:Math.round(eaten.carbs),cTarget:mt.carbs,
     hour:new Date().getHours(),meals:meals.map(function(m){return m.name;}),avoid:todayLocal.aiTip,nonce:Math.floor(Math.random()*1000)})
-  .then(function(tip){ todayLocal.aiTip=tip; todayLocal.tipKey=todayAdviceKey(); todayLocal.tipLoading=false; try{localStorage.setItem('trainer_advice_'+ui.viewDate,JSON.stringify({key:todayLocal.tipKey,text:tip}));}catch(e){} if(ui.tab==='today') render(); })
-  .catch(function(){ todayLocal.tipLoading=false; if(loaderBtn) loaderBtn.innerHTML='↻'; });
+  .then(function(tip){ if(manual&&tip===todayLocal.aiTip) tip=fallbackCoachTip(todayLocal.aiTip); todayLocal.aiTip=tip; todayLocal.tipKey=todayAdviceKey(); todayLocal.tipLoading=false; try{localStorage.setItem('trainer_advice_'+ui.viewDate,JSON.stringify({key:todayLocal.tipKey,text:tip}));}catch(e){} if(ui.tab==='today') render(); })
+  .catch(function(){ var tip=fallbackCoachTip(todayLocal.aiTip); todayLocal.aiTip=tip; todayLocal.tipKey=todayAdviceKey(); todayLocal.tipLoading=false; try{localStorage.setItem('trainer_advice_'+ui.viewDate,JSON.stringify({key:todayLocal.tipKey,text:tip}));}catch(e){} if(ui.tab==='today') render(); });
 }
 /* ===== MODALS DISPATCH ===== */
 function renderModals(){
@@ -2072,6 +2083,12 @@ function workoutOpenLog(dayIndex){ var day=state.workoutPlan.days[dayIndex]; var
 function workoutOpenLogForWorkout(w){ var grouped={},order=[]; (w.sets||[]).forEach(function(s){ if(!grouped[s.exercise]){grouped[s.exercise]=[];order.push(s.exercise);} grouped[s.exercise].push({reps:s.reps?String(s.reps):'',weight:s.weight?String(s.weight):''}); });
   if(!order.length){ order.push(w.title); grouped[w.title]=[{reps:'',weight:''}]; }
   ui.wlog={title:w.title,ex:order,log:grouped,editingId:w.id}; renderModals(); }
+function exerciseImage(name){
+  var s=String(name||'').toLowerCase();
+  if(/бег|кардио|прыж|берпи|ходьб|велосип/.test(s)) return 'img/workout_cardio.png';
+  if(/спин|плеч|рук|груд|тяга верх|отжим|жим/.test(s)) return 'img/workout_back.png';
+  return 'img/workout_glutes.png';
+}
 function renderWorkoutLog(){
   var wl=ui.wlog; var weightKg=latestWeight(state);
   var exDone=function(ex){ return (wl.log[ex]||[]).some(function(s){return s.reps||s.weight;}); };
@@ -2084,23 +2101,25 @@ function renderWorkoutLog(){
     '<div style="height:10px;border-radius:5px;background:var(--cardAlt);overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+Math.round(progress*100)+'%;background:'+(progress>=1?'var(--accent)':'var(--primary)')+'"></div></div>';
   wl.ex.forEach(function(e,i){
     var d=exDone(e);
-    h+='<div style="background:var(--cardAlt);border:1px solid '+(d?'var(--accent)':'var(--line)')+';border-radius:16px;padding:12px;margin-bottom:8px"><div style="font-size:15px;font-weight:700">'+(d?'✅ ':'')+esc(e)+'</div>';
+    h+='<div style="background:var(--cardAlt);border:1px solid '+(d?'var(--accent)':'var(--line)')+';border-radius:16px;padding:12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><img src="'+exerciseImage(e)+'" alt="" style="width:54px;height:54px;border-radius:14px;object-fit:cover;border:1px solid rgba(155,125,255,.35);background:#241c3d"><div style="font-size:15px;font-weight:700;line-height:19px">'+(d?'✓ ':'')+esc(e)+'</div></div>';
     (wl.log[e]||[]).forEach(function(s,si){
       h+='<div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span class="muted" style="width:18px">'+(si+1)+'.</span>'+
         '<input style="width:64px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;color:var(--text);font-weight:700" inputmode="numeric" placeholder="повт." value="'+esc(s.reps)+'" oninput="wlogSet('+i+','+si+',\'reps\',this.value)">'+
         '<span class="muted">×</span>'+
         '<input style="width:64px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;color:var(--text);font-weight:700" inputmode="decimal" placeholder="кг" value="'+esc(s.weight)+'" oninput="wlogSet('+i+','+si+',\'weight\',this.value)"><span class="muted">кг</span>'+
-        ((wl.log[e]||[]).length>1?'<button style="margin-left:auto;padding:4px;color:var(--danger);font-weight:700" onclick="wlogDelSet('+i+','+si+')">✕</button>':'')+'</div>';
+        '<button title="Клонировать подход" aria-label="Клонировать подход" style="margin-left:auto;width:28px;height:28px;color:var(--primary);display:flex;align-items:center;justify-content:center" onclick="wlogCloneSet('+i+','+si+')"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>'+((wl.log[e]||[]).length>1?'<button style="padding:4px;color:var(--danger);font-weight:700" onclick="wlogDelSet('+i+','+si+')">✕</button>':'')+'</div>';
     });
     h+='<button style="padding:6px 0;color:var(--primary);font-weight:700;font-size:13px" onclick="wlogAddSet('+i+')">＋ подход</button></div>';
   });
-  h+='<div class="row g8 mt8"><button class="btn ghost" style="flex:1" onclick="ui.wlog=null;renderModals()">Отмена</button><button class="btn" style="flex:1" onclick="wlogFinish()">Готово</button></div></div></div>';
+  h+='<button style="width:100%;border:1px dashed rgba(155,125,255,.5);border-radius:14px;padding:10px;color:var(--primary);font-size:14px;font-weight:800;margin:2px 0 8px" onclick="wlogAddExercise()">＋ Своё упражнение</button><div class="row g8 mt8"><button class="btn ghost" style="flex:1" onclick="ui.wlog=null;renderModals()">Отмена</button><button class="btn" style="flex:1" onclick="wlogFinish()">Готово</button></div></div></div>';
   return h;
 }
 function wlogSet(i,si,field,val){ var wl=ui.wlog; var ex=wl.ex[i]; var v=field==='reps'?val.replace(/[^0-9]/g,''):val.replace(/[^0-9.]/g,''); wl.log[ex][si][field]=v;
   // не перерисовываем на каждый символ (чтобы не терять фокус) — прогресс/галочки обновятся при +/− подхода или «Готово»
 }
 function wlogAddSet(i){ var ex=ui.wlog.ex[i]; ui.wlog.log[ex]=(ui.wlog.log[ex]||[]).concat([{reps:'',weight:''}]); renderModals(); }
+function wlogCloneSet(i,si){ var ex=ui.wlog.ex[i],src=(ui.wlog.log[ex]||[])[si]||{reps:'',weight:''}; ui.wlog.log[ex].splice(si+1,0,{reps:src.reps||'',weight:src.weight||''}); renderModals(); }
+function wlogAddExercise(){ var name=prompt('Название своего упражнения'); if(!name)return; name=name.trim(); if(!name)return; var base=name,n=2; while(ui.wlog.log[name]) name=base+' '+(n++); ui.wlog.ex.push(name); ui.wlog.log[name]=[{reps:'',weight:''}]; renderModals(); }
 function wlogDelSet(i,si){ var ex=ui.wlog.ex[i]; ui.wlog.log[ex]=(ui.wlog.log[ex]||[]).filter(function(_,j){return j!==si;}); renderModals(); }
 function wlogFinish(){
   var wl=ui.wlog; var list=[];
