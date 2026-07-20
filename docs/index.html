@@ -420,19 +420,37 @@ function renderTabBar(){
   tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+(ui.tab===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+t.ico+'</span>'+t.label+'</button>'; }).join('');
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
-  size=size||150; centerColor=centerColor||'#FFFFFF';
+  size=size||150; stroke=stroke||20; centerColor=centerColor||'#FFFFFF';
   var ratio=0.6695; var visH=size*ratio;
   var pct=target>0?Math.min(Math.max(eaten/target,0),1):0;
   var over=color==='var(--alert)';
-  var dispW=size*1.5145, dispH=dispW*(705/900);
-  var padX=(dispW-size)/2, padY=(dispH-visH)/2;
-  var fillDeg=270*pct;
-  var mask='conic-gradient(from 225deg, #fff 0deg, #fff '+fillDeg+'deg, transparent '+fillDeg+'deg, transparent 360deg)';
+  var pad=30; var boxW=size+pad*2, boxH=visH+pad*2;
+  var cx=pad+size/2, cy=pad+visH/2;
+  var rx=(size-stroke)/2, ry=(visH-stroke)/2;
+  function ptAt(deg){ var rad=deg*Math.PI/180; return [cx+rx*Math.cos(rad), cy+ry*Math.sin(rad)]; }
+  var startA=135, endA=405;
+  var p0=ptAt(startA), p1=ptAt(endA);
+  var d='M '+p0[0].toFixed(2)+' '+p0[1].toFixed(2)+' A '+rx.toFixed(2)+' '+ry.toFixed(2)+' 0 1 1 '+p1[0].toFixed(2)+' '+p1[1].toFixed(2);
+  var totalLen=0, prev=p0, N=180;
+  for(var i=1;i<=N;i++){ var t=startA+(endA-startA)*i/N; var p=ptAt(t); totalLen+=Math.hypot(p[0]-prev[0],p[1]-prev[1]); prev=p; }
+  var filledLen=totalLen*pct;
+  var gid='rg'+Math.round(size)+(over?'o':'n'), fid='gf'+Math.round(size)+(over?'o':'n');
+  var trackColor='#2E3044';
   return '<div class="ringWrap" style="width:'+size+'px;height:'+visH+'px;margin:0 4px">'+
-    '<img src="img/ring-track.png" style="position:absolute;left:'+(-padX)+'px;top:'+(-padY)+'px;width:'+dispW+'px;height:'+dispH+'px">'+
-    '<div style="position:absolute;left:'+(-padX)+'px;top:'+(-padY)+'px;width:'+dispW+'px;height:'+dispH+'px;-webkit-mask-image:'+mask+';mask-image:'+mask+'">'+
-      '<img src="img/ring-'+(over?'red':'purple')+'.png" style="width:100%;height:100%;display:block">'+
-    '</div>'+
+    '<svg width="'+boxW+'" height="'+boxH+'" style="position:absolute;left:'+(-pad)+'px;top:'+(-pad)+'px">'+
+    '<defs>'+
+      '<linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse" x1="'+p0[0].toFixed(1)+'" y1="'+p0[1].toFixed(1)+'" x2="'+p1[0].toFixed(1)+'" y2="'+p1[1].toFixed(1)+'">'+
+        (over?'<stop offset="0%" stop-color="#FF6E5E"/><stop offset="55%" stop-color="#FFD2C8"/><stop offset="100%" stop-color="#FF9A8B"/>':
+          '<stop offset="0%" stop-color="#7A3BE1"/><stop offset="55%" stop-color="#D6C2FF"/><stop offset="100%" stop-color="#C4A0F8"/>')+
+      '</linearGradient>'+
+      '<filter id="'+fid+'" x="-60%" y="-60%" width="220%" height="220%">'+
+        '<feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/>'+
+        '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'+
+      '</filter>'+
+    '</defs>'+
+    '<path d="'+d+'" fill="none" stroke="'+trackColor+'" stroke-width="'+stroke+'" stroke-linecap="round"/>'+
+    '<path d="'+d+'" fill="none" stroke="url(#'+gid+')" stroke-width="'+stroke+'" stroke-linecap="round" stroke-dasharray="'+filledLen.toFixed(1)+' '+(totalLen*2).toFixed(1)+'" filter="url(#'+fid+')"/>'+
+    '</svg>'+
     '<div class="ringCenter"><div style="font-size:'+Math.round(size*(String(Math.round(eaten)).length>=4?0.29:0.4))+'px;font-weight:800;color:'+centerColor+';letter-spacing:-1px;white-space:nowrap">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.12)+'px;color:rgba(255,255,255,.65);margin-top:-3px;font-weight:700">ккал</div></div>'+
   '</div>';
 }
@@ -585,7 +603,7 @@ function renderToday(){
   var visibleMeals=MEAL_TYPES.filter(function(m){ return !m.optional||todayLocal.extraMeals.includes(m.key)||meals.some(function(x){return x.type===m.key;}); });
   var hiddenOptional=MEAL_TYPES.filter(function(m){ return m.optional&&!todayLocal.extraMeals.includes(m.key)&&!meals.some(function(x){return x.type===m.key;}); });
   var predColor=predGrams>0?'var(--alert)':'var(--good)';
-  var showPred=eaten.kcal>0;
+  var showPred=eaten.kcal>=1300||eaten.kcal>=budget;
   var divider='<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.12);margin:1px 12px"></div>';
   var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 8px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center">'+
