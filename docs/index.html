@@ -561,8 +561,8 @@ var MEAL_TYPES=[
   {key:'dinner',label:'Ужин',icon:'🍽️',time:'18:00',frac:0.25},
 ];
 var todayLocal={extraMeals:[],aiTip:null,tipLoading:false,tipKey:null};
-function shiftDate(delta){ ui.viewDate=addDays(ui.viewDate,delta); todayLocal.aiTip=null; todayLocal.tipKey=null; render(); }
 function gotoToday(){ ui.viewDate=todayStr(); todayLocal.aiTip=null; render(); }
+function openTodayDatePicker(){ var el=document.getElementById('todayDatePicker'); if(!el) return; if(el.showPicker){ try{ el.showPicker(); return; }catch(e){} } el.click(); }
 function heroMacro(label,v,t,kind){
   var pct=t>0?Math.min(v/t,1):0;
   var over=kind==='limit'&&t>0&&v>t*1.03; var low=kind==='protein'&&t>0&&v<t*0.9;
@@ -588,11 +588,14 @@ function renderToday(){
   var showPred=eaten.kcal>0;
   var divider='<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.12);margin:1px 12px"></div>';
   var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 8px;border-radius:0 0 22px 22px;color:#fff">'+
-    '<div style="font-size:17px;font-weight:800;text-align:center">Дневник питания</div>'+
-    '<div style="display:flex;align-items:center;justify-content:center;margin-top:0px">'+
-      '<button style="width:28px;height:20px;color:#fff;font-size:18px;font-weight:800" onclick="shiftDate(-1)">‹</button>'+
-      '<button style="min-width:150px;color:#fff" onclick="'+(isToday?'':'gotoToday()')+'"><div style="font-size:12px;font-weight:700;color:#B98CFF;text-transform:capitalize">'+(isToday?'Сегодня':niceDate(date))+'</div>'+(isToday?'':'<div style="font-size:9px;color:rgba(255,255,255,.6)">вернуться к сегодня</div>')+'</button>'+
-      '<button style="width:28px;height:20px;color:#fff;font-size:18px;font-weight:800;'+(isToday?'opacity:.3':'')+'" '+(isToday?'disabled':'onclick="shiftDate(1)"')+'>›</button>'+
+    '<div style="position:relative;display:flex;align-items:center;justify-content:center">'+
+      '<button onclick="openTodayDatePicker()" style="position:absolute;left:0;top:50%;transform:translateY(-50%);color:#B98CFF;font-size:19px;padding:4px 8px" aria-label="Выбрать дату">📅</button>'+
+      '<div style="font-size:17px;font-weight:800;text-align:center">Дневник питания</div>'+
+      '<input type="date" id="todayDatePicker" value="'+date+'" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none" onchange="ui.viewDate=this.value;todayLocal.aiTip=null;todayLocal.tipKey=null;render()">'+
+    '</div>'+
+    '<div style="text-align:center;margin-top:2px">'+
+      (isToday?'<div style="font-size:12px;font-weight:700;color:#B98CFF">Сегодня</div>':
+        '<button onclick="gotoToday()"><div style="font-size:12px;font-weight:700;color:#B98CFF;text-transform:capitalize">'+niceDate(date)+'</div><div style="font-size:9px;color:rgba(255,255,255,.6)">вернуться к сегодня</div></button>')+
     '</div>'+
     '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:2px;margin-top:2px">'+
       '<div style="min-width:0;text-align:center"><div style="font-size:22px;font-weight:800;letter-spacing:-.5px">'+budget+'</div><div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">норма</div>'+(burned>0?'<div style="color:var(--good);font-size:10px;font-weight:800;margin-top:1px">🔥 +'+burned+'</div>':'')+'</div>'+
