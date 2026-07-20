@@ -321,7 +321,7 @@ function interpret(parsed){
     var grams=Math.round(Number(it.grams)||0); var g=grams>0?grams:100;
     if(it.userKcal&&Number(it.kcal)>0){ return Object.assign({},makeItem(String(it.name||'Блюдо'),g,per100From(it,g)),{fromUser:true}); }
     var db=findFood(it.name);
-    if(db&&grams>0){ var label=String(it.name||db.name).trim()||db.name; return Object.assign({},makeItem(label,grams,db.per100),{fromDB:true}); }
+    if(db&&grams>0){ var label=String(it.name||db.name).trim()||db.name; return Object.assign({},makeItem(label,grams,db.per100),{fromDB:true,fromCustom:!!db.custom}); }
     return Object.assign({},makeItem(String(it.name||'Блюдо'),g,per100From(it,g)),{fromAI:!db});
   });
   return {items:items};
@@ -584,7 +584,38 @@ var MEAL_TYPES=[
 ];
 var todayLocal={extraMeals:[],aiTip:null,tipLoading:false,tipKey:null};
 function gotoToday(){ ui.viewDate=todayStr(); todayLocal.aiTip=null; render(); }
-function openTodayDatePicker(){ var el=document.getElementById('todayDatePicker'); if(!el) return; if(el.showPicker){ try{ el.showPicker(); return; }catch(e){} } el.click(); }
+function openDateCal(){ ui.dateCal={month:ui.viewDate.slice(0,7)}; renderModals(); }
+function closeDateCal(){ ui.dateCal=null; renderModals(); }
+function dateCalShiftMonth(delta){ var p=ui.dateCal.month.split('-').map(Number); var dt=new Date(p[0],p[1]-1+delta,1); ui.dateCal.month=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'); renderModals(); }
+function dateCalPick(ds){ ui.viewDate=ds; todayLocal.aiTip=null; todayLocal.tipKey=null; ui.dateCal=null; setTab('today'); }
+function renderDateCal(){
+  var p=ui.dateCal.month.split('-').map(Number); var year=p[0], month=p[1];
+  var first=new Date(year,month-1,1); var daysInMonth=new Date(year,month,0).getDate();
+  var startWd=(first.getDay()+6)%7;
+  var monthNames=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var todayS=todayStr();
+  var loggedDays={}; (state.meals||[]).forEach(function(m){ loggedDays[m.date]=true; });
+  var h='<div class="overlay center" onclick="if(event.target===this) closeDateCal()"><div class="dialog" style="max-width:340px;background:#0F0B1A;border:1px solid var(--primaryDim)">'+
+    '<div class="mhead" style="margin-bottom:10px"><button onclick="dateCalShiftMonth(-1)" style="color:var(--primary);font-size:20px;font-weight:800;padding:4px 10px">‹</button>'+
+    '<div style="font-size:16px;font-weight:800;text-align:center;flex:1">'+monthNames[month-1]+' '+year+'</div>'+
+    '<button onclick="dateCalShiftMonth(1)" style="color:var(--primary);font-size:20px;font-weight:800;padding:4px 10px">›</button>'+
+    '<button class="closeX" onclick="closeDateCal()">✕</button></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">'+
+    ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(function(w){return '<div style="text-align:center;color:var(--textDim);font-size:11px;font-weight:700;padding:4px 0">'+w+'</div>';}).join('')+
+    '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+  for(var i=0;i<startWd;i++) h+='<div></div>';
+  for(var day=1;day<=daysInMonth;day++){
+    var ds=year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    var isToday=ds===todayS, isSel=ds===ui.viewDate, hasLog=loggedDays[ds];
+    var bg=isSel?'background:var(--primary);color:#fff;font-weight:800':(isToday?'background:var(--primaryDim);color:var(--primary);font-weight:800':'color:var(--text)');
+    var border=isToday&&!isSel?'border:1px solid var(--primary)':'border:1px solid transparent';
+    h+='<button onclick="dateCalPick(\''+ds+'\')" style="aspect-ratio:1;border-radius:10px;font-size:13px;'+bg+';'+border+';display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative">'+day+
+      (hasLog?'<span style="position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:'+(isSel?'#fff':'var(--accent)')+'"></span>':'')+
+      '</button>';
+  }
+  h+='</div><button class="btn ghost mt16" onclick="dateCalPick(\''+todayS+'\')">Сегодня</button></div></div>';
+  return h;
+}
 function heroMacro(label,v,t,kind){
   var pct=t>0?Math.min(v/t,1):0;
   var over=kind==='limit'&&t>0&&v>t*1.03; var low=kind==='protein'&&t>0&&v<t*0.9;
@@ -611,9 +642,8 @@ function renderToday(){
   var divider='<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.12);margin:1px 12px"></div>';
   var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 8px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center">'+
-      '<button onclick="openTodayDatePicker()" style="position:absolute;left:0;top:50%;transform:translateY(-50%);padding:4px 8px" aria-label="Выбрать дату"><img src="img/calendar-icon.png" style="width:22px;height:auto;display:block"></button>'+
+      '<button onclick="openDateCal()" style="position:absolute;left:0;top:50%;transform:translateY(-50%);padding:4px 8px" aria-label="Выбрать дату"><img src="img/calendar-icon.png" style="width:22px;height:auto;display:block"></button>'+
       '<div style="font-size:17px;font-weight:800;text-align:center">Дневник питания</div>'+
-      '<input type="date" id="todayDatePicker" value="'+date+'" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none" onchange="ui.viewDate=this.value;todayLocal.aiTip=null;todayLocal.tipKey=null;render()">'+
     '</div>'+
     '<div style="text-align:center;margin-top:2px">'+
       (isToday?'<div style="font-size:12px;font-weight:700;color:#B98CFF">Сегодня</div>':
@@ -641,7 +671,7 @@ function renderToday(){
       '<div style="width:34px;height:34px;min-width:34px;border-radius:50%;background:var(--primaryDim);display:flex;align-items:center;justify-content:center;font-size:16px">'+m.icon+'</div>'+
       '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.label+'</div>'+
       '<div style="font-size:10px;color:var(--textDim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+Math.round(sum)+' из '+goal+' ккал</div></div>'+
-      (items.length>0?'<div style="color:var(--primary);font-size:10.5px;font-weight:800;white-space:nowrap">'+m.time+'</div>'
+      (items.length>0?'<div style="color:var(--primary);font-size:10.5px;font-weight:800;white-space:nowrap">'+(items[items.length-1].time||m.time)+'</div>'
         :'<div style="color:var(--primary);font-size:17px;font-weight:800">＋</div>')+
       '</button>';
   });
@@ -691,6 +721,7 @@ function askAlina(){
 /* ===== MODALS DISPATCH ===== */
 function renderModals(){
   var m=document.getElementById('modals'); var h='';
+  if(ui.dateCal) h+=renderDateCal();
   if(ui.mealSheet) h+=renderMealSheet();
   if(ui.editMeal) h+=renderEditMeal();
   if(ui.manual) h+=renderManualAdd();
@@ -714,7 +745,7 @@ function renderMealSheet(){
     h+='<div style="margin-bottom:8px">';
     items.forEach(function(x){
       h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)" ondblclick="mealSheetDelete(\''+x.id+'\')">'+
-        '<button style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:600" onclick="mealSheetEdit(\''+x.id+'\')">'+esc(x.name)+'</button>'+
+        '<button style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:600" onclick="mealSheetEdit(\''+x.id+'\')">'+esc(x.name)+(x.time?' <span style="color:var(--textDim);font-size:12px;font-weight:600">· '+x.time+'</span>':'')+'</button>'+
         '<span style="color:var(--textDim);font-size:14px;width:60px;text-align:right;margin-right:12px">'+(x.grams?x.grams+' г':'')+'</span>'+
         '<span style="font-size:14px;font-weight:700;width:66px;text-align:right">'+Math.round(x.kcal)+' ккал</span>'+
         '<button style="color:var(--danger);padding:4px 6px" onclick="mealSheetDelete(\''+x.id+'\')">✕</button></div>';
@@ -737,7 +768,7 @@ function openSmartDay(){ openSmart({defaultType:'breakfast',autoStart:true,dayMo
 
 /* ===== EDIT MEAL ===== */
 function openEditMeal(meal){
-  ui.editMeal={id:meal.id,name:String(meal.name||''),grams:meal.grams?String(meal.grams):'',kcal:String(Math.round(meal.kcal||0)),
+  ui.editMeal={id:meal.id,name:String(meal.name||''),grams:meal.grams?String(meal.grams):'',kcal:String(Math.round(meal.kcal||0)),time:meal.time||nowHHMM(),
     per100:meal.per100||(meal.grams?per100From(meal,meal.grams):null),query:''};
   ensureFoods(); renderModals();
 }
@@ -751,6 +782,7 @@ function renderEditMeal(){
     '<label class="flabel" style="margin-top:8px">Название</label><input class="field" id="em-name" value="'+esc(e.name)+'" oninput="ui.editMeal.name=this.value">'+
     '<div class="row g12"><div style="flex:1"><label class="flabel" style="margin-top:8px">Граммы</label><input class="field" id="em-grams" inputmode="numeric" value="'+esc(e.grams)+'" oninput="emGrams(this.value)"></div>'+
     '<div style="flex:1"><label class="flabel" style="margin-top:8px">Калории</label><input class="field" id="em-kcal" inputmode="numeric" value="'+esc(e.kcal)+'" oninput="ui.editMeal.kcal=this.value.replace(/[^0-9]/g,\'\');this.value=ui.editMeal.kcal"></div></div>'+
+    '<label class="flabel" style="margin-top:8px">Время</label><input class="field" type="time" id="em-time" value="'+esc(e.time)+'" oninput="ui.editMeal.time=this.value">'+
     '<p class="muted mt8">Меняешь граммы — калории пересчитаются.</p>'+
     '<div class="row g8 mt16"><button class="btn danger" style="flex:1" onclick="emDelete()">Удалить</button><button class="btn" style="flex:1" onclick="emSave()">Сохранить</button></div>'+
   '</div></div>';
@@ -768,13 +800,13 @@ function emGrams(v){ var g=v.replace(/[^0-9]/g,''); ui.editMeal.grams=g; var el=
   if(ui.editMeal.per100&&g){ var k=String(scale(ui.editMeal.per100,Number(g)).kcal); ui.editMeal.kcal=k; var ke=document.getElementById('em-kcal'); if(ke)ke.value=k; } }
 function emDelete(){ removeMeal(ui.editMeal.id); ui.editMeal=null; }
 function emSave(){ var e=ui.editMeal; var g=Number(e.grams)||0,k=Number(e.kcal)||0;
-  var patch={name:(e.name.trim()||'Блюдо'),grams:g,kcal:k};
+  var patch={name:(e.name.trim()||'Блюдо'),grams:g,kcal:k,time:e.time};
   var base=e.per100?Object.assign({},e.per100,{kcal:g?(k/g)*100:k}):per100From({kcal:k},g||100);
   patch.per100=base; if(g){ var s=scale(base,g); patch.protein=s.protein; patch.fat=s.fat; patch.carbs=s.carbs; }
   updateMeal(e.id,patch); ui.editMeal=null; commit(); }
 
 /* ===== MANUAL ADD ===== */
-function openManual(type){ ui.manual={type:type,label:(MEAL_TYPES.find(function(m){return m.key===type;})||{}).label,query:'',selected:null,grams:'',pending:[],showFav:false,customMode:false,cKcal:'',cP:'',cF:'',cC:'',aiGrams:'',aiLoading:false}; ensureFoods().then(function(){ if(ui.manual) renderModals(); }); renderModals(); }
+function openManual(type){ ui.manual={type:type,label:(MEAL_TYPES.find(function(m){return m.key===type;})||{}).label,query:'',selected:null,grams:'',pending:[],showFav:false,customMode:false,cKcal:'',cP:'',cF:'',cC:'',aiGrams:'',aiLoading:false,mealTime:nowHHMM()}; ensureFoods().then(function(){ if(ui.manual) renderModals(); }); renderModals(); }
 function renderManualAdd(){
   var m=ui.manual;
   var h='<div class="overlay bottom" onclick="if(event.target===this){closeManual();}"><div class="sheet">'+
@@ -844,7 +876,11 @@ function manualPending(){
   var total=m.pending.reduce(function(a,i){return a+i.kcal;},0);
   var h='<div class="mt16"><p class="muted">Добавлено:</p>';
   m.pending.forEach(function(it,idx){ h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:15px">'+esc(it.name)+'</span>'+(it.grams?'<span class="muted" style="margin-right:8px">'+it.grams+' г</span>':'')+'<span style="color:var(--accent);font-weight:800;margin-right:8px">'+it.kcal+' ккал</span><button style="color:var(--danger);padding:4px" onclick="maРremovePending('+idx+')">✕</button></div>'; });
-  h+='<div style="text-align:right;font-size:17px;font-weight:800;margin-top:8px">Итого: '+total+' ккал</div>'+
+  h+='<div style="display:flex;align-items:center;gap:10px;background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-top:8px">'+
+    '<span style="font-size:18px">🕐</span><span style="font-size:14px;font-weight:700;color:var(--text)">Во сколько ела?</span>'+
+    '<input type="time" value="'+esc(m.mealTime)+'" oninput="ui.manual.mealTime=this.value" style="margin-left:auto;background:var(--card);border:1px solid var(--primaryDim);border-radius:8px;padding:6px 10px;color:var(--text);font-weight:700;font-size:15px">'+
+    '</div>'+
+    '<div style="text-align:right;font-size:17px;font-weight:800;margin-top:8px">Итого: '+total+' ккал</div>'+
     '<button class="btn mt8" onclick="maSaveAll()">Записать</button></div>';
   return h;
 }
@@ -863,7 +899,7 @@ function maGrams(v){ var g=v.replace(/[^0-9]/g,''); ui.manual.grams=g; var el=do
 function maStep(d){ ui.manual.grams=String(Math.max(0,(Number(ui.manual.grams)||0)+d)); renderModals(); }
 function maAddItem(){ var m=ui.manual; if(!m.selected||!m.grams) return; m.pending.push(makeItem(m.selected.name,m.grams,m.selected.per100)); m.selected=null; m.grams=''; m.query=''; renderModals(); }
 function maРremovePending(idx){ ui.manual.pending.splice(idx,1); renderModals(); }
-function maSaveAll(){ ui.manual.pending.forEach(function(it){ addMeal(Object.assign({type:ui.manual.type},it)); }); ui.manual=null; commit(); }
+function maSaveAll(){ ui.manual.pending.forEach(function(it){ addMeal(Object.assign({type:ui.manual.type,time:ui.manual.mealTime},it)); }); ui.manual=null; commit(); }
 function maSaveCustom(){ var m=ui.manual; var name=m.query.trim(); if(!name||!m.cKcal) return; var per100={kcal:r0(m.cKcal),protein:r1(m.cP),fat:r1(m.cF),carbs:r1(m.cC)}; addCustomFood({name:name,per100:per100}); commitNoRender(); m.selected={name:name,per100:per100}; m.customMode=false; m.cKcal='';m.cP='';m.cF='';m.cC='';m.grams=''; renderModals(); }
 function maEditCustom(f){ var m=ui.manual; m.query=f.name; m.cKcal=String(r0(f.per100.kcal)); m.cP=String(r1(f.per100.protein)); m.cF=String(r1(f.per100.fat)); m.cC=String(r1(f.per100.carbs)); m.customMode=true; m.showFav=false; renderModals(); }
 function maDeleteCustom(f){ removeCustomFood(f.name); if(ui.manual) renderModals(); }
@@ -890,10 +926,11 @@ var UNIT_HINTS=[
   {m:['чай','кофе','сок','молоко','кефир','вода','компот','какао'],label:'стакан',grams:200},
 ];
 function unitFor(name){ var n=String(name||'').toLowerCase(); return UNIT_HINTS.find(function(u){return u.m.some(function(w){return n.includes(w);});})||null; }
+function nowHHMM(){ var d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function openSmart(opts){
   ui.smart={phase:'idle',status:'',errorMsg:'',history:[],draftText:'',question:'',items:null,mealType:opts.defaultType||'breakfast',
     textInput:'',photoB64:null,photoUri:null,dayMeals:null,dayMode:!!opts.dayMode,autoStart:!!opts.autoStart,startMode:opts.startMode||null,
-    searchIdx:null,recorder:null,chunks:[],stream:null};
+    mealTime:nowHHMM(),searchIdx:null,recorder:null,chunks:[],stream:null};
   ensureFoods();
   renderModals();
   if(ui.smart.autoStart&&ui.smart.startMode!=='photo') startRec();
@@ -937,12 +974,17 @@ function saPhaseHtml(){
   if(s.phase==='result'&&s.items){
     var ph2=s.photoUri?'<img src="'+s.photoUri+'" style="width:100%;height:180px;object-fit:cover;border-radius:16px;margin:8px 0">':'';
     var total=s.items.reduce(function(a,i){return a+(Number(i.kcal)||0);},0);
-    var h=ph2+'<div class="qBox"><div style="font-size:15px;line-height:21px">💜 Вот что услышала. Название/граммы/ккал можно поправить. Всё, чего нет в базе, сохранится в неё само.</div></div>';
+    var h=ph2+'<div class="qBox"><div style="font-size:15px;line-height:21px">💜 Вот что услышала. Название/граммы/ккал можно поправить. Всё, чего нет в базе, сохранится в неё само.</div></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-top:8px">'+
+      '<span style="font-size:18px">🕐</span><span style="font-size:14px;font-weight:700;color:var(--text)">Во сколько ела?</span>'+
+      '<input type="time" value="'+esc(s.mealTime)+'" oninput="ui.smart.mealTime=this.value" style="margin-left:auto;background:var(--card);border:1px solid var(--primaryDim);border-radius:8px;padding:6px 10px;color:var(--text);font-weight:700;font-size:15px">'+
+      '</div>';
     s.items.forEach(function(it,idx){
       var unit=unitFor(it.name); var step=unit?unit.grams:10;
       h+='<div style="background:var(--cardAlt);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:8px">'+
         '<div style="display:flex;align-items:center"><button style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:700" onclick="saOpenSearch('+idx+')">'+esc(String(it.name))+' 🔍</button>'+
-        '<span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;margin:0 6px;'+(it.fromDB?'color:var(--accent);background:var(--successBg)':'color:var(--warn);background:var(--warnBg)')+'">'+(it.fromDB?'из базы':'оценка ИИ')+'</span>'+
+        '<span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;margin:0 6px;white-space:nowrap;'+(it.fromCustom?'color:var(--good);background:var(--successBg)':it.fromDB?'color:var(--accent);background:var(--successBg)':'color:var(--warn);background:var(--warnBg)')+'">'+(it.fromCustom?'✓ как раньше':it.fromDB?'из базы':'оценка ИИ')+'</span>'+
+        '<button style="padding:4px" onclick="saToggleFav('+idx+')" title="Запомнить">'+(isFavName(it.name)?'❤️':'🤍')+'</button>'+
         '<button style="color:var(--danger);padding:6px" onclick="saRemoveItem('+idx+')">✕</button></div>'+
         '<div class="muted" id="sa-macro-'+idx+'" style="margin-top:3px">Б '+r1(it.protein)+' · Ж '+r1(it.fat)+' · У '+r1(it.carbs)+' г</div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:8px">'+
@@ -966,7 +1008,10 @@ function saPhaseHtml(){
     var h='<div class="qBox"><div style="font-size:15px;line-height:21px">💜 Вот что услышала — по приёмам. Лишнее убери и нажми «Записать всё».</div></div>';
     s.dayMeals.forEach(function(g,gi){
       var sub=g.items.reduce(function(x,it){return x+(Number(it.kcal)||0);},0);
-      h+='<div style="background:var(--cardAlt);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--primary);font-weight:800">'+esc(g.label)+'</span><span style="color:var(--accent);font-weight:800">'+Math.round(sub)+' ккал</span></div>';
+      h+='<div style="background:var(--cardAlt);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:8px">'+
+        '<span style="color:var(--primary);font-weight:800">'+esc(g.label)+'</span>'+
+        '<input type="time" value="'+esc(g.time||'')+'" oninput="ui.smart.dayMeals['+gi+'].time=this.value" style="background:var(--card);border:1px solid var(--primaryDim);border-radius:8px;padding:3px 8px;color:var(--text);font-weight:700;font-size:13px">'+
+        '<span style="color:var(--accent);font-weight:800;margin-left:auto">'+Math.round(sub)+' ккал</span></div>';
       g.items.forEach(function(it,ii){ h+='<div style="display:flex;align-items:center;padding:6px 0;border-top:1px solid var(--line)"><div style="flex:1"><div style="font-size:14px">'+esc(String(it.name))+'</div><div class="muted">Б '+r1(it.protein)+' · Ж '+r1(it.fat)+' · У '+r1(it.carbs)+' · '+(it.fromDB?'из базы':'оценка ИИ')+'</div></div><span class="muted" style="margin-right:8px">'+(it.grams?it.grams+' г':'')+'</span><span style="color:var(--accent);font-weight:700;margin-right:8px">'+Math.round(it.kcal)+' ккал</span><button style="color:var(--danger);padding:4px" onclick="saRemoveDayItem('+gi+','+ii+')">✕</button></div>'; });
       h+='</div>';
     });
@@ -1044,7 +1089,7 @@ function processText(text){
   s.phase='processing'; s.status=s.dayMode?'Раскладываю по приёмам…':'Считаю по базе…'; s.errorMsg=''; renderModals();
   if(s.dayMode){
     return parseDayMeals(t).then(function(res){
-      if(res.meals&&res.meals.length){ s.dayMeals=res.meals.map(function(m){return Object.assign({},m,{label:(SA_MEAL_TYPES.find(function(x){return x.key===m.type;})||{}).label||m.type});}); s.phase='dayResult'; }
+      if(res.meals&&res.meals.length){ s.dayMeals=res.meals.map(function(m){return Object.assign({},m,{label:(SA_MEAL_TYPES.find(function(x){return x.key===m.type;})||{}).label||m.type,time:(MEAL_TYPES.find(function(x){return x.key===m.type;})||{}).time||nowHHMM()});}); s.phase='dayResult'; }
       else { s.errorMsg='Не разобрала приёмы. Поправь текст.'; s.draftText=t; s.phase='draft'; } renderModals();
     }).catch(function(e){ s.errorMsg='Ошибка: '+String(e.message||e); s.draftText=t; s.phase='draft'; renderModals(); });
   }
@@ -1088,11 +1133,14 @@ function saPatchItem(idx,skipGrams){
 }
 function saPatchTotal(){ var t=ui.smart.items.reduce(function(a,i){return a+(Number(i.kcal)||0);},0); var el=document.getElementById('sa-total'); if(el)el.textContent='Итого: '+Math.round(t)+' ккал'; }
 function saRemoveItem(idx){ ui.smart.items.splice(idx,1); renderModals(); }
+function saToggleFav(idx){ var it=ui.smart.items[idx]; var per100=it.per100||per100From(it,it.grams||100);
+  if(isFavName(it.name)){ removeFavorite(it.name); } else { addFavorite({name:it.name,per100:per100}); addCustomFood({name:it.name,per100:per100}); }
+  commitNoRender(); renderModals(); }
 function saAddEmpty(){ ui.smart.items.push({name:'Новое блюдо',grams:100,kcal:0,protein:0,fat:0,carbs:0,per100:{kcal:0,protein:0,fat:0,carbs:0},fromAI:true}); renderModals(); }
 function saRemoveDayItem(gi,ii){ var s=ui.smart; s.dayMeals[gi].items.splice(ii,1); s.dayMeals=s.dayMeals.filter(function(g){return g.items.length;}); renderModals(); }
 function autoSaveToBase(it){ if(it.fromDB) return; var per100=it.per100||per100From(it,it.grams||100); if(per100&&Number(per100.kcal)>0) addCustomFood({name:String(it.name||'Блюдо'),per100:per100}); }
-function saSaveAll(){ var s=ui.smart; s.items.forEach(function(it){ autoSaveToBase(it); addMeal({type:s.mealType,name:String(it.name||'Блюдо'),grams:Math.round(Number(it.grams)||0),per100:it.per100||per100From(it,it.grams||100),kcal:Math.round(Number(it.kcal)||0),protein:Math.round(Number(it.protein)||0),fat:Math.round(Number(it.fat)||0),carbs:Math.round(Number(it.carbs)||0)}); }); saClose(); commit(); }
-function saSaveAllDay(){ var s=ui.smart; (s.dayMeals||[]).forEach(function(g){ g.items.forEach(function(it){ autoSaveToBase(it); addMeal({type:g.type,name:String(it.name||'Блюдо'),grams:Math.round(Number(it.grams)||0),per100:it.per100||per100From(it,it.grams||100),kcal:Math.round(Number(it.kcal)||0),protein:Math.round(Number(it.protein)||0),fat:Math.round(Number(it.fat)||0),carbs:Math.round(Number(it.carbs)||0)}); }); }); saClose(); commit(); }
+function saSaveAll(){ var s=ui.smart; s.items.forEach(function(it){ autoSaveToBase(it); addMeal({type:s.mealType,time:s.mealTime,name:String(it.name||'Блюдо'),grams:Math.round(Number(it.grams)||0),per100:it.per100||per100From(it,it.grams||100),kcal:Math.round(Number(it.kcal)||0),protein:Math.round(Number(it.protein)||0),fat:Math.round(Number(it.fat)||0),carbs:Math.round(Number(it.carbs)||0)}); }); saClose(); commit(); }
+function saSaveAllDay(){ var s=ui.smart; (s.dayMeals||[]).forEach(function(g){ g.items.forEach(function(it){ autoSaveToBase(it); addMeal({type:g.type,time:g.time,name:String(it.name||'Блюдо'),grams:Math.round(Number(it.grams)||0),per100:it.per100||per100From(it,it.grams||100),kcal:Math.round(Number(it.kcal)||0),protein:Math.round(Number(it.protein)||0),fat:Math.round(Number(it.fat)||0),carbs:Math.round(Number(it.carbs)||0)}); }); }); saClose(); commit(); }
 
 /* ===== FOOD SEARCH MODAL (per-item, used by SmartAdd) ===== */
 function saOpenSearch(idx){ ui.smart.searchIdx=idx; ui.foodSearch={query:String(ui.smart.items[idx].name||''),adding:false,cKcal:'',cP:'',cF:'',cC:''}; renderModals(); }
