@@ -639,7 +639,7 @@ function renderToday(){
     h+='<button onclick="askAlina()" style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:10px">'+
       '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">💜</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
       '<div style="color:var(--text);font-size:11px;line-height:14px;flex:1">'+esc(todayLocal.aiTip||advice)+'</div>'+
-      '<div style="display:flex;justify-content:flex-end;margin-top:4px"><div style="width:26px;height:26px;border-radius:50%;background:var(--primaryDim);display:flex;align-items:center;justify-content:center;font-size:13px">💪</div></div>'+
+      '<div style="display:flex;justify-content:flex-end;margin-top:4px"><img src="img/trainer.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
       '</button>';
   }
   h+='</div></div>';
