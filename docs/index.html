@@ -420,23 +420,19 @@ function renderTabBar(){
   tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+(ui.tab===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+t.ico+'</span>'+t.label+'</button>'; }).join('');
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
-  size=size||124; stroke=stroke||16; color=color||'#B98CFF'; centerColor=centerColor||'#FFFFFF';
-  var ratio=0.67; var visH=size*ratio;
-  var pad=44; var box=size+pad*2;
-  var r=(size-stroke)/2, c=2*Math.PI*r, pct=target>0?Math.min(Math.max(eaten/target,0),1):0, cx=box/2;
-  var sweep=0.75, arcLen=c*sweep, filled=arcLen*pct, gid='rg'+Math.round(size);
+  size=size||150; centerColor=centerColor||'#FFFFFF';
+  var ratio=0.6695; var visH=size*ratio;
+  var pct=target>0?Math.min(Math.max(eaten/target,0),1):0;
   var over=color==='var(--alert)';
-  var glowRGB=over?'255,107,107':'176,138,255';
+  var dispW=size*1.5145, dispH=dispW*(705/900);
+  var padX=(dispW-size)/2, padY=(dispH-visH)/2;
+  var fillDeg=270*pct;
+  var mask='conic-gradient(from 225deg, #fff 0deg, #fff '+fillDeg+'deg, transparent '+fillDeg+'deg, transparent 360deg)';
   return '<div class="ringWrap" style="width:'+size+'px;height:'+visH+'px;margin:0 4px">'+
-    '<div style="position:absolute;left:50%;top:50%;width:'+(size*0.86)+'px;height:'+(size*0.86*ratio)+'px;transform:translate(-50%,-50%);border-radius:50%;'+
-      'background:radial-gradient(circle,rgba('+glowRGB+',.65) 0%,rgba('+glowRGB+',.28) 45%,rgba('+glowRGB+',0) 72%);filter:blur(9px)"></div>'+
-    '<svg width="'+box+'" height="'+box+'" style="position:absolute;left:'+(-pad)+'px;top:'+(-pad)+'px;overflow:visible;transform:scaleY('+ratio+')">'+
-    '<defs><linearGradient id="'+gid+'" x1="0%" y1="0%" x2="100%" y2="100%">'+
-      (over?'<stop offset="0%" stop-color="#FF9A8B"/><stop offset="100%" stop-color="#FF5C5C"/>':'<stop offset="0%" stop-color="#EDD8FF"/><stop offset="100%" stop-color="#8B5CF6"/>')+
-    '</linearGradient></defs>'+
-    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="rgba(255,255,255,0.045)" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+arcLen+' '+c+'" transform="rotate(135 '+cx+' '+cx+')"/>'+
-    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="url(#'+gid+')" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+filled+' '+c+'" transform="rotate(135 '+cx+' '+cx+')" style="filter:drop-shadow(0 0 10px rgba('+glowRGB+',.95)) drop-shadow(0 0 22px rgba('+glowRGB+',.7))"/>'+
-    '</svg>'+
+    '<img src="img/ring-track.png" style="position:absolute;left:'+(-padX)+'px;top:'+(-padY)+'px;width:'+dispW+'px;height:'+dispH+'px">'+
+    '<div style="position:absolute;left:'+(-padX)+'px;top:'+(-padY)+'px;width:'+dispW+'px;height:'+dispH+'px;-webkit-mask-image:'+mask+';mask-image:'+mask+'">'+
+      '<img src="img/ring-'+(over?'red':'purple')+'.png" style="width:100%;height:100%;display:block">'+
+    '</div>'+
     '<div class="ringCenter"><div style="font-size:'+Math.round(size*(String(Math.round(eaten)).length>=4?0.29:0.4))+'px;font-weight:800;color:'+centerColor+';letter-spacing:-1px;white-space:nowrap">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.12)+'px;color:rgba(255,255,255,.65);margin-top:-3px;font-weight:700">ккал</div></div>'+
   '</div>';
 }
