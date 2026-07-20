@@ -420,15 +420,15 @@ function renderTabBar(){
   tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+(ui.tab===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+t.ico+'</span>'+t.label+'</button>'; }).join('');
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
-  size=size||150; stroke=stroke||20; centerColor=centerColor||'#FFFFFF';
-  var ratio=0.6695; var visH=size*ratio;
+  size=size||150; stroke=stroke||24; centerColor=centerColor||'#FFFFFF';
   var pct=target>0?Math.min(Math.max(eaten/target,0),1):0;
   var over=color==='var(--alert)';
+  var rx=(size-stroke)/2, ry=rx*0.74;
+  var visH=ry+stroke;
   var pad=30; var boxW=size+pad*2, boxH=visH+pad*2;
-  var cx=pad+size/2, cy=pad+visH/2;
-  var rx=(size-stroke)/2, ry=(visH-stroke)/2;
+  var cx=pad+size/2, cy=pad+ry+stroke/2;
   function ptAt(deg){ var rad=deg*Math.PI/180; return [cx+rx*Math.cos(rad), cy+ry*Math.sin(rad)]; }
-  var startA=135, endA=405;
+  var startA=180, endA=360;
   var p0=ptAt(startA), p1=ptAt(endA);
   var d='M '+p0[0].toFixed(2)+' '+p0[1].toFixed(2)+' A '+rx.toFixed(2)+' '+ry.toFixed(2)+' 0 1 1 '+p1[0].toFixed(2)+' '+p1[1].toFixed(2);
   var totalLen=0, prev=p0, N=180;
@@ -451,7 +451,7 @@ function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
     '<path d="'+d+'" fill="none" stroke="'+trackColor+'" stroke-width="'+stroke+'" stroke-linecap="round"/>'+
     '<path d="'+d+'" fill="none" stroke="url(#'+gid+')" stroke-width="'+stroke+'" stroke-linecap="round" stroke-dasharray="'+filledLen.toFixed(1)+' '+(totalLen*2).toFixed(1)+'" filter="url(#'+fid+')"/>'+
     '</svg>'+
-    '<div class="ringCenter"><div style="font-size:'+Math.round(size*(String(Math.round(eaten)).length>=4?0.29:0.4))+'px;font-weight:800;color:'+centerColor+';letter-spacing:-1px;white-space:nowrap">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.12)+'px;color:rgba(255,255,255,.65);margin-top:-3px;font-weight:700">ккал</div></div>'+
+    '<div class="ringCenter"><div style="font-size:'+Math.round(size*(String(Math.round(eaten)).length>=4?0.24:0.32))+'px;font-weight:800;color:'+centerColor+';letter-spacing:-1px;white-space:nowrap;line-height:1">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.095)+'px;color:rgba(255,255,255,.65);margin-top:2px;font-weight:700;line-height:1">ккал</div></div>'+
   '</div>';
 }
 
@@ -617,7 +617,7 @@ function renderToday(){
     '</div>'+
     '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:2px;margin-top:2px">'+
       '<div style="min-width:0;text-align:center"><div style="font-size:22px;font-weight:800;letter-spacing:-.5px">'+budget+'</div><div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">норма</div>'+(burned>0?'<div style="color:var(--good);font-size:10px;font-weight:800;margin-top:1px">🔥 +'+burned+'</div>':'')+'</div>'+
-      calorieRingSVG(eaten.kcal,budget,150,20,over?'var(--alert)':'#B98CFF','#FFFFFF')+
+      calorieRingSVG(eaten.kcal,budget,170,26,over?'var(--alert)':'#B98CFF','#FFFFFF')+
       '<div style="min-width:0;text-align:center"><div style="font-size:22px;font-weight:800;letter-spacing:-.5px;'+(over?'color:var(--alert)':'')+'">'+(over?'+':'')+Math.round(over?eaten.kcal-budget:budget-eaten.kcal)+'</div><div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">'+(over?'перебор':'осталось')+'</div>'+
         (showPred?('<div style="font-size:10px;font-weight:800;margin-top:2px;color:'+predColor+'">на весах ≈ '+(predGrams>0?'+':predGrams<0?'−':'')+Math.abs(predGrams)+' г</div>'+
         '<div style="font-size:8px;font-weight:800;color:'+predColor+'">'+(predGrams>0?'⚠️ жир копится!':predGrams<0?'жир уходит 💪':'вес держится')+'</div>'):'')+'</div>'+
