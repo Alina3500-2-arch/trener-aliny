@@ -486,7 +486,12 @@ var TABS=[
   {key:'progress',label:'Прогресс',ico:'📈'},
   {key:'settings',label:'Настройки',ico:'⚙️'},
 ];
-function setTab(t){ ui.tab=t; window.scrollTo(0,0); render(); }
+function setTab(t,keepDeepLink){
+  if(!keepDeepLink&&location.search.indexOf('open=')>=0){
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  }
+  ui.tab=t; window.scrollTo(0,0); render();
+}
 function renderTabBar(){
   var tb=document.getElementById('tabbar');
   if(!state.onboarded){ tb.style.display='none'; return; }
@@ -2033,7 +2038,7 @@ function applyDeepLink(){
   var val=decodeURIComponent(m[1]); if(!val) return;
   var parts=val.split(':'); var kind=parts[0], arg=parts[1];
   if(kind==='meal'&&arg){ ui.tab='today'; render(); openMealSheet(arg); }
-  else if(kind==='tab'&&arg){ setTab(arg); }
+  else if(kind==='tab'&&arg){ setTab(arg,true); return; }
   try{ history.replaceState(null,'',location.pathname); }catch(e){}
 }
 /* ===== BOOT ===== */
