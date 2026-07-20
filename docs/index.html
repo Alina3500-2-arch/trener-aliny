@@ -758,7 +758,7 @@ function renderToday(){
   var h='<div style="position:relative;overflow:hidden;background:radial-gradient(circle at 88% 0,rgba(170,91,255,.22),transparent 42%),linear-gradient(145deg,#171128,#21183b);border:1px solid rgba(155,125,255,.28);padding:calc(12px + var(--sat)) 16px 13px;border-radius:0 0 26px 26px;color:#fff;box-shadow:0 14px 35px rgba(42,22,79,.18)">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center">'+
       '<button onclick="openDateCal()" style="position:absolute;left:0;top:50%;transform:translateY(-50%);padding:4px 8px" aria-label="Выбрать дату"><img src="img/calendar-icon.png" style="width:22px;height:auto;display:block"></button>'+
-      '<div style="font-size:22px;font-weight:900;text-align:center;letter-spacing:-.3px">Питание</div>+'
+      '<div style="font-size:22px;font-weight:900;text-align:center;letter-spacing:-.3px">Питание</div>'+
     '</div>'+
     '<div style="text-align:center;margin-top:2px">'+
       (isToday?'<div style="font-size:12px;font-weight:700;color:#B98CFF">Сегодня</div>':
@@ -775,7 +775,7 @@ function renderToday(){
     goalBar+
   '</div>';
   h+='<div class="body-pad" style="padding:10px 14px 8px">'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><div style="font-size:18px;font-weight:900">Приёмы пищи</div><div style="font-size:11px;color:var(--textDim);margin-top:1px">Записи за выбранный день</div></div>+'
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><div style="font-size:18px;font-weight:900">Приёмы пищи</div><div style="font-size:11px;color:var(--textDim);margin-top:1px">Записи за выбранный день</div></div>'+
       '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:6px 12px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>'+
     '<div style="display:flex;gap:8px;align-items:flex-start">'+
     '<div style="flex:'+(isToday?'1.5':'1')+';min-width:0">';
