@@ -433,10 +433,10 @@ function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
     '<defs><linearGradient id="'+gid+'" x1="0%" y1="0%" x2="100%" y2="100%">'+
       (over?'<stop offset="0%" stop-color="#FF9A8B"/><stop offset="100%" stop-color="#FF5C5C"/>':'<stop offset="0%" stop-color="#EDD8FF"/><stop offset="100%" stop-color="#8B5CF6"/>')+
     '</linearGradient></defs>'+
-    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="rgba(255,255,255,0.08)" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+arcLen+' '+c+'" transform="rotate(135 '+cx+' '+cx+')"/>'+
+    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="rgba(255,255,255,0.045)" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+arcLen+' '+c+'" transform="rotate(135 '+cx+' '+cx+')"/>'+
     '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" stroke="url(#'+gid+')" stroke-width="'+stroke+'" fill="none" stroke-linecap="round" stroke-dasharray="'+filled+' '+c+'" transform="rotate(135 '+cx+' '+cx+')" style="filter:drop-shadow(0 0 10px rgba('+glowRGB+',.95)) drop-shadow(0 0 22px rgba('+glowRGB+',.7))"/>'+
     '</svg>'+
-    '<div class="ringCenter"><div style="font-size:'+Math.round(size*0.4)+'px;font-weight:800;color:'+centerColor+';letter-spacing:-1px">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.12)+'px;color:rgba(255,255,255,.65);margin-top:-3px;font-weight:700">ккал</div></div>'+
+    '<div class="ringCenter"><div style="font-size:'+Math.round(size*(String(Math.round(eaten)).length>=4?0.29:0.4))+'px;font-weight:800;color:'+centerColor+';letter-spacing:-1px;white-space:nowrap">'+Math.round(eaten)+'</div><div style="font-size:'+Math.round(size*0.12)+'px;color:rgba(255,255,255,.65);margin-top:-3px;font-weight:700">ккал</div></div>'+
   '</div>';
 }
 
