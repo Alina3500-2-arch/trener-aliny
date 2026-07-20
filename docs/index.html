@@ -680,6 +680,18 @@ function renderToday(){
   var predColor=predGrams>0?'var(--alert)':'var(--good)';
   var showPred=eaten.kcal>=1300||eaten.kcal>=budget;
   var divider='<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.12);margin:1px 12px"></div>';
+  var goalTargetW=state.goal&&state.goal.startWeight!=null?Number((state.goal.startWeight+state.goal.targetDeltaKg).toFixed(1)):null;
+  var goalBar='';
+  if(goalTargetW!=null){
+    var losing=state.goal.targetDeltaKg<0;
+    var remKg=weightKg!=null?Number(Math.abs(weightKg-goalTargetW).toFixed(1)):null;
+    var reached=weightKg!=null&&(losing?weightKg<=goalTargetW:weightKg>=goalTargetW);
+    goalBar='<div style="margin-top:8px;padding:6px 12px;background:rgba(139,92,246,0.15);border-radius:12px;display:flex;justify-content:space-between;align-items:center">'+
+      '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">Цель</div><div style="font-size:14px;font-weight:800;color:#fff">'+goalTargetW+' кг</div></div>'+
+      (weightKg!=null?'<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">Сейчас</div><div style="font-size:14px;font-weight:800;color:#fff">'+weightKg+' кг</div></div>':'')+
+      '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">'+(reached?'Результат':(losing?'Осталось':'Набрать'))+'</div><div style="font-size:14px;font-weight:800;color:'+(reached?'var(--good)':'#B98CFF')+'">'+(reached?'🎉 Цель!':(remKg!=null?remKg+' кг':'—'))+'</div></div>'+
+    '</div>';
+  }
   var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 8px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center">'+
       '<button onclick="openDateCal()" style="position:absolute;left:0;top:50%;transform:translateY(-50%);padding:4px 8px" aria-label="Выбрать дату"><img src="img/calendar-icon.png" style="width:22px;height:auto;display:block"></button>'+
@@ -697,6 +709,7 @@ function renderToday(){
         '<div style="font-size:8px;font-weight:800;color:'+predColor+'">'+(predGrams>0?'⚠️ жир копится!':predGrams<0?'жир уходит 💪':'вес держится')+'</div>'):'')+'</div>'+
     '</div>'+
     '<div style="display:flex;align-items:stretch;margin-top:14px">'+heroMacro('Белки',eaten.protein,mt.protein,'protein')+divider+heroMacro('Жиры',eaten.fat,mt.fat,'limit')+divider+heroMacro('Углеводы',eaten.carbs,mt.carbs,'limit')+'</div>'+
+    goalBar+
   '</div>';
   h+='<div class="body-pad" style="padding:10px 14px 8px">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:15px;font-weight:800">Приёмы пищи</div>'+
