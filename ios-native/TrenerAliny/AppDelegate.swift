@@ -26,6 +26,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window.rootViewController = webViewController
         window.makeKeyAndVisible()
         self.window = window
+
+        if launchOptions?[.url] != nil {
+            webViewController.openWorkoutFromWidget()
+        }
+        return true
+    }
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        guard url.scheme == "treneraliny" else { return false }
+        (window?.rootViewController as? WebViewController)?.openWorkoutFromWidget()
         return true
     }
 }
