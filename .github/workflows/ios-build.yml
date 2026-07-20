@@ -16,6 +16,10 @@ on:
       - 'ios-native/**'
       - '.github/workflows/ios-build.yml'
 
+concurrency:
+  group: ios-native-build
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
