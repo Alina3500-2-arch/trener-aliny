@@ -475,7 +475,21 @@ function buildReminderPayload(){
 }
 
 /* ===== UI STATE + RENDER CORE ===== */
-var ui={ tab:'today', viewDate:todayStr() };
+function startupTab(){
+  var q=location.search.match(/[?&]open=tab%3A([^&]+)/i)||location.search.match(/[?&]open=tab:([^&]+)/i);
+  if(q&&q[1]){
+    var tab=decodeURIComponent(q[1]);
+    try{ sessionStorage.setItem('launch_tab',JSON.stringify({tab:tab,until:Date.now()+10000})); }catch(e){}
+    return tab;
+  }
+  try{
+    var saved=JSON.parse(sessionStorage.getItem('launch_tab')||'null');
+    sessionStorage.removeItem('launch_tab');
+    if(saved&&saved.tab&&saved.until>Date.now()) return saved.tab;
+  }catch(e){}
+  return 'today';
+}
+var ui={ tab:startupTab(), viewDate:todayStr() };
 function commit(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); render(); }
 function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); }
 
