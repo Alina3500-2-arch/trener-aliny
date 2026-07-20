@@ -686,6 +686,16 @@ var MEAL_TYPES=[
   {key:'snack',label:'Полдник',icon:'🍎',optional:true,time:'16:00',frac:0.10},
   {key:'dinner',label:'Ужин',icon:'🍽️',time:'18:00',frac:0.25},
 ];
+function mealIconSVG(key){
+  var p={
+    breakfast:'<path d="M6 12h12M8 12a4 4 0 0 1 8 0M5 16h14M12 5v2M6.5 7.5l1.4 1.4M17.5 7.5l-1.4 1.4"/>',
+    brunch:'<path d="M5 9h14l-2 9H7L5 9ZM8 9c0-2 1.5-3 4-3s4 1 4 3M9 13h6"/>',
+    lunch:'<path d="M5 13h14M7 13a5 5 0 0 1 10 0M4 17h16M12 5v2"/>',
+    snack:'<path d="M12 8c-4-3-7 1-5 6 2 5 4 3 5 3s3 2 5-3c2-5-1-9-5-6ZM12 8c0-2 1-3 3-4"/>',
+    dinner:'<path d="M12 5a7 7 0 1 0 7 10 7.5 7.5 0 0 1-7-10Z"/>'
+  };
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;fill:none;stroke:#b98cff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round">'+(p[key]||p.lunch)+'</svg>';
+}
 var todayLocal={extraMeals:[],aiTip:null,tipLoading:false,tipKey:null};
 function gotoToday(){ ui.viewDate=todayStr(); todayLocal.aiTip=null; render(); }
 function openDateCal(){ ui.dateCal={month:ui.viewDate.slice(0,7)}; renderModals(); }
@@ -757,9 +767,9 @@ function renderToday(){
     '</div>';
   }
   var h='<div style="position:relative;overflow:hidden;background:radial-gradient(circle at 88% 0,rgba(170,91,255,.22),transparent 42%),linear-gradient(145deg,#171128,#21183b);border:1px solid rgba(155,125,255,.28);padding:calc(8px + var(--sat)) 14px 10px;border-radius:0 0 26px 26px;color:#fff;box-shadow:0 14px 35px rgba(42,22,79,.18)">'+
-    '<div style="position:relative;display:flex;align-items:center;justify-content:center;min-height:46px">'+
+    '<div style="position:relative;display:flex;align-items:center;justify-content:center;min-height:52px">'+
       '<button onclick="openDateCal()" style="position:absolute;left:0;padding:6px;color:#a855f7" aria-label="Выбрать дату"><svg viewBox="0 0 24 24" style="width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>'+
-      '<div style="text-align:center"><div style="font-size:19px;font-weight:900;letter-spacing:-.2px">Дневник питания</div><div style="font-size:11px;font-weight:700;color:#b98cff;text-transform:capitalize;margin-top:1px">'+niceDate(date)+'</div></div>'+
+      '<div style="text-align:center"><div style="font-size:18px;font-weight:900;letter-spacing:-.2px">Дневник питания</div><div style="font-size:11px;font-weight:700;color:#b98cff;text-transform:capitalize;margin-top:1px">'+niceDate(date)+'</div></div>'+
       '<button onclick="setTab(\'settings\')" style="position:absolute;right:0;width:34px;height:34px;border-radius:50%;border:1px solid rgba(155,125,255,.35);color:#b98cff;font-size:17px;font-weight:900;letter-spacing:1px">•••</button>'+
     '</div>'+
     '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:2px;margin-top:2px">'+
@@ -773,16 +783,16 @@ function renderToday(){
     goalBar+
   '</div>';
   h+='<div class="body-pad" style="padding:7px 14px 5px">'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div><div style="font-size:17px;font-weight:900">Приёмы пищи</div><div style="font-size:11px;color:var(--textDim);margin-top:1px">Записи за выбранный день</div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div style="font-size:17px;font-weight:900">Приёмы пищи</div>'+
       '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:6px 12px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>'+
-    '<div style="display:flex;flex-direction:column;gap:7px;align-items:stretch">'+
-    '<div style="flex:'+(isToday?'1.5':'1')+';min-width:0">';
+    '<div style="display:flex;flex-direction:row;gap:8px;align-items:stretch">'+
+    '<div style="flex:'+(isToday?'1.35':'1')+';min-width:0">';
   visibleMeals.forEach(function(m){
     var items=meals.filter(function(x){return x.type===m.key;});
     var sum=items.reduce(function(a,x){return a+(x.kcal||0);},0);
     var goal=Math.round(baseTarget*m.frac);
     h+='<button style="display:flex;align-items:center;width:100%;background:linear-gradient(145deg,rgba(32,28,45,.96),rgba(24,24,31,.96));border:1px solid rgba(155,125,255,.13);border-radius:16px;padding:7px 10px;margin-bottom:6px;text-align:left;gap:9px" onclick="openMealSheet(\''+m.key+'\')">'+
-      '<div style="width:34px;height:34px;min-width:34px;border-radius:11px;background:rgba(155,125,255,.14);border:1px solid rgba(155,125,255,.22);display:flex;align-items:center;justify-content:center;font-size:16px">'+m.icon+'</div>'+
+      '<div style="width:34px;height:34px;min-width:34px;border-radius:11px;background:rgba(155,125,255,.14);border:1px solid rgba(155,125,255,.22);display:flex;align-items:center;justify-content:center;font-size:16px">'+mealIconSVG(m.key)+'</div>'+
       '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.label+'</div>'+
       '<div style="font-size:10px;color:var(--textDim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+Math.round(sum)+' из '+goal+' ккал</div></div>'+
       (items.length>0?'<div style="color:var(--primary);font-size:10.5px;font-weight:800;white-space:nowrap">'+(items[items.length-1].time||m.time)+'</div>'
@@ -804,10 +814,10 @@ function renderToday(){
       '<div style="color:var(--alert);font-size:12px;font-weight:800;margin-bottom:4px">❗ Перебор</div>'+
       '<div style="color:var(--alert);font-size:11px;line-height:14px;font-weight:700">Стоп! Перебор на '+overTarget+' ккал. На сегодня хватит — попей воды. Завтра с чистого листа! 💪</div></div>';
   } else {
-    h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:10px">'+
+    h+='<div style="flex:.75;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:9px">'+
       '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">💜</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
-      '<div style="color:var(--text);font-size:13px;line-height:18px">'+esc(todayLocal.aiTip||advice)+'</div>'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px"><button onclick="askAlina(true)" style="border:1px solid rgba(155,125,255,.35);border-radius:999px;padding:4px 9px;color:#bda8ff;font-size:10px;font-weight:800;background:rgba(155,125,255,.10)">Обновить</button><img src="img/trainer.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
+      '<div style="color:var(--text);font-size:11px;line-height:14px">'+esc(todayLocal.aiTip||advice)+'</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px"><button onclick="askAlina(true)" style="border:1px solid rgba(155,125,255,.35);border-radius:999px;padding:4px 9px;color:#bda8ff;font-size:10px;font-weight:800;background:rgba(155,125,255,.10)">Обновить</button><img src="img/trainer.png" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
       '</div>';
   }
   h+='</div></div>';
