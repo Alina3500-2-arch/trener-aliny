@@ -59,6 +59,10 @@ final class WebViewController: UIViewController {
             webView.reload()
         }
     }
+
+    func openWorkoutFromWidget() {
+        openDeepLink("tab:workout")
+    }
 }
 
 // MARK: - Разрешения на камеру/микрофон внутри WKWebView (iOS 15+)
