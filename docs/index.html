@@ -18,7 +18,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
   font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
-input,textarea{font-family:inherit;font-size:16px;}
+input,textarea{font-family:inherit;font-size:16px!important;}
 input:focus,textarea:focus{outline:none;}
 #app{min-height:100vh;padding-bottom:calc(70px + var(--sab));}.screen-today{height:100dvh;min-height:0;overflow:hidden}
 .screen-scroll{-webkit-overflow-scrolling:touch;}
@@ -53,12 +53,12 @@ input:focus,textarea:focus{outline:none;}
 .hero .hsub{font-size:13px;font-weight:600;margin-top:2px;color:rgba(255,255,255,.9);}
 .body-pad{padding:12px;}
 /* modal */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;}
+.overlay{position:fixed;left:0;right:0;top:var(--vvo,0px);height:var(--vvh,100dvh);background:rgba(0,0,0,.6);z-index:100;display:flex;}
 .overlay.center{align-items:center;justify-content:center;padding:16px;}
 .overlay.bottom{align-items:flex-end;}
 .overlay.top{align-items:flex-start;justify-content:center;padding-top:56px;}
-.sheet{background:var(--card);border-radius:22px 22px 0 0;width:100%;padding:20px;max-height:88vh;overflow:auto;}
-.dialog{background:var(--card);border-radius:22px;width:100%;max-width:360px;padding:20px;border:1px solid var(--primaryDim);max-height:88vh;overflow:auto;}
+.sheet{background:var(--card);border-radius:22px 22px 0 0;width:100%;padding:20px 20px calc(20px + var(--sab));max-height:88%;overflow:auto;-webkit-overflow-scrolling:touch;scroll-padding:28px 0 140px;}
+.dialog{background:var(--card);border-radius:22px;width:100%;max-width:360px;padding:20px;border:1px solid var(--primaryDim);max-height:88%;overflow:auto;-webkit-overflow-scrolling:touch;scroll-padding:28px 0 140px;}
 .mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
 .closeX{color:var(--textDim);font-size:22px;font-weight:700;padding:6px;}
 /* calorie ring */
@@ -74,6 +74,7 @@ input:focus,textarea:focus{outline:none;}
 .grid{display:flex;flex-wrap:wrap;justify-content:space-between;}
 .gridCard{width:48.5%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px;margin-bottom:8px;min-height:60px;position:relative;overflow:hidden;text-align:left;}
 .gridCard.add{border-style:dashed;display:flex;align-items:center;justify-content:center;gap:6px;}
+.keyboard-open #tabbar{visibility:hidden;pointer-events:none}.keyboard-open .screen-today{overflow:auto;height:auto;min-height:var(--vvh,100dvh)}
 #app-error{padding:40px 20px;text-align:center;}
 .spin{width:34px;height:34px;border:3px solid var(--primaryDim);border-top-color:var(--primary);border-radius:50%;animation:sp 1s linear infinite;margin:16px auto;}
 @keyframes sp{to{transform:rotate(360deg);}}
@@ -490,6 +491,21 @@ function startupTab(){
   return 'today';
 }
 var ui={ tab:startupTab(), viewDate:todayStr() };
+function syncVisualViewport(){
+  var vv=window.visualViewport;
+  var h=vv?vv.height:window.innerHeight, top=vv?vv.offsetTop:0;
+  document.documentElement.style.setProperty('--vvh',Math.round(h)+'px');
+  document.documentElement.style.setProperty('--vvo',Math.round(top)+'px');
+  document.documentElement.classList.toggle('keyboard-open',window.innerHeight-h>110);
+}
+syncVisualViewport();
+if(window.visualViewport){ visualViewport.addEventListener('resize',syncVisualViewport); visualViewport.addEventListener('scroll',syncVisualViewport); }
+window.addEventListener('resize',syncVisualViewport);
+document.addEventListener('focusin',function(ev){
+  if(!ev.target||!ev.target.matches||!ev.target.matches('input,textarea')) return;
+  setTimeout(function(){ try{ev.target.scrollIntoView({block:'center',behavior:'smooth'});}catch(e){} },280);
+});
+document.addEventListener('focusout',function(){ setTimeout(syncVisualViewport,180); });
 function commit(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); render(); }
 function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); }
 
@@ -881,9 +897,10 @@ function renderModals(){
   if(ui.goalEdit) h+=renderGoalEdit();
   if(ui.wlog) h+=renderWorkoutLog();
   if(ui.actModal) h+=renderActModal();
+  if(ui.deleteWorkout) h+=renderWorkoutDeleteConfirm();
   m.innerHTML=h;
 }
-function closeModals(){ ui.mealSheet=null; ui.editMeal=null; ui.manual=null; ui.smart=null; ui.foodSearch=null; renderModals(); }
+function closeModals(){ ui.mealSheet=null; ui.editMeal=null; ui.manual=null; ui.smart=null; ui.foodSearch=null; ui.deleteWorkout=null; renderModals(); }
 
 /* ===== MEAL SHEET ===== */
 function openMealSheet(key){ ui.mealSheet=key; renderModals(); }
@@ -2048,7 +2065,25 @@ function workoutCalendarGrid(workouts,workoutDays,since,actSet,burnedTodayKcal){
   return h;
 }
 function workoutEditDone(id){ var w=state.workouts.find(function(x){return x.id===id;}); workoutOpenLogForWorkout(w); }
-function workoutDelDone(id){ var w=state.workouts.find(function(x){return x.id===id;}); if(confirm('Удалить тренировку? '+w.title)) removeWorkout(id); }
+function workoutDelDone(id){ workoutAskDelete(id); }
+function workoutAskDelete(id){
+  var w=state.workouts.find(function(x){return x.id===id;});
+  if(!w){ alert('Запись тренировки уже удалена.'); return; }
+  ui.deleteWorkout={id:id,title:w.title||'Тренировка'}; renderModals();
+}
+function renderWorkoutDeleteConfirm(){
+  var d=ui.deleteWorkout;
+  return '<div class="overlay center" style="z-index:140"><div class="dialog" style="max-width:330px;text-align:center">'+
+    '<div style="font-size:19px;font-weight:900;margin-bottom:7px">Удалить тренировку?</div>'+
+    '<div class="muted" style="font-size:14px;margin-bottom:16px">'+esc(d.title)+'</div>'+
+    '<div class="row g8"><button class="btn ghost" style="flex:1" onclick="ui.deleteWorkout=null;renderModals()">Оставить</button>'+
+    '<button class="btn danger" style="flex:1" onclick="workoutConfirmDelete()">Удалить</button></div></div></div>';
+}
+function workoutConfirmDelete(){
+  var d=ui.deleteWorkout;if(!d)return;
+  state.workouts=state.workouts.filter(function(w){return w.id!==d.id;});
+  ui.deleteWorkout=null;ui.wlog=null;commit();
+}
 function workoutActivitySection(){
   var weightKg=latestWeight(state); var todayActs=(state.activities||[]).filter(function(a){return a.date===todayStr();});
   var burnedTotal=burnedToday(state,todayStr(),weightKg); var workoutsBurn=burnedTotal-todayActs.reduce(function(s,a){return s+a.kcal;},0);
@@ -2079,10 +2114,10 @@ function actSave(){ var am=ui.actModal; var t=ACTIVITY_TYPES.find(function(x){re
   addActivity({key:t.key,name:t.label,emoji:t.emoji,minutes:Number(am.min),kcal:kcal}); ui.actModal=null; commit(); }
 /* workout log modal */
 function workoutOpenLog(dayIndex){ var day=state.workoutPlan.days[dayIndex]; var log={}; day.ex.forEach(function(e){ log[e]=[{reps:'',weight:''}]; });
-  ui.wlog={title:tidyDayTitle(day.title,dayIndex),ex:day.ex.slice(),log:log,editingId:null}; renderModals(); }
+  ui.wlog={title:tidyDayTitle(day.title,dayIndex),ex:day.ex.slice(),log:log,editingId:null,newExercise:'',renameIndex:null,renameValue:''}; renderModals(); }
 function workoutOpenLogForWorkout(w){ var grouped={},order=[]; (w.sets||[]).forEach(function(s){ if(!grouped[s.exercise]){grouped[s.exercise]=[];order.push(s.exercise);} grouped[s.exercise].push({reps:s.reps?String(s.reps):'',weight:s.weight?String(s.weight):''}); });
   if(!order.length){ order.push(w.title); grouped[w.title]=[{reps:'',weight:''}]; }
-  ui.wlog={title:w.title,ex:order,log:grouped,editingId:w.id}; renderModals(); }
+  ui.wlog={title:w.title,ex:order,log:grouped,editingId:w.id,newExercise:'',renameIndex:null,renameValue:''}; renderModals(); }
 function exerciseImage(name){
   var s=String(name||'').toLowerCase();
   if(/бег|кардио|прыж|берпи|ходьб|велосип/.test(s)) return 'img/workout_cardio.png';
@@ -2101,7 +2136,8 @@ function renderWorkoutLog(){
     '<div style="height:10px;border-radius:5px;background:var(--cardAlt);overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+Math.round(progress*100)+'%;background:'+(progress>=1?'var(--accent)':'var(--primary)')+'"></div></div>';
   wl.ex.forEach(function(e,i){
     var d=exDone(e);
-    h+='<div style="background:var(--cardAlt);border:1px solid '+(d?'var(--accent)':'var(--line)')+';border-radius:16px;padding:12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><img src="'+exerciseImage(e)+'" alt="" style="width:54px;height:54px;border-radius:14px;object-fit:cover;border:1px solid rgba(155,125,255,.35);background:#241c3d"><div style="font-size:15px;font-weight:700;line-height:19px">'+(d?'✓ ':'')+esc(e)+'</div></div>';
+    h+='<div style="background:var(--cardAlt);border:1px solid '+(d?'var(--accent)':'var(--line)')+';border-radius:16px;padding:12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><img src="'+exerciseImage(e)+'" alt="" style="width:54px;height:54px;border-radius:14px;object-fit:cover;border:1px solid rgba(155,125,255,.35);background:#241c3d"><div style="flex:1;min-width:0;font-size:15px;font-weight:700;line-height:19px">'+(d?'✓ ':'')+esc(e)+'</div><button aria-label="Переименовать упражнение" style="width:32px;height:32px;color:var(--primary)" onclick="wlogStartRename('+i+')">✎</button><button aria-label="Удалить упражнение" style="width:32px;height:32px;color:var(--danger)" onclick="wlogRemoveExercise('+i+')">✕</button></div>'+
+      (wl.renameIndex===i?'<div style="display:flex;gap:6px;margin-top:9px"><input class="field" style="padding:9px;min-width:0" value="'+esc(wl.renameValue)+'" oninput="ui.wlog.renameValue=this.value" onkeydown="if(event.key===\'Enter\'){event.preventDefault();wlogSaveRename()}"><button class="btn" style="width:auto;padding:9px 12px" onclick="wlogSaveRename()">Сохранить</button></div>':'');
     (wl.log[e]||[]).forEach(function(s,si){
       h+='<div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span class="muted" style="width:18px">'+(si+1)+'.</span>'+
         '<input style="width:64px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;color:var(--text);font-weight:700" inputmode="numeric" placeholder="повт." value="'+esc(s.reps)+'" oninput="wlogSet('+i+','+si+',\'reps\',this.value)">'+
@@ -2111,16 +2147,22 @@ function renderWorkoutLog(){
     });
     h+='<button style="padding:6px 0;color:var(--primary);font-weight:700;font-size:13px" onclick="wlogAddSet('+i+')">＋ подход</button></div>';
   });
-  h+='<button style="width:100%;border:1px dashed rgba(155,125,255,.5);border-radius:14px;padding:10px;color:var(--primary);font-size:14px;font-weight:800;margin:2px 0 8px" onclick="wlogAddExercise()">＋ Своё упражнение</button><div class="row g8 mt8"><button class="btn ghost" style="flex:1" onclick="ui.wlog=null;renderModals()">Отмена</button><button class="btn" style="flex:1" onclick="wlogFinish()">Готово</button></div></div></div>';
+  h+='<div style="border:1px dashed rgba(155,125,255,.5);border-radius:14px;padding:9px;margin:2px 0 8px"><div style="color:var(--primary);font-size:13px;font-weight:800;margin-bottom:6px">Своё упражнение</div><div style="display:flex;gap:6px"><input id="wlog-new-exercise" class="field" style="padding:9px;min-width:0" placeholder="Например, тяга гантели" value="'+esc(wl.newExercise||'')+'" oninput="wlogNewExercise(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();wlogAddExercise()}"><button id="wlog-add-exercise" class="btn" style="width:auto;padding:9px 13px" onclick="wlogAddExercise()" '+((wl.newExercise||'').trim()?'':'disabled')+'>Добавить</button></div></div>'+
+  (wl.editingId?'<button class="btn danger" style="margin:4px 0 8px" onclick="workoutAskDelete(\''+wl.editingId+'\')">Удалить эту тренировку</button>':'')+
+  '<div class="row g8 mt8"><button class="btn ghost" style="flex:1" onclick="ui.wlog=null;renderModals()">Отмена</button><button class="btn" style="flex:1" onclick="wlogFinish()">Сохранить</button></div></div></div>';
   return h;
 }
 function wlogSet(i,si,field,val){ var wl=ui.wlog; var ex=wl.ex[i]; var v=field==='reps'?val.replace(/[^0-9]/g,''):val.replace(/[^0-9.]/g,''); wl.log[ex][si][field]=v;
   // не перерисовываем на каждый символ (чтобы не терять фокус) — прогресс/галочки обновятся при +/− подхода или «Готово»
 }
-function wlogAddSet(i){ var ex=ui.wlog.ex[i]; ui.wlog.log[ex]=(ui.wlog.log[ex]||[]).concat([{reps:'',weight:''}]); renderModals(); }
+function wlogAddSet(i){ var ex=ui.wlog.ex[i],sets=ui.wlog.log[ex]||[],last=sets.length?sets[sets.length-1]:null; ui.wlog.log[ex]=sets.concat([{reps:last&&last.reps||'',weight:last&&last.weight||''}]); renderModals(); }
 function wlogCloneSet(i,si){ var ex=ui.wlog.ex[i],src=(ui.wlog.log[ex]||[])[si]||{reps:'',weight:''}; ui.wlog.log[ex].splice(si+1,0,{reps:src.reps||'',weight:src.weight||''}); renderModals(); }
-function wlogAddExercise(){ var name=prompt('Название своего упражнения'); if(!name)return; name=name.trim(); if(!name)return; var base=name,n=2; while(ui.wlog.log[name]) name=base+' '+(n++); ui.wlog.ex.push(name); ui.wlog.log[name]=[{reps:'',weight:''}]; renderModals(); }
-function wlogDelSet(i,si){ var ex=ui.wlog.ex[i]; ui.wlog.log[ex]=(ui.wlog.log[ex]||[]).filter(function(_,j){return j!==si;}); renderModals(); }
+function wlogNewExercise(v){ ui.wlog.newExercise=v; var b=document.getElementById('wlog-add-exercise');if(b)b.disabled=!String(v||'').trim(); }
+function wlogAddExercise(){ var name=String(ui.wlog.newExercise||'').trim(); if(!name)return; var base=name,n=2; while(ui.wlog.log[name]) name=base+' '+(n++); ui.wlog.ex.push(name); ui.wlog.log[name]=[{reps:'',weight:''}]; ui.wlog.newExercise=''; renderModals(); setTimeout(function(){var el=document.getElementById('wlog-new-exercise');if(el)el.scrollIntoView({block:'center'});},30); }
+function wlogStartRename(i){ var ex=ui.wlog.ex[i];ui.wlog.renameIndex=i;ui.wlog.renameValue=ex;renderModals(); }
+function wlogSaveRename(){ var wl=ui.wlog,i=wl.renameIndex;if(i==null)return;var old=wl.ex[i],name=String(wl.renameValue||'').trim();if(!name){return;}if(name!==old&&wl.log[name]){alert('Упражнение с таким названием уже есть.');return;}wl.ex[i]=name;wl.log[name]=wl.log[old]||[{reps:'',weight:''}];if(name!==old)delete wl.log[old];wl.renameIndex=null;wl.renameValue='';renderModals(); }
+function wlogRemoveExercise(i){ var wl=ui.wlog,ex=wl.ex[i];wl.ex.splice(i,1);delete wl.log[ex];if(wl.renameIndex===i){wl.renameIndex=null;wl.renameValue='';}renderModals(); }
+function wlogDelSet(i,si){ var ex=ui.wlog.ex[i],sets=ui.wlog.log[ex]||[]; ui.wlog.log[ex]=sets.length>1?sets.filter(function(_,j){return j!==si;}):[{reps:'',weight:''}]; renderModals(); }
 function wlogFinish(){
   var wl=ui.wlog; var list=[];
   wl.ex.forEach(function(ex){ (wl.log[ex]||[]).forEach(function(s){ if(s.reps||s.weight) list.push({exercise:ex,reps:Number(s.reps)||0,weight:Number(s.weight)||0}); }); });
