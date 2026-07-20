@@ -129,6 +129,13 @@ function buildWidgetPayload(){
 function syncWidget(){
   var payload=buildWidgetPayload();
   if(!payload) return;
+  // Сохраняем локально для fallback
+  try{ localStorage.setItem('widget_payload',JSON.stringify(payload)); }catch(e){}
+  // Отправляем на Worker (виджет получит оттуда)
+  try{
+    fetch(GROQ_PROXY+'/widget/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+  }catch(e){}
+  // Также отправляем через native bridge, на случай если App Groups всё-таки работает
   try{
     if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.widget)
       window.webkit.messageHandlers.widget.postMessage(payload);
