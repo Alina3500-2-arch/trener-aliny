@@ -301,7 +301,7 @@ function makeItem(name,grams,per100){ var g=Math.round(Number(grams)||0); var s=
 /* ===== AI (Groq via Cloudflare Worker proxy) ===== */
 var GROQ_PROXY='https://divine-dream-5ce0.alinatyu456.workers.dev';
 var AI_MODEL='llama-3.3-70b-versatile';
-var AI_VISION='meta-llama/llama-4-scout-17b-16e-instruct';
+var AI_VISION='meta-llama/llama-4-maverick-17b-128e-instruct';
 var AI_BASE=GROQ_PROXY;
 var CHAT_URL=AI_BASE+'/openai/v1/chat/completions';
 var TRANSCRIBE_URL=AI_BASE+'/openai/v1/audio/transcriptions';
