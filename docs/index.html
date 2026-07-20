@@ -1730,13 +1730,15 @@ function workoutWeekWidget(plan,wDays){
   for(var i=0;i<7;i++){
     var d=new Date(monday);d.setDate(monday.getDate()+i);
     var jsDay=(i+1)%7;
-    var isNext=nextDate&&todayStr(d)===todayStr(nextDate);
+    var ds=todayStr(d);
+    var isNext=nextDate&&ds===todayStr(nextDate);
+    var isSelected=workoutLocal&&workoutLocal.weekSel===ds;
     var hasWorkout=(wDays||[]).includes(jsDay);
-    daysHtml+='<div style="flex:1;text-align:center;min-width:0">'+
+    daysHtml+='<button style="flex:1;text-align:center;min-width:0;padding:0;border:0;background:transparent;color:inherit" onclick="workoutWeekDaySelect(\''+ds+'\')">'+
       '<div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">'+labels[i]+'</div>'+
       '<div style="width:27px;height:27px;margin:4px auto 5px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+(isNext?'#8B2FFF':'transparent')+';color:#fff">'+d.getDate()+'</div>'+
       '<div style="width:16px;height:3px;border-radius:3px;margin:auto;background:'+(hasWorkout?'#9B7DFF':'rgba(255,255,255,.10)')+'"></div>'+
-    '</div>';
+    '</button>';
   }
   var nextLabel=nextDate?nextDate.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric'}):'не запланирована';
   var title=payload?payload.title:'Нет активного расписания';
@@ -1750,6 +1752,29 @@ function workoutWeekWidget(plan,wDays){
     '<div style="display:flex;gap:0">'+daysHtml+'</div>'+
   '</div>';
 }
+function workoutWeekDaySelect(ds){
+  workoutLocal.weekSel=workoutLocal.weekSel===ds?null:ds;
+  render();
+}
+function workoutSelectedDayCard(){
+  var ds=workoutLocal&&workoutLocal.weekSel;
+  if(!ds)return'';
+  var weightKg=latestWeight(state);
+  var info=daySummary(ds,state.workouts||[],state.activities||[],state.workoutDays||[],weightKg,todayStr());
+  var h='<div style="background:rgba(155,125,255,.08);border:1px solid rgba(155,125,255,.28);border-radius:18px;padding:13px 14px;margin:-2px 0 12px">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
+      '<div style="font-size:13px;font-weight:800;color:#bda8ff">'+esc(info.label)+'</div>'+
+      '<button style="font-size:17px;color:rgba(255,255,255,.45);padding:2px 5px" onclick="workoutLocal.weekSel=null;render()">×</button>'+
+    '</div>'+
+    '<div style="font-size:12px;line-height:18px;color:'+(info.missed?'#f0c36b':'rgba(255,255,255,.72)')+';white-space:pre-line;margin-top:4px">'+esc(info.text)+'</div>';
+  if(info.workout){
+    h+='<div style="display:flex;gap:8px;margin-top:10px">'+
+      '<button style="flex:1;padding:8px;border-radius:10px;background:rgba(155,125,255,.16);color:#bda8ff;font-size:12px;font-weight:800" onclick="workoutEditDone(\''+info.workout.id+'\')">Изменить</button>'+
+      '<button style="padding:8px 12px;border-radius:10px;background:rgba(240,138,148,.10);color:#f08a94;font-size:12px;font-weight:800" onclick="workoutDelDone(\''+info.workout.id+'\')">Удалить</button>'+
+    '</div>';
+  }
+  return h+'</div>';
+}
 function workoutDashboard(){
   var plan=state.workoutPlan;var wl=workoutLocal;var wDays=state.workoutDays||[];
   var wkg=latestWeight(state);var tdIdx=todayPlanDayIdx(plan,wDays);
@@ -1762,14 +1787,11 @@ function workoutDashboard(){
     '<div style="font-size:13px;line-height:18px;color:rgba(255,255,255,0.85)">'+esc(coachMsg.text)+'</div></div>'+
     '<img src="img/trainer.png" style="width:50px;height:50px;border-radius:25px;object-fit:cover;object-position:center top;border:2px solid rgba(139,92,246,0.4);flex-shrink:0" onerror="this.style.display=\'none\'">'+
   '</div>';
-  var calToggle='<button style="width:100%;padding:11px 16px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.5);font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:8px" onclick="workoutLocal.showCal=!workoutLocal.showCal;render()">'+
-    '<span>История тренировок</span><span style="margin-left:auto">'+(wl.showCal?'▲':'▼')+'</span></button>';
-  var calSection=wl.showCal?workoutCalendarSection():'';
   return '<div class="body-pad">'+
     '<div style="text-align:center;padding:max(10px,var(--sat)) 0 14px"><div style="font-size:22px;font-weight:900;color:#fff">Тренировки</div>'+
     '<div style="font-size:13px;color:#8B5CF6;font-weight:700;margin-top:2px">Расписание и прогресс</div></div>'+
-    workoutEnergyHero()+workoutWeekWidget(plan,wDays)+workoutTypeProgressRow(plan)+workoutTodayPlanSection(plan,wDays,wkg,tdIdx)+
-    workoutProgramsSection(plan)+coachCard+calToggle+calSection+
+    workoutEnergyHero()+workoutWeekWidget(plan,wDays)+workoutSelectedDayCard()+workoutTypeProgressRow(plan)+workoutTodayPlanSection(plan,wDays,wkg,tdIdx)+
+    workoutProgramsSection(plan)+coachCard+
   '</div>';
 }
 function workoutTypeProgressRow(plan){
