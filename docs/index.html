@@ -1695,6 +1695,31 @@ function workoutRingSVG(mins,maxMins,sz,sw){
     '<div style="font-size:'+Math.round(sz*0.07)+'px;color:rgba(255,255,255,.65);margin-top:3px;font-weight:700;line-height:1">мин</div>'+
     '</div></div>';
 }
+function workoutEnergyHero(){
+  var ds=todayStr(),wkg=latestWeight(state);
+  var todaysWorkouts=(state.workouts||[]).filter(function(w){return w.date===ds;});
+  var todaysActivities=(state.activities||[]).filter(function(a){return a.date===ds;});
+  var workoutBurn=Math.round(todaysWorkouts.reduce(function(s,w){return s+workoutKcal(w,wkg);},0));
+  var activityBurn=Math.round(todaysActivities.reduce(function(s,a){return s+(Number(a.kcal)||0);},0));
+  var total=workoutBurn+activityBurn;
+  var status=todaysWorkouts.length?'Тренировка записана':'Тренировка ещё не записана';
+  return '<div style="position:relative;overflow:hidden;background:linear-gradient(145deg,#1d123d,#2b1e55);border:1px solid rgba(155,125,255,.42);border-radius:25px;padding:18px 18px 16px;margin-bottom:12px;box-shadow:0 14px 35px rgba(57,25,112,.20)">'+
+    '<div style="position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(153,66,255,.20);filter:blur(35px);right:-50px;top:-90px"></div>'+
+    '<div style="position:relative;display:flex;align-items:center;gap:16px">'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:11px;color:#c7b9df;font-weight:700;letter-spacing:.5px">ПОТРАЧЕНО СЕГОДНЯ</div>'+
+        '<div style="display:flex;align-items:baseline;gap:7px;margin:5px 0 2px"><span style="font-size:46px;line-height:1;font-weight:900;color:#fff;text-shadow:0 0 22px rgba(185,104,255,.45)">'+total+'</span><span style="font-size:14px;font-weight:800;color:#bda8dc">ккал</span></div>'+
+        '<div style="font-size:11px;color:'+(todaysWorkouts.length?'#54dfa9':'rgba(255,255,255,.48)')+';font-weight:700">'+status+'</div>'+
+      '</div>'+
+      '<div style="width:145px;background:rgba(8,7,15,.25);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:11px 12px">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px"><span style="font-size:11px;color:#c7b9df">Тренировки</span><span style="font-size:12px;color:#fff;font-weight:800">'+workoutBurn+'</span></div>'+
+        '<div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:8px"></div>'+
+        '<div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:11px;color:#c7b9df">Нагрузка</span><span style="font-size:12px;color:#fff;font-weight:800">'+activityBurn+'</span></div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="position:relative;font-size:10px;color:rgba(255,255,255,.30);margin-top:10px">По данным, которые записаны в приложении</div>'+
+  '</div>';
+}
 function workoutWeekWidget(plan,wDays){
   var payload=buildWidgetPayload();
   var now=new Date(),today=new Date(now);today.setHours(0,0,0,0);
@@ -1743,7 +1768,7 @@ function workoutDashboard(){
   return '<div class="body-pad">'+
     '<div style="text-align:center;padding:max(10px,var(--sat)) 0 14px"><div style="font-size:22px;font-weight:900;color:#fff">Тренировки</div>'+
     '<div style="font-size:13px;color:#8B5CF6;font-weight:700;margin-top:2px">Расписание и прогресс</div></div>'+
-    workoutWeekWidget(plan,wDays)+workoutTypeProgressRow(plan)+workoutTodayPlanSection(plan,wDays,wkg,tdIdx)+
+    workoutEnergyHero()+workoutWeekWidget(plan,wDays)+workoutTypeProgressRow(plan)+workoutTodayPlanSection(plan,wDays,wkg,tdIdx)+
     workoutProgramsSection(plan)+coachCard+calToggle+calSection+
   '</div>';
 }
