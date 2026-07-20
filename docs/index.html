@@ -609,7 +609,7 @@ function renderToday(){
   h+='<div class="body-pad" style="padding:10px 14px 8px">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:15px;font-weight:800">Приёмы пищи</div>'+
       '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:6px 12px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>'+
-    '<div style="display:flex;gap:8px;align-items:stretch">'+
+    '<div style="display:flex;gap:8px;align-items:flex-start">'+
     '<div style="flex:1.5;min-width:0">';
   visibleMeals.forEach(function(m){
     var items=meals.filter(function(x){return x.type===m.key;});
@@ -632,14 +632,14 @@ function renderToday(){
   h+='</div>';
   // coach column
   if(over){
-    h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;border:1.5px solid var(--alert);background:var(--dangerBg);border-radius:16px;padding:10px;text-align:left">'+
+    h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;border:1.5px solid var(--alert);background:var(--dangerBg);border-radius:16px;padding:10px;text-align:left">'+
       '<div style="color:var(--alert);font-size:12px;font-weight:800;margin-bottom:4px">❗ Перебор</div>'+
       '<div style="color:var(--alert);font-size:11px;line-height:14px;font-weight:700">Стоп! Перебор на '+overTarget+' ккал. На сегодня хватит — попей воды. Завтра с чистого листа! 💪</div></div>';
   } else {
     h+='<button onclick="askAlina()" style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:10px">'+
       '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">💜</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
-      '<div style="color:var(--text);font-size:11px;line-height:14px;flex:1">'+esc(todayLocal.aiTip||advice)+'</div>'+
-      '<div style="display:flex;justify-content:flex-end;margin-top:4px"><img src="img/trainer.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
+      '<div style="color:var(--text);font-size:11px;line-height:14px">'+esc(todayLocal.aiTip||advice)+'</div>'+
+      '<div style="display:flex;justify-content:flex-end;margin-top:6px"><img src="img/trainer.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
       '</button>';
   }
   h+='</div></div>';
