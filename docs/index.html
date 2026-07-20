@@ -777,7 +777,7 @@ function renderToday(){
   h+='<div class="body-pad" style="padding:10px 14px 8px">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><div style="font-size:18px;font-weight:900">Приёмы пищи</div><div style="font-size:11px;color:var(--textDim);margin-top:1px">Записи за выбранный день</div></div>'+
       '<button style="background:var(--primaryDim);border:1px solid var(--primary);border-radius:999px;padding:6px 12px;color:var(--primary);font-size:12px;font-weight:800" onclick="openSmartDay()">🎤 Весь день</button></div>'+
-    '<div style="display:flex;gap:8px;align-items:flex-start">'+
+    '<div style="display:flex;flex-direction:column;gap:10px;align-items:stretch">'+
     '<div style="flex:'+(isToday?'1.5':'1')+';min-width:0">';
   visibleMeals.forEach(function(m){
     var items=meals.filter(function(x){return x.type===m.key;});
@@ -808,7 +808,7 @@ function renderToday(){
   } else {
     h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:10px">'+
       '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">💜</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
-      '<div style="color:var(--text);font-size:11px;line-height:14px">'+esc(todayLocal.aiTip||advice)+'</div>'+
+      '<div style="color:var(--text);font-size:13px;line-height:18px">'+esc(todayLocal.aiTip||advice)+'</div>'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px"><button onclick="askAlina(true)" style="border:1px solid rgba(155,125,255,.35);border-radius:999px;padding:4px 9px;color:#bda8ff;font-size:10px;font-weight:800;background:rgba(155,125,255,.10)">Обновить</button><img src="img/trainer.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
       '</div>';
   }
