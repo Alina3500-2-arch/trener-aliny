@@ -1,7 +1,7 @@
 import SwiftUI
 import WidgetKit
 
-private let widgetEndpoint = "https://divine-dream-5ce0.alinatyu456.workers.dev/widget/aline"
+private let widgetEndpoint = "https://trener-aliny-widget.alina-3500-2.workers.dev/widget/aline"
 
 private struct WidgetPayload: Codable {
     let nextDate: TimeInterval
