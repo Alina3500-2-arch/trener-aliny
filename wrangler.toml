@@ -1,0 +1,7 @@
+name = "trener-aliny-widget"
+main = "groq-proxy/src/index.js"
+compatibility_date = "2024-11-01"
+
+# Cloudflare создаст хранилище расписания при первом deploy.
+[[kv_namespaces]]
+binding = "WIDGET_KV"
