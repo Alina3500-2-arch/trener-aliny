@@ -45,7 +45,7 @@ input:focus,textarea:focus{outline:none;}
 #tabbar{position:fixed;left:0;right:0;bottom:0;height:calc(62px + var(--sab));padding-bottom:var(--sab);
   display:flex;background:var(--card);border-top:1px solid var(--line);z-index:50;}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--textDim);font-size:11px;font-weight:600;padding-top:6px;}
-.tab .ico{font-size:20px;opacity:.6;line-height:1;}
+.tab .ico{width:23px;height:23px;opacity:.58;line-height:1;display:flex;align-items:center;justify-content:center}.tab .ico svg{width:23px;height:23px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tab.on{color:var(--primary);} .tab.on .ico{opacity:1;}
 /* hero */
 .hero{background:var(--grad);padding:calc(28px + var(--sat)) 20px 16px;border-radius:0 0 26px 26px;color:#fff;}
@@ -506,11 +506,21 @@ function setTab(t,keepDeepLink){
   }
   ui.tab=t; window.scrollTo(0,0); render();
 }
+function tabIcon(key){
+  var paths={
+    today:'<circle cx="12" cy="12" r="7.5"/><path d="M4.5 4.5v6M2.8 4.5v3.2c0 1 .7 1.8 1.7 1.8s1.7-.8 1.7-1.8V4.5M19.5 4.5v15M19.5 4.5c-2 1.2-2.8 3-2.8 5.2h2.8"/>',
+    workout:'<path d="M6 9v6M3.5 10.5v3M18 9v6M20.5 10.5v3M6 12h12"/>',
+    activity:'<circle cx="14.5" cy="4.5" r="2"/><path d="m12.5 8-3 4 3 2.5 2.2 5M12 9l4 2 2.5-2M9.5 12 5 18M12.5 14.5l-5 1"/>',
+    progress:'<path d="M4 19V5M4 19h16"/><path d="m7 15 3-4 3 2 5-6"/>',
+    settings:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M4 12h4M12 12h8"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="10" cy="12" r="2"/>'
+  };
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">'+paths[key]+'</svg>';
+}
 function renderTabBar(){
   var tb=document.getElementById('tabbar');
   if(!state.onboarded){ tb.style.display='none'; return; }
   tb.style.display='flex';
-  tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+(ui.tab===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+t.ico+'</span>'+t.label+'</button>'; }).join('');
+  tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+(ui.tab===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+tabIcon(t.key)+'</span>'+t.label+'</button>'; }).join('');
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   size=size||200; stroke=stroke||14; centerColor=centerColor||'#FFFFFF';
