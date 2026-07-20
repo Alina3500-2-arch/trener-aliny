@@ -1,6 +1,7 @@
 import UIKit
 import WebKit
 import UserNotifications
+import WidgetKit
 
 // WKWebView на весь экран, грузит веб-приложение с GitHub Pages.
 // Единственный настоящий нативный мост — планирование локальных уведомлений
@@ -19,6 +20,7 @@ final class WebViewController: UIViewController {
         // Мост уведомлений: window.webkit.messageHandlers.notify.postMessage(payload)
         let controller = WKUserContentController()
         controller.add(self, name: "notify")
+        controller.add(self, name: "widget")
         config.userContentController = controller
 
         // Разрешить inline-воспроизведение и не требовать жеста пользователя для
@@ -79,8 +81,14 @@ extension WebViewController: WKScriptMessageHandler {
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
-        guard message.name == "notify",
-              let payload = message.body as? [String: Any] else { return }
+        guard let payload = message.body as? [String: Any] else { return }
+
+        if message.name == "widget" {
+            updateWidget(payload)
+            return
+        }
+
+        guard message.name == "notify" else { return }
 
         let reminders = payload["reminders"] as? [[String: Any]] ?? []
         let workout = payload["workout"] as? [String: Any]
@@ -90,6 +98,16 @@ extension WebViewController: WKScriptMessageHandler {
             guard granted else { return } // тихо ничего не планируем, если запрещено
             self.scheduleNotifications(reminders: reminders, workout: workout)
         }
+    }
+
+    private func updateWidget(_ payload: [String: Any]) {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8),
+              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+
+        defaults.set(json, forKey: "widgetPayload")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyWorkoutWidget")
     }
 
     private func scheduleNotifications(reminders: [[String: Any]], workout: [String: Any]?) {

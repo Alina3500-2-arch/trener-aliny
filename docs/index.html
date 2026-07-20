@@ -109,6 +109,32 @@ function loadState(){
 function saveState(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
 var state=loadState();
 
+/* Передаём только краткое расписание в локальный iOS-виджет. */
+function buildWidgetPayload(){
+  var days=(state.workoutDays||[]).slice().sort(function(a,b){return a-b;});
+  var plan=state.workoutPlan;
+  if(!days.length||!plan||!plan.days||!plan.days.length) return null;
+  var now=new Date(); now.setHours(0,0,0,0); var done=workoutDatesSet(state.workouts||[]);
+  var next=null;
+  for(var add=0;add<8;add++){
+    var d=new Date(now); d.setDate(now.getDate()+add);
+    if(days.includes(dowOf(d))&&!(add===0&&done.has(todayStr(d)))){next=d;break;}
+  }
+  if(!next) return null;
+  var pos=days.indexOf(dowOf(next)); var day=plan.days[(pos<0?0:pos)%plan.days.length];
+  var title=tidyDayTitle(day.title||plan.name||'Тренировка',pos<0?0:pos).toUpperCase();
+  var duration=Math.max(20,Math.min(90,12+((day.ex||[]).length*7)));
+  return {nextDate:Math.floor(next.getTime()/1000),title:title,durationMinutes:duration,workoutDays:days};
+}
+function syncWidget(){
+  var payload=buildWidgetPayload();
+  if(!payload) return;
+  try{
+    if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.widget)
+      window.webkit.messageHandlers.widget.postMessage(payload);
+  }catch(e){ console.log('widget sync skipped',e); }
+}
+
 /* ===== UTILS ===== */
 function todayStr(d){ d=d||new Date(); var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+day; }
 function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
@@ -442,8 +468,8 @@ function buildReminderPayload(){
 
 /* ===== UI STATE + RENDER CORE ===== */
 var ui={ tab:'today', viewDate:todayStr() };
-function commit(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); render(); }
-function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); }
+function commit(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); render(); }
+function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); }
 
 var TABS=[
   {key:'today',label:'Питание',ico:'🍽️'},
