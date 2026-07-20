@@ -5,8 +5,9 @@ compatibility_date = "2024-11-01"
 # KV для хранения данных виджета тренировок
 [[kv_namespaces]]
 binding = "WIDGET_KV"
-id = "treneraliny_widget"
-preview_id = "treneraliny_widget_preview"
+
+# ID намеренно не указан: современный Wrangler создаст KV автоматически при
+# первом deploy и запишет настоящий ID обратно в этот файл.
 
 # Секреты задаются командой (НЕ храним в файле):
 #   npx wrangler secret put GROQ_KEY
