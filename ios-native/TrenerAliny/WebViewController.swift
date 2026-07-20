@@ -177,13 +177,20 @@ extension WebViewController: UNUserNotificationCenterDelegate {
 
     private static func deepLinkTarget(for identifier: String) -> String? {
         switch identifier {
-        case "reminder-breakfast": return "meal:breakfast"
-        case "reminder-lunch": return "meal:lunch"
-        case "reminder-dinner": return "meal:dinner"
         case "reminder-weigh": return "tab:weight"
         case "reminder-workout": return "tab:workout"
+        case "reminder-sm-summary": return "tab:today"
         default:
-            return identifier.hasPrefix("workout-") ? "tab:workout" : nil
+            if identifier.hasPrefix("workout-") { return "tab:workout" }
+            // Умные напоминания о еде: "reminder-sm-<mealKey>-<hour>" → открыть лист приёма пищи.
+            if identifier.hasPrefix("reminder-sm-") {
+                let rest = identifier.dropFirst("reminder-sm-".count) // напр. "breakfast-7"
+                if let lastDash = rest.range(of: "-", options: .backwards) {
+                    let mealKey = rest[rest.startIndex..<lastDash.lowerBound]
+                    return "meal:\(mealKey)"
+                }
+            }
+            return nil
         }
     }
 

@@ -64,8 +64,8 @@ input:focus,textarea:focus{outline:none;}
 /* calorie ring */
 .ringWrap{position:relative;display:inline-block;}
 .ringCenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.ringGlow{animation:ringPulse 2.6s ease-in-out infinite;}
-@keyframes ringPulse{0%,100%{opacity:.55;}50%{opacity:1;}}
+.ringGlow{animation:ringPulse 4.5s ease-in-out infinite;}
+@keyframes ringPulse{0%,100%{opacity:.82;}50%{opacity:1;}}
 /* errorbox */
 .errBox{background:var(--dangerBg);border:1px solid var(--danger);border-radius:10px;padding:12px;margin-top:8px;color:var(--danger);font-size:14px;}
 .okBox{background:var(--successBg);border:1px solid var(--accent);border-radius:10px;padding:12px;}
@@ -92,6 +92,7 @@ var emptyState={
   profile:{name:'Алина',sex:'f',height:165,age:30,activity:1.375},
   goal:null, customFoods:[], weights:[], meals:[], workouts:[], activities:[],
   workoutPlan:null, workoutDays:[], workoutTime:'18:00', workoutDaysSince:null, favorites:[],
+  smartMealReminders:true,
   reminders:[
     {id:'weigh',label:'Взвешивание',body:'Доброе утро! Взвесься и запиши вес 💜',time:'08:00',enabled:true},
     {id:'breakfast',label:'Завтрак',body:'Что ты позавтракала? Запиши голосом 🍳',time:'10:00',enabled:true},
@@ -401,11 +402,48 @@ function scheduleReminders(reminders,workout){
     }else{ console.log('[reminders no-op]',reminders,workout); }
   }catch(e){ console.log('reminders error',e); }
 }
+/* Умные напоминания о еде: эскалирующие подсказки каждый час, пока приём пищи не записан.
+   Пересчитывается на каждый commit() — как только Алина что-то записывает, лишние
+   уведомления для этого приёма пищи автоматически пропадают из очереди. */
+var MEAL_REMIND_INFO={
+  breakfast:{verb:'позавтракала',noun:'завтрак',emoji:'🍳',hours:[7,8,9,10]},
+  brunch:{verb:'перекусила',noun:'ланч',emoji:'🥪',hours:[10,11,12,13]},
+  lunch:{verb:'пообедала',noun:'обед',emoji:'🍲',hours:[13,14,15]},
+  snack:{verb:'перекусила',noun:'полдник',emoji:'🍎',hours:[16,17,18]},
+  dinner:{verb:'поужинала',noun:'ужин',emoji:'🍽️',hours:[18,19,20]},
+};
+function mealRemindBody(info,tier){
+  if(tier===0) return 'Алина, ты '+info.verb+'? Обязательно запиши, что ела на '+info.noun+' '+info.emoji;
+  if(tier===1) return 'Алина, ты всё ещё не '+info.verb+'? Я не увидела записи в дневнике 👀';
+  if(tier===2) return 'Алина, не может быть, чтобы ты ещё не '+info.verb+'! Обязательно запиши — это недолго. Нет времени? Хотя бы сфотографируй 📸';
+  return 'Алина, пропускать приёмы пищи вредно для метаболизма! Это не так сложно — просто нажми и запиши, что поела 💜';
+}
+function computeMealReminderQueue(){
+  var today=todayStr(); var todaysMeals=(state.meals||[]).filter(function(m){return m.date===today;});
+  var out=[], missing=[];
+  Object.keys(MEAL_REMIND_INFO).forEach(function(key){
+    var info=MEAL_REMIND_INFO[key];
+    if(todaysMeals.some(function(m){return m.type===key;})) return;
+    missing.push((MEAL_TYPES.find(function(m){return m.key===key;})||{}).label||info.noun);
+    info.hours.forEach(function(hour,tier){
+      out.push({id:'sm-'+key+'-'+hour,label:info.noun,body:mealRemindBody(info,tier),time:String(hour).padStart(2,'0')+':00',enabled:true});
+    });
+  });
+  if(missing.length){
+    out.push({id:'sm-summary',label:'Итог дня',body:'Алина, ты пропустила запись: '+missing.join(', ')+'. Обязательно запиши, а то мы не сможем контролировать твоё питание. Это несложно — просто нажми и сделай это 💜',time:'21:00',enabled:true});
+  }
+  return out;
+}
+function buildReminderPayload(){
+  var base=(state.reminders||[]).filter(function(r){return r.id==='weigh';});
+  var smart=state.smartMealReminders!==false?computeMealReminderQueue():[];
+  return base.concat(smart);
+}
 
 /* ===== UI STATE + RENDER CORE ===== */
 var ui={ tab:'today', viewDate:todayStr() };
-function commit(){ saveState(); scheduleReminders(state.reminders||[],{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); render(); }
-function commitNoRender(){ saveState(); scheduleReminders(state.reminders||[],{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); }
+function commit(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); render(); }
+function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); }
 
 var TABS=[
   {key:'today',label:'Питание',ico:'🍽️'},
@@ -1202,7 +1240,7 @@ function renderGoal(){
   return h;
 }
 function renderRemindersCard(){
-  var list=state.reminders||[];
+  var list=(state.reminders||[]).filter(function(r){return r.id==='weigh';});
   var h='<div class="card"><h2 class="h2">Напоминания</h2><p class="muted">Тренер напомнит вовремя. Время — ЧЧ:ММ.</p>';
   list.forEach(function(r){
     h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">'+
@@ -1211,11 +1249,17 @@ function renderRemindersCard(){
       '<button onclick="remToggle(\''+r.id+'\')" style="width:44px;height:26px;border-radius:999px;background:'+(r.enabled?'var(--primaryDim)':'var(--line)')+';position:relative"><span style="position:absolute;top:2px;'+(r.enabled?'right:2px;background:var(--primary)':'left:2px;background:#888')+';width:22px;height:22px;border-radius:50%"></span></button>'+
     '</div>';
   });
+  var smOn=state.smartMealReminders!==false;
+  h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0">'+
+    '<div style="flex:1"><div style="font-size:15px;font-weight:600">Умные напоминания о еде</div><div class="muted">Каждый час, пока не запишешь приём пищи — с 7:00 до 21:00, с нарастающей настойчивостью</div></div>'+
+    '<button onclick="toggleSmartReminders()" style="width:44px;height:26px;border-radius:999px;background:'+(smOn?'var(--primaryDim)':'var(--line)')+';position:relative"><span style="position:absolute;top:2px;'+(smOn?'right:2px;background:var(--primary)':'left:2px;background:#888')+';width:22px;height:22px;border-radius:50%"></span></button>'+
+  '</div>';
   h+='</div>';
   return h;
 }
 function remTime(id,v){ state.reminders=(state.reminders||[]).map(function(r){return r.id===id?Object.assign({},r,{time:v}):r;}); commitNoRender(); }
 function remToggle(id){ state.reminders=(state.reminders||[]).map(function(r){return r.id===id?Object.assign({},r,{enabled:!r.enabled}):r;}); commit(); }
+function toggleSmartReminders(){ state.smartMealReminders=state.smartMealReminders===false; commit(); }
 function openGoalEdit(){
   var g=state.goal; var p=state.profile;
   goalLocal={delta:g?String(Math.abs(g.targetDeltaKg)):'2',dir:g&&g.targetDeltaKg>0?'gain':'lose',days:g?String(g.periodDays):'30',preview:null,
