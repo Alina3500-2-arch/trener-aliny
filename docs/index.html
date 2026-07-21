@@ -907,18 +907,24 @@ function openMealSheet(key){ ui.mealSheet=key; renderModals(); }
 function renderMealSheet(){
   var m=MEAL_TYPES.find(function(x){return x.key===ui.mealSheet;});
   var items=todayMeals(state,ui.viewDate).filter(function(x){return x.type===ui.mealSheet;});
+  var totals=items.reduce(function(a,x){a.kcal+=Number(x.kcal)||0;a.protein+=Number(x.protein)||0;a.fat+=Number(x.fat)||0;a.carbs+=Number(x.carbs)||0;return a;},{kcal:0,protein:0,fat:0,carbs:0});
   var h='<div class="overlay center" onclick="if(event.target===this){ui.mealSheet=null;renderModals();}"><div class="dialog">'+
-    '<div class="mhead"><div style="font-size:18px;font-weight:800">'+m.icon+' '+m.label+'</div><button class="closeX" onclick="ui.mealSheet=null;renderModals()">✕</button></div>';
+    '<div class="mhead"><div style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:7px">'+mealIconSVG(m.key)+esc(m.label)+'</div><button class="closeX" onclick="ui.mealSheet=null;renderModals()">✕</button></div>';
   if(items.length){
-    h+='<div style="margin-bottom:8px">';
+    h+='<div style="margin-bottom:9px">';
     items.forEach(function(x){
-      h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)" ondblclick="mealSheetDelete(\''+x.id+'\')">'+
-        '<button style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:600" onclick="mealSheetEdit(\''+x.id+'\')">'+esc(x.name)+(x.time?' <span style="color:var(--textDim);font-size:12px;font-weight:600">· '+x.time+'</span>':'')+'</button>'+
-        '<span style="color:var(--textDim);font-size:14px;width:60px;text-align:right;margin-right:12px">'+(x.grams?x.grams+' г':'')+'</span>'+
-        '<span style="font-size:14px;font-weight:700;width:66px;text-align:right">'+Math.round(x.kcal)+' ккал</span>'+
-        '<button style="color:var(--danger);padding:4px 6px" onclick="mealSheetDelete(\''+x.id+'\')">✕</button></div>';
+      var grams=Math.round(Number(x.grams)||0),kcal=Math.round(Number(x.kcal)||0);
+      h+='<div style="background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 11px;margin-bottom:7px">'+
+        '<div style="display:flex;align-items:center;gap:8px"><button style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:800;line-height:19px" onclick="mealSheetEdit(\''+x.id+'\')">'+esc(x.name)+'</button>'+
+        '<span style="color:var(--accent);font-size:14px;font-weight:900;white-space:nowrap">'+kcal+' ккал</span>'+
+        '<button aria-label="Удалить" style="color:var(--danger);padding:4px 6px" onclick="mealSheetDelete(\''+x.id+'\')">✕</button></div>'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-top:5px;color:var(--textDim);font-size:11px;font-weight:700">'+
+          (grams?'<span>'+grams+' г</span>':'')+(x.time?'<span>'+esc(x.time)+'</span>':'')+
+          '<span style="margin-left:auto">Б '+r1(x.protein)+' · Ж '+r1(x.fat)+' · У '+r1(x.carbs)+' г</span></div></div>';
     });
-    h+='<p class="muted mt8">Нажми на запись, чтобы поправить.</p></div>';
+    h+='<div style="background:linear-gradient(145deg,rgba(91,55,160,.42),rgba(41,30,67,.7));border:1px solid rgba(155,125,255,.38);border-radius:15px;padding:11px 12px;margin-top:8px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:900">Итого — '+esc(m.label.toLowerCase())+'</span><span style="color:#c8a9ff;font-size:17px;font-weight:900">'+Math.round(totals.kcal)+' ккал</span></div>'+
+      '<div style="font-size:12px;color:var(--text);margin-top:5px">Белки '+r1(totals.protein)+' г · Жиры '+r1(totals.fat)+' г · Углеводы '+r1(totals.carbs)+' г</div></div></div>';
   } else { h+='<p class="muted" style="margin-bottom:8px">Пока пусто. Добавь, что съела:</p>'; }
   h+='<div class="row g8">'+
     '<button style="flex:1;padding:12px 0;border-radius:16px;background:var(--cardAlt);border:1px solid var(--line);text-align:center" onclick="mealSheetVoice()"><div style="font-size:22px">🎤</div><div style="font-size:13px;font-weight:700">Голос</div></button>'+
@@ -1000,20 +1006,15 @@ function manualBody(){
       '<div class="row g8 mt16"><button class="btn ghost" style="flex:1" onclick="ui.manual.selected=null;ui.manual.grams=\'\';renderModals()">Назад</button><button class="btn" id="ma-add-btn" style="flex:1" onclick="maAddItem()" '+(m.grams?'':'disabled')+'>Добавить</button></div>';
   }
 
-  // product database + recent foods + favorites
+  // product database + recent foods + favorites — identical layout in every tab
   var h='<div style="display:flex;background:var(--cardAlt);border-radius:12px;padding:3px;margin:7px 0 9px">'+
     '<button style="flex:1;padding:8px 4px;border-radius:9px;font-size:12px;font-weight:800;background:'+(m.searchTab==='products'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='products'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'products\')">Продукты</button>'+
     '<button style="flex:1;padding:8px 4px;border-radius:9px;font-size:12px;font-weight:800;background:'+(m.searchTab==='recent'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='recent'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'recent\')">Недавние</button>'+
     '<button style="flex:1;padding:8px 4px;border-radius:9px;font-size:12px;font-weight:800;background:'+(m.searchTab==='favorites'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='favorites'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'favorites\')">Избранное</button></div>'+
-    (m.searchTab==='favorites'?'<div id="ma-results">'+(function(){    var favHtml='<div style="font-size:15px;font-weight:800;margin-bottom:2px">❤️ Избранное</div>';
-    if(!(state.favorites||[]).length) favHtml+='<p class="muted mt8">Пусто. Добавляй сердечком после выбора продукта.</p>';
-    else (state.favorites||[]).forEach(function(f){ favHtml+=maFavRow(f); });
-    if((state.customFoods||[]).length){ favHtml+='<div style="font-size:15px;font-weight:800;margin:12px 0 2px">🧾 Мои продукты</div>'; (state.customFoods||[]).forEach(function(f){ favHtml+=maCustomRow(f); }); }
- return favHtml;})()+'</div>':
-    '<div style="position:relative"><svg viewBox="0 0 24 24" style="position:absolute;left:12px;top:18px;width:20px;height:20px;fill:none;stroke:var(--textDim);stroke-width:2;stroke-linecap:round"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>'+
-    '<input class="field" id="ma-search" style="font-size:16px;margin:6px 0 8px;padding-left:40px" placeholder="'+(m.searchTab==='recent'?'Поиск в недавних':'Найти продукт в базе')+'" value="'+esc(m.query)+'" oninput="maSearch(this.value)"></div>'+
-    '<div id="ma-results">'+manualResults()+'</div>'+
-    (m.customMode?manualCustomForm():''));
+    '<div style="position:relative;height:52px"><svg viewBox="0 0 24 24" style="position:absolute;left:12px;top:16px;width:20px;height:20px;fill:none;stroke:var(--textDim);stroke-width:2;stroke-linecap:round"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>'+
+    '<input class="field" id="ma-search" style="font-size:16px;height:46px;padding-left:40px" placeholder="'+(m.searchTab==='recent'?'Поиск в недавних':m.searchTab==='favorites'?'Поиск в избранном':'Найти продукт в базе')+'" value="'+esc(m.query)+'" oninput="maSearch(this.value)"></div>'+
+    '<div id="ma-results" style="min-height:210px">'+manualResults()+'</div>'+
+    (m.customMode?manualCustomForm():'');
   return h;
 }
 function recentFoods(){
@@ -1038,12 +1039,20 @@ function manualFoodRow(f,isRecent){
 function manualResults(){
   var m=ui.manual;
   if(m.customMode) return '';
-  var q=m.query.trim(),isRecent=m.searchTab==='recent';
-  var results=isRecent?recentFoods():searchFoods(q,30);
-  if(isRecent&&q) results=results.filter(function(f){return fhay(f).includes(fnorm(q));});
-  if(isRecent&&!results.length) return '<div style="padding:22px 8px;text-align:center"><div style="font-weight:800">Недавних продуктов пока нет</div><div class="muted mt8">После первой записи они появятся здесь.</div></div>';
+  var q=m.query.trim(),tab=m.searchTab||'products',results=[],isRecent=tab==='recent';
+  if(tab==='recent') results=recentFoods();
+  else if(tab==='favorites') results=(state.favorites||[]).slice();
+  else results=searchFoods(q,30);
+  if(q&&tab!=='products') results=results.filter(function(f){return fhay(f).includes(fnorm(q));});
+  if(tab==='recent'&&!results.length) return '<div style="padding:28px 8px;text-align:center"><div style="font-weight:800">Недавних продуктов пока нет</div><div class="muted mt8">После первой записи они появятся здесь.</div></div>';
+  if(tab==='favorites'){
+    var favHtml=results.map(function(f){return manualFoodRow(f,false);}).join('');
+    var own=(state.customFoods||[]).filter(function(f){return !q||fhay(f).includes(fnorm(q));});
+    if(own.length) favHtml+='<div style="font-size:13px;font-weight:800;color:var(--primary);margin:14px 4px 3px">Мои продукты</div>'+own.map(function(f){return manualFoodRow(f,false);}).join('');
+    return favHtml||'<div style="padding:28px 8px;text-align:center"><div style="font-weight:800">В избранном пока пусто</div><div class="muted mt8">Нажимай сердечко у нужного продукта.</div></div>';
+  }
   var h=results.map(function(f){return manualFoodRow(f,isRecent);}).join('');
-  if(!isRecent&&results.length===0&&q.length>1){
+  if(tab==='products'&&results.length===0&&q.length>1){
     h+='<div style="background:var(--cardAlt);border:1px solid var(--primaryDim);border-radius:16px;padding:14px;margin:8px 0">'+
       '<div style="font-size:19px;font-weight:800">«'+esc(m.query)+'» нет в базе</div><p class="muted">Посчитай через ИИ или добавь свой продукт.</p>'+
       '<div class="row g8 mt8" style="align-items:center"><input class="field" id="ma-aigrams" style="flex:1" inputmode="numeric" placeholder="граммы" value="'+esc(m.aiGrams)+'" oninput="ui.manual.aiGrams=this.value.replace(/[^0-9]/g,\'\');this.value=ui.manual.aiGrams">'+
@@ -1126,7 +1135,7 @@ function openSmart(opts){
   ensureFoods();
   renderModals();
   if(ui.smart.autoStart&&ui.smart.startMode!=='photo') startRec();
-  else if(ui.smart.startMode==='photo') takePhoto();
+  else if(ui.smart.startMode==='photo') takePhoto('camera');
 }
 function saPhaseHtml(){
   var s=ui.smart;
@@ -1136,7 +1145,7 @@ function saPhaseHtml(){
   if(s.phase==='idle'){
     return '<p class="muted">'+(s.dayMode?'Проговори весь день сразу: «на завтрак…, на обед…, на ужин…».':'Нажми и скажи свободно, что съела.')+'</p>'+
       '<button style="width:100%;padding:20px;border-radius:22px;background:var(--cardAlt);border:2px solid var(--primaryDim);text-align:center;margin:12px 0" onclick="startRec()"><div style="font-size:40px">🎤</div><div style="font-size:15px;font-weight:600">'+(s.errorMsg?'Перезаписать':'Нажми и говори')+'</div></button>'+
-      (!s.dayMode?'<button style="width:100%;padding:12px;border-radius:16px;background:var(--cardAlt);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:8px" onclick="takePhoto()"><span style="font-size:22px">📸</span><span style="font-size:15px;font-weight:600">Сфотографировать блюдо</span></button>':'')+
+      (!s.dayMode?'<div class="row g8"><button style="flex:1;padding:11px;border-radius:16px;background:var(--cardAlt);border:1px solid var(--line);font-size:13px;font-weight:700" onclick="takePhoto(\'camera\')">📸 Камера</button><button style="flex:1;padding:11px;border-radius:16px;background:var(--cardAlt);border:1px solid var(--line);font-size:13px;font-weight:700" onclick="takePhoto(\'library\')">▧ Из Фото</button></div>':'')+
       '<p class="muted" style="text-align:center;margin:8px 0">или напиши</p>'+
       '<input class="field" id="sa-text" placeholder="'+(s.dayMode?'напр. завтрак — овсянка, обед — курица с рисом':'напр. омлет из 2 яиц и кофе')+'" value="'+esc(s.textInput)+'" oninput="ui.smart.textInput=this.value">'+
       '<button class="btn ghost mt8" onclick="saGoDraft()">Дальше</button>';
@@ -1153,6 +1162,7 @@ function saPhaseHtml(){
       '<div id="sa-timer" style="font-size:28px;font-weight:800">0:00</div><div class="muted" style="margin:2px 0 12px">Слушаю… говори</div>'+
       '<button style="background:var(--danger);color:#fff;font-weight:800;padding:12px 28px;border-radius:999px" onclick="stopAndProcess()">⏹  Остановить</button></div>';
   }
+  if(s.phase==='choosingPhoto'){ return '<div style="text-align:center;padding:24px"><div class="spin"></div><p class="muted">Жду фотографию…</p></div>'; }
   if(s.phase==='processing'){
     return '<div style="text-align:center;padding:24px"><div class="spin"></div><p class="muted">'+esc(s.status||'Обрабатываю…')+'</p></div>';
   }
@@ -1255,16 +1265,43 @@ function stopAndProcess(){
   };
   try{ s.recorder.stop(); }catch(e){ s.errorMsg='Ошибка записи'; s.phase='idle'; renderModals(); }
 }
-function takePhoto(){
-  var s=ui.smart; s.errorMsg='';
-  var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment';
-  inp.onchange=function(){ var file=inp.files&&inp.files[0]; if(!file){ if(!s.photoB64){s.phase='idle'; renderModals();} return; }
+function preparePhotoFile(file){
+  return new Promise(function(resolve,reject){
     var reader=new FileReader();
-    reader.onload=function(){ var url=reader.result; s.photoUri=url; s.photoB64=String(url).split(',')[1]; runPhotoDialog(s.photoB64,[]); };
+    reader.onerror=function(){reject(new Error('Не удалось прочитать фотографию'));};
+    reader.onload=function(){
+      var original=String(reader.result||''),img=new Image();
+      img.onerror=function(){resolve(original);};
+      img.onload=function(){
+        try{
+          var max=1280,scaleK=Math.min(1,max/Math.max(img.width,img.height)),w=Math.max(1,Math.round(img.width*scaleK)),h=Math.max(1,Math.round(img.height*scaleK));
+          var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+          canvas.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(canvas.toDataURL('image/jpeg',0.82));
+        }catch(e){resolve(original);}
+      };
+      img.src=original;
+    };
     reader.readAsDataURL(file);
+  });
+}
+function takePhoto(source){
+  var s=ui.smart;if(!s)return;s.errorMsg='';s.phase='choosingPhoto';renderModals();
+  var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+  if(source!=='library') inp.setAttribute('capture','environment');
+  inp.style.position='fixed';inp.style.left='-9999px';inp.style.opacity='0';document.body.appendChild(inp);
+  var finished=false;
+  function cleanup(){if(inp&&inp.parentNode)inp.parentNode.removeChild(inp);}
+  inp.onchange=function(){
+    finished=true;var file=inp.files&&inp.files[0];cleanup();
+    if(!file){s.phase='idle';renderModals();return;}
+    s.phase='processing';s.status='Подготавливаю фото…';renderModals();
+    preparePhotoFile(file).then(function(url){s.photoUri=url;s.photoB64=String(url).split(',')[1]||'';if(!s.photoB64)throw new Error('Фотография пустая');runPhotoDialog(s.photoB64,[]);})
+      .catch(function(e){s.errorMsg=String(e.message||e);s.phase='idle';renderModals();});
   };
-  inp.click();
-  if(!s.photoB64){ s.phase='idle'; renderModals(); }
+  inp.oncancel=function(){finished=true;cleanup();s.phase='idle';renderModals();};
+  try{inp.click();}catch(e){cleanup();s.errorMsg='Не удалось открыть камеру. Попробуй «Из Фото».';s.phase='idle';renderModals();}
+  setTimeout(function(){if(!finished&&document.visibilityState==='visible'&&inp.files&&inp.files.length===0){cleanup();s.phase='idle';renderModals();}},120000);
 }
 function runPhotoDialog(b64,hist){
   var s=ui.smart; s.phase='processing'; s.status='Смотрю на фото…'; renderModals();
@@ -1274,7 +1311,7 @@ function runPhotoDialog(b64,hist){
     else if(res.items&&res.items.length){ s.items=res.items; s.phase='result'; }
     else { s.errorMsg='На фото не видно еды — попробуй ещё раз.'; s.phase='idle'; s.photoB64=null; s.photoUri=null; }
     renderModals();
-  }).catch(function(e){ s.errorMsg='Ошибка: '+String(e.message||e); s.phase=hist.length?'question':'idle'; renderModals(); });
+  }).catch(function(e){ s.errorMsg='Не получилось распознать фото. Попробуй ещё раз или выбери снимок из Фото.'; s.phase='idle'; renderModals(); });
 }
 function processText(text){
   var s=ui.smart; var t=String(text||'').trim(); if(!t) return Promise.resolve();
