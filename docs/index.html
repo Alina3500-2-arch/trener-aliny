@@ -974,7 +974,7 @@ function emSave(){ var e=ui.editMeal; var g=Number(e.grams)||0,k=Number(e.kcal)|
   updateMeal(e.id,patch); ui.editMeal=null; commit(); }
 
 /* ===== MANUAL ADD ===== */
-function openManual(type){ ui.manual={type:type,label:(MEAL_TYPES.find(function(m){return m.key===type;})||{}).label,query:'',selected:null,grams:'',pending:[],showFav:false,customMode:false,cKcal:'',cP:'',cF:'',cC:'',aiGrams:'',aiLoading:false,mealTime:nowHHMM()}; ensureFoods().then(function(){ if(ui.manual) renderModals(); }); renderModals(); }
+function openManual(type){ ui.manual={type:type,label:(MEAL_TYPES.find(function(m){return m.key===type;})||{}).label,query:'',searchTab:'products',selected:null,grams:'',pending:[],showFav:false,customMode:false,cKcal:'',cP:'',cF:'',cC:'',aiGrams:'',aiLoading:false,mealTime:nowHHMM()}; ensureFoods().then(function(){ if(ui.manual) renderModals(); }); renderModals(); }
 function renderManualAdd(){
   var m=ui.manual;
   var h='<div class="overlay bottom" onclick="if(event.target===this){closeManual();}"><div class="sheet">'+
@@ -1008,24 +1008,49 @@ function manualBody(){
     if((state.customFoods||[]).length){ h+='<div style="font-size:15px;font-weight:800;margin:12px 0 2px">🧾 Мои продукты</div>'; (state.customFoods||[]).forEach(function(f){ h+=maCustomRow(f); }); }
     return h;
   }
-  // search mode
-  var h='<input class="field" id="ma-search" style="font-size:17px;margin:8px 0" placeholder="Найди продукт: гречка, курица…" value="'+esc(m.query)+'" oninput="maSearch(this.value)">'+
+  // product database + recent foods
+  var h='<div style="display:flex;background:var(--cardAlt);border-radius:12px;padding:3px;margin:7px 0 9px">'+
+    '<button style="flex:1;padding:8px 6px;border-radius:9px;font-size:13px;font-weight:800;background:'+(m.searchTab==='products'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='products'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'products\')">Продукты</button>'+
+    '<button style="flex:1;padding:8px 6px;border-radius:9px;font-size:13px;font-weight:800;background:'+(m.searchTab==='recent'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='recent'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'recent\')">Недавние</button></div>'+
+    '<div style="position:relative"><svg viewBox="0 0 24 24" style="position:absolute;left:12px;top:18px;width:20px;height:20px;fill:none;stroke:var(--textDim);stroke-width:2;stroke-linecap:round"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>'+
+    '<input class="field" id="ma-search" style="font-size:16px;margin:6px 0 8px;padding-left:40px" placeholder="'+(m.searchTab==='recent'?'Поиск в недавних':'Найти продукт в базе')+'" value="'+esc(m.query)+'" oninput="maSearch(this.value)"></div>'+
     '<div id="ma-results">'+manualResults()+'</div>'+
     (m.customMode?manualCustomForm():'');
   return h;
 }
+function recentFoods(){
+  var seen=new Set(),out=[];
+  (state.meals||[]).slice().reverse().forEach(function(m){
+    var key=fnorm(m.name);if(!key||seen.has(key)||out.length>=30)return;seen.add(key);
+    var per=m.per100||(m.grams?per100From(m,m.grams):per100From(m,100));
+    out.push({name:m.name,per100:per,recentGrams:Math.round(Number(m.grams)||100),recentTime:m.time||''});
+  });
+  return out;
+}
+function manualFoodRow(f,isRecent){
+  var grams=isRecent?(Number(f.recentGrams)||100):100;
+  var n=scale(f.per100,grams);
+  return '<button style="display:flex;align-items:center;width:100%;padding:11px 4px;border-bottom:1px solid var(--line);text-align:left;gap:10px" onclick="maPick('+encFood(f)+')">'+
+    '<span style="width:8px;height:8px;border-radius:50%;background:'+(n.kcal>450?'var(--warn)':'var(--accent)')+';box-shadow:0 0 8px currentColor;flex:none"></span>'+
+    '<span style="flex:1;min-width:0"><span style="display:block;color:var(--text);font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.name)+'</span>'+
+    '<span style="display:block;color:var(--textDim);font-size:11px;margin-top:3px">На '+grams+' г: <b style="color:var(--text)">'+n.kcal+' ккал</b> · Б '+r1(n.protein)+' · Ж '+r1(n.fat)+' · У '+r1(n.carbs)+'</span></span>'+
+    (isRecent&&f.recentTime?'<span style="font-size:10px;color:var(--primary);font-weight:800">'+esc(f.recentTime)+'</span>':'')+
+    '<span style="color:var(--primary);font-size:20px">›</span></button>';
+}
 function manualResults(){
   var m=ui.manual;
   if(m.customMode) return '';
-  if(!m.query.trim()) return '<p class="muted mt8">Печатай продукт, а «❤️ Избранное» сверху — твои сохранённые и свои продукты.</p>';
-  var results=searchFoods(m.query);
-  var h=results.map(function(f,i){ return '<button style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px 0;border-bottom:1px solid var(--line);text-align:left" onclick="maPick('+encFood(f)+')"><span style="flex:1;color:var(--text);font-size:17px;font-weight:600">'+esc(f.name)+'</span><span style="color:var(--accent);font-weight:800">'+r0(f.per100.kcal)+' ккал</span></button>'; }).join('');
-  if(results.length===0&&m.query.trim().length>1){
+  var q=m.query.trim(),isRecent=m.searchTab==='recent';
+  var results=isRecent?recentFoods():searchFoods(q,30);
+  if(isRecent&&q) results=results.filter(function(f){return fhay(f).includes(fnorm(q));});
+  if(isRecent&&!results.length) return '<div style="padding:22px 8px;text-align:center"><div style="font-weight:800">Недавних продуктов пока нет</div><div class="muted mt8">После первой записи они появятся здесь.</div></div>';
+  var h=results.map(function(f){return manualFoodRow(f,isRecent);}).join('');
+  if(!isRecent&&results.length===0&&q.length>1){
     h+='<div style="background:var(--cardAlt);border:1px solid var(--primaryDim);border-radius:16px;padding:14px;margin:8px 0">'+
       '<div style="font-size:19px;font-weight:800">«'+esc(m.query)+'» нет в базе</div><p class="muted">Посчитай через ИИ или добавь свой продукт.</p>'+
       '<div class="row g8 mt8" style="align-items:center"><input class="field" id="ma-aigrams" style="flex:1" inputmode="numeric" placeholder="граммы" value="'+esc(m.aiGrams)+'" oninput="ui.manual.aiGrams=this.value.replace(/[^0-9]/g,\'\');this.value=ui.manual.aiGrams">'+
       '<button class="btn" style="width:auto;padding:12px" onclick="maAiCalc()" '+(m.aiLoading?'disabled':'')+'>'+(m.aiLoading?'…':'Посчитать ИИ')+'</button></div>'+
-      '<button class="btn soft mt8" onclick="ui.manual.customMode=true;renderModals()">➕ Добавить свой продукт</button></div>';
+      '<button class="btn soft mt8" onclick="ui.manual.customMode=true;renderModals()">Добавить свой продукт</button></div>';
   }
   return h;
 }
@@ -1059,8 +1084,9 @@ function closeManual(){ ui.manual=null; renderModals(); }
 function maToggleFav(){ ui.manual.showFav=!ui.manual.showFav; renderModals(); }
 function maToggleFavSel(){ var s=ui.manual.selected; if(isFavName(s.name)) removeFavorite(s.name); else addFavorite({name:s.name,per100:s.per100}); commitNoRender(); renderModals(); }
 function maFavToggleName(f){ if(isFavName(f.name)) removeFavorite(f.name); else addFavorite({name:f.name,per100:f.per100}); commitNoRender(); renderModals(); }
+function maSetSearchTab(tab){ ui.manual.searchTab=tab;ui.manual.query='';ui.manual.customMode=false;renderModals();setTimeout(function(){var el=document.getElementById('ma-search');if(el)el.focus();},30); }
 function maSearch(v){ ui.manual.query=v; var box=document.getElementById('ma-results'); if(box) box.innerHTML=manualResults(); }
-function maPick(f){ ui.manual.selected={name:f.name,per100:f.per100}; ui.manual.grams=''; ui.manual.showFav=false; renderModals(); }
+function maPick(f){ ui.manual.selected={name:f.name,per100:f.per100}; ui.manual.grams=f.recentGrams?String(f.recentGrams):''; ui.manual.showFav=false; renderModals(); }
 function maGrams(v){ var g=v.replace(/[^0-9]/g,''); ui.manual.grams=g; var el=document.getElementById('ma-grams'); if(el&&el.value!==g)el.value=g;
   var c=document.getElementById('ma-computed'); if(c){ var comp=g?scale(ui.manual.selected.per100,g):null; c.textContent=comp?('= '+comp.kcal+' ккал  ·  Б '+comp.protein+' Ж '+comp.fat+' У '+comp.carbs):''; }
   enableIf('ma-add-btn',!!g); }
