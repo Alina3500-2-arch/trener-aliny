@@ -402,7 +402,7 @@ function parseMealPhoto(base64,history){
 
   var messages=[{role:'system',content:system},{role:'user',content:[{type:'text',text:'Распознай всю еду на фото. Даже если это однородное блюдо вроде творога, каши или салата, назови наиболее вероятный вариант и оцени порцию, калории и БЖУ.'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64}}]}];
   history.forEach(function(h){ messages.push({role:'assistant',content:'(уточняю)'}); messages.push({role:'user',content:h}); });
-  return chatReq({model:AI_VISION,messages:messages,temperature:0.2,response_format:{type:'json_object'}},25000).then(function(raw){ return interpret(parseJSONLoose(raw)); });
+  return chatReq({model:AI_VISION,messages:messages,reasoning_effort:'none',temperature:0.7,top_p:0.8,max_completion_tokens:700,response_format:{type:'json_object'}},30000).then(function(raw){ return interpret(parseJSONLoose(raw)); });
 }
 function tidyDayTitle(title,index){
   var t=String(title||'').trim();
