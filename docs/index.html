@@ -978,9 +978,7 @@ function openManual(type){ ui.manual={type:type,label:(MEAL_TYPES.find(function(
 function renderManualAdd(){
   var m=ui.manual;
   var h='<div class="overlay bottom" onclick="if(event.target===this){closeManual();}"><div class="sheet">'+
-    '<div class="mhead"><h2 class="h2" style="margin:0">'+esc(m.label||'Добавить')+' — вручную</h2><div style="display:flex;align-items:center">'+
-    (!m.selected?'<button style="padding:4px 10px;margin-right:4px;border-radius:999px;background:var(--cardAlt);border:1px solid var(--primaryDim);color:var(--primary);font-size:12px;font-weight:800" onclick="maToggleFav()">'+(m.showFav?'‹ Назад':'❤️ Избранное')+'</button>':'')+
-    '<button class="closeX" onclick="closeManual()">✕</button></div></div>'+
+    '<div class="mhead"><h2 class="h2" style="margin:0">'+esc(m.label||'Добавить')+' — вручную</h2><button class="closeX" onclick="closeManual()">✕</button></div>'+
     '<div id="ma-body">'+manualBody()+'</div>'+
     manualPending()+
     '<button class="btn ghost mt16" onclick="closeManual()">Закрыть</button>'+
@@ -1001,21 +999,21 @@ function manualBody(){
       '<div id="ma-computed" style="color:var(--accent);font-size:18px;font-weight:800;text-align:center;margin-top:8px">'+(computed?'= '+computed.kcal+' ккал  ·  Б '+computed.protein+' Ж '+computed.fat+' У '+computed.carbs:'')+'</div>'+
       '<div class="row g8 mt16"><button class="btn ghost" style="flex:1" onclick="ui.manual.selected=null;ui.manual.grams=\'\';renderModals()">Назад</button><button class="btn" id="ma-add-btn" style="flex:1" onclick="maAddItem()" '+(m.grams?'':'disabled')+'>Добавить</button></div>';
   }
-  if(m.showFav){
-    var h='<div style="font-size:15px;font-weight:800;margin-bottom:2px">❤️ Избранное</div>';
-    if(!(state.favorites||[]).length) h+='<p class="muted mt8">Пусто. Добавляй сердечком после выбора продукта.</p>';
-    else (state.favorites||[]).forEach(function(f){ h+=maFavRow(f); });
-    if((state.customFoods||[]).length){ h+='<div style="font-size:15px;font-weight:800;margin:12px 0 2px">🧾 Мои продукты</div>'; (state.customFoods||[]).forEach(function(f){ h+=maCustomRow(f); }); }
-    return h;
-  }
-  // product database + recent foods
+
+  // product database + recent foods + favorites
   var h='<div style="display:flex;background:var(--cardAlt);border-radius:12px;padding:3px;margin:7px 0 9px">'+
-    '<button style="flex:1;padding:8px 6px;border-radius:9px;font-size:13px;font-weight:800;background:'+(m.searchTab==='products'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='products'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'products\')">Продукты</button>'+
-    '<button style="flex:1;padding:8px 6px;border-radius:9px;font-size:13px;font-weight:800;background:'+(m.searchTab==='recent'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='recent'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'recent\')">Недавние</button></div>'+
+    '<button style="flex:1;padding:8px 4px;border-radius:9px;font-size:12px;font-weight:800;background:'+(m.searchTab==='products'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='products'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'products\')">Продукты</button>'+
+    '<button style="flex:1;padding:8px 4px;border-radius:9px;font-size:12px;font-weight:800;background:'+(m.searchTab==='recent'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='recent'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'recent\')">Недавние</button>'+
+    '<button style="flex:1;padding:8px 4px;border-radius:9px;font-size:12px;font-weight:800;background:'+(m.searchTab==='favorites'?'var(--primary)':'transparent')+';color:'+(m.searchTab==='favorites'?'#fff':'var(--textDim)')+'" onclick="maSetSearchTab(\'favorites\')">Избранное</button></div>'+
+    (m.searchTab==='favorites'?'<div id="ma-results">'+(function(){    var favHtml='<div style="font-size:15px;font-weight:800;margin-bottom:2px">❤️ Избранное</div>';
+    if(!(state.favorites||[]).length) favHtml+='<p class="muted mt8">Пусто. Добавляй сердечком после выбора продукта.</p>';
+    else (state.favorites||[]).forEach(function(f){ favHtml+=maFavRow(f); });
+    if((state.customFoods||[]).length){ favHtml+='<div style="font-size:15px;font-weight:800;margin:12px 0 2px">🧾 Мои продукты</div>'; (state.customFoods||[]).forEach(function(f){ favHtml+=maCustomRow(f); }); }
+ return favHtml;})()+'</div>':
     '<div style="position:relative"><svg viewBox="0 0 24 24" style="position:absolute;left:12px;top:18px;width:20px;height:20px;fill:none;stroke:var(--textDim);stroke-width:2;stroke-linecap:round"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>'+
     '<input class="field" id="ma-search" style="font-size:16px;margin:6px 0 8px;padding-left:40px" placeholder="'+(m.searchTab==='recent'?'Поиск в недавних':'Найти продукт в базе')+'" value="'+esc(m.query)+'" oninput="maSearch(this.value)"></div>'+
     '<div id="ma-results">'+manualResults()+'</div>'+
-    (m.customMode?manualCustomForm():'');
+    (m.customMode?manualCustomForm():''));
   return h;
 }
 function recentFoods(){
