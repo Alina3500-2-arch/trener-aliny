@@ -320,7 +320,11 @@ var _hayCache=new WeakMap(),_wordCache=new WeakMap(),_namesCache=new WeakMap();
 function fhay(f){ var v=_hayCache.get(f); if(v===undefined){ v=[f.name].concat(f.aliases||[]).map(fnorm).join(' '); _hayCache.set(f,v);} return v; }
 function fwordSet(f){ var v=_wordCache.get(f); if(!v){ v=new Set(); [f.name].concat(f.aliases||[]).forEach(function(x){ fnorm(x).split(/\s+/).forEach(function(w){ if(w.length>2) v.add(w); }); }); _wordCache.set(f,v);} return v; }
 function fnamesNorm(f){ var v=_namesCache.get(f); if(!v){ v=[f.name].concat(f.aliases||[]).map(fnorm); _namesCache.set(f,v);} return v; }
-function allFoods(){ return (state.customFoods||[]).concat(FOODS||[]); }
+function validFoodCard(f){
+  var p=f&&f.per100||{},k=Number(p.kcal)||0,pr=Number(p.protein)||0,fa=Number(p.fat)||0,ca=Number(p.carbs)||0;
+  return !!f&&!!f.name&&k>=0&&k<=1000&&pr>=0&&pr<=100&&fa>=0&&fa<=100&&ca>=0&&ca<=100;
+}
+function allFoods(){ return (state.customFoods||[]).concat(FOODS||[]).filter(validFoodCard); }
 function searchFoods(query,limit){ limit=limit||30; var all=allFoods(); var n=fnorm(query); if(!n) return all.slice(0,15); var out=[]; for(var i=0;i<all.length;i++){ if(fhay(all[i]).includes(n)){ out.push(all[i]); if(out.length>=limit) break; } } return out; }
 function fwords(s){ return fnorm(s).split(/\s+/).filter(function(w){return w.length>2;}); }
 function findFood(name){
@@ -1046,7 +1050,7 @@ function manualResults(){
   if(tab==='recent'&&!results.length) return '<div style="padding:28px 8px;text-align:center"><div style="font-weight:800">Недавних продуктов пока нет</div><div class="muted mt8">После первой записи они появятся здесь.</div></div>';
   if(tab==='favorites'){
     var favHtml=results.map(function(f){return manualFoodRow(f,false);}).join('');
-    var own=(state.customFoods||[]).filter(function(f){return !q||fhay(f).includes(fnorm(q));});
+    var own=(state.customFoods||[]).filter(validFoodCard).filter(function(f){return !q||fhay(f).includes(fnorm(q));});
     if(own.length) favHtml+='<div style="font-size:13px;font-weight:800;color:var(--primary);margin:14px 4px 3px">Мои продукты</div>'+own.map(function(f){return manualFoodRow(f,false);}).join('');
     return favHtml||'<div style="padding:28px 8px;text-align:center"><div style="font-weight:800">В избранном пока пусто</div><div class="muted mt8">Нажимай сердечко у нужного продукта.</div></div>';
   }
