@@ -945,7 +945,8 @@ function openSmartDay(){ openSmart({defaultType:'breakfast',autoStart:true,dayMo
 
 /* ===== EDIT MEAL ===== */
 function openEditMeal(meal){
-  ui.editMeal={id:meal.id,name:String(meal.name||''),grams:meal.grams?String(meal.grams):'',kcal:String(Math.round(meal.kcal||0)),time:meal.time||nowHHMM(),
+  ui.editMeal={id:meal.id,name:String(meal.name||''),grams:meal.grams?String(meal.grams):'',kcal:String(Math.round(meal.kcal||0)),
+    protein:String(r1(meal.protein||0)),fat:String(r1(meal.fat||0)),carbs:String(r1(meal.carbs||0)),time:meal.time||nowHHMM(),
     per100:meal.per100||(meal.grams?per100From(meal,meal.grams):null),query:''};
   ensureFoods(); renderModals();
 }
@@ -958,9 +959,13 @@ function renderEditMeal(){
     '<div id="em-results"></div>'+
     '<label class="flabel" style="margin-top:8px">Название</label><input class="field" id="em-name" value="'+esc(e.name)+'" oninput="ui.editMeal.name=this.value">'+
     '<div class="row g12"><div style="flex:1"><label class="flabel" style="margin-top:8px">Граммы</label><input class="field" id="em-grams" inputmode="numeric" value="'+esc(e.grams)+'" oninput="emGrams(this.value)"></div>'+
-    '<div style="flex:1"><label class="flabel" style="margin-top:8px">Калории</label><input class="field" id="em-kcal" inputmode="numeric" value="'+esc(e.kcal)+'" oninput="ui.editMeal.kcal=this.value.replace(/[^0-9]/g,\'\');this.value=ui.editMeal.kcal"></div></div>'+
+    '<div style="flex:1"><label class="flabel" style="margin-top:8px">Калории</label><input class="field" id="em-kcal" inputmode="decimal" value="'+esc(e.kcal)+'" oninput="emField(\'kcal\',this.value)"></div></div>'+
+    '<div class="row g8 mt8"><div style="flex:1"><label class="flabel">Белки, г</label><input class="field" id="em-protein" inputmode="decimal" value="'+esc(e.protein)+'" oninput="emField(\'protein\',this.value)"></div>'+
+    '<div style="flex:1"><label class="flabel">Жиры, г</label><input class="field" id="em-fat" inputmode="decimal" value="'+esc(e.fat)+'" oninput="emField(\'fat\',this.value)"></div>'+
+    '<div style="flex:1"><label class="flabel">Углеводы, г</label><input class="field" id="em-carbs" inputmode="decimal" value="'+esc(e.carbs)+'" oninput="emField(\'carbs\',this.value)"></div></div>'+
+    '<div id="em-warning">'+foodNumbersWarningHtml(e)+'</div>'+
     '<label class="flabel" style="margin-top:8px">Время</label><input class="field" type="time" id="em-time" value="'+esc(e.time)+'" oninput="ui.editMeal.time=this.value">'+
-    '<p class="muted mt8">Меняешь граммы — калории пересчитаются.</p>'+
+    '<p class="muted mt8">Все значения указаны для этой порции. Меняешь граммы — пересчитывается всё.</p>'+
     '<div class="row g8 mt16"><button class="btn danger" style="flex:1" onclick="emDelete()">Удалить</button><button class="btn" style="flex:1" onclick="emSave()">Сохранить</button></div>'+
   '</div></div>';
   return h;
@@ -971,15 +976,25 @@ function emSearch(v){ ui.editMeal.query=v; var box=document.getElementById('em-r
 }
 var _foodBuf=[];
 function encFood(f){ _foodBuf.push(f); return '_foodBuf['+(_foodBuf.length-1)+']'; }
+function cleanFoodNumber(v){ return Math.max(0,Number(String(v==null?'':v).replace(',','.').replace(/[^0-9.]/g,''))||0); }
+function foodNumbersWarning(it){
+  var g=cleanFoodNumber(it.grams),k=cleanFoodNumber(it.kcal),p=cleanFoodNumber(it.protein),f=cleanFoodNumber(it.fat),c=cleanFoodNumber(it.carbs);
+  if(g>0&&(p>g*1.05||f>g*1.05||c>g*1.05)) return 'БЖУ не могут быть больше веса порции. Проверь значения.';
+  var byMacros=p*4+f*9+c*4;
+  if(k>0&&byMacros>k*1.55) return 'БЖУ не совпадают с калориями. Проверь данные перед сохранением.';
+  return '';
+}
+function foodNumbersWarningHtml(it){ var w=foodNumbersWarning(it); return w?'<div style="margin-top:8px;padding:9px 10px;border-radius:10px;background:var(--dangerBg);color:var(--danger);font-weight:700">'+esc(w)+'</div>':''; }
+function emPatchWarning(){ var el=document.getElementById('em-warning'); if(el)el.innerHTML=foodNumbersWarningHtml(ui.editMeal); }
+function emField(key,v){ var clean=String(v).replace(',','.').replace(/[^0-9.]/g,''); ui.editMeal[key]=clean; event.target.value=clean; emPatchWarning(); }
 function emPick(f){ ui.editMeal.name=f.name; ui.editMeal.per100=f.per100; ui.editMeal.query='';
-  var g=Number(ui.editMeal.grams)||100; ui.editMeal.kcal=String(scale(f.per100,g).kcal); renderModals(); }
+  var g=Number(ui.editMeal.grams)||100,sc=scale(f.per100,g); ui.editMeal.kcal=String(sc.kcal); ui.editMeal.protein=String(sc.protein); ui.editMeal.fat=String(sc.fat); ui.editMeal.carbs=String(sc.carbs); renderModals(); }
 function emGrams(v){ var g=v.replace(/[^0-9]/g,''); ui.editMeal.grams=g; var el=document.getElementById('em-grams'); if(el)el.value=g;
-  if(ui.editMeal.per100&&g){ var k=String(scale(ui.editMeal.per100,Number(g)).kcal); ui.editMeal.kcal=k; var ke=document.getElementById('em-kcal'); if(ke)ke.value=k; } }
+  if(ui.editMeal.per100&&g){ var sc=scale(ui.editMeal.per100,Number(g)); ['kcal','protein','fat','carbs'].forEach(function(key){ui.editMeal[key]=String(sc[key]);var fe=document.getElementById('em-'+key);if(fe)fe.value=sc[key];}); } emPatchWarning(); }
 function emDelete(){ removeMeal(ui.editMeal.id); ui.editMeal=null; }
-function emSave(){ var e=ui.editMeal; var g=Number(e.grams)||0,k=Number(e.kcal)||0;
-  var patch={name:(e.name.trim()||'Блюдо'),grams:g,kcal:k,time:e.time};
-  var base=e.per100?Object.assign({},e.per100,{kcal:g?(k/g)*100:k}):per100From({kcal:k},g||100);
-  patch.per100=base; if(g){ var s=scale(base,g); patch.protein=s.protein; patch.fat=s.fat; patch.carbs=s.carbs; }
+function emSave(){ var e=ui.editMeal,w=foodNumbersWarning(e); if(w){alert(w);return;} var g=cleanFoodNumber(e.grams),k=cleanFoodNumber(e.kcal),p=cleanFoodNumber(e.protein),f=cleanFoodNumber(e.fat),c=cleanFoodNumber(e.carbs);
+  var patch={name:(e.name.trim()||'Блюдо'),grams:g,kcal:k,protein:p,fat:f,carbs:c,time:e.time};
+  patch.per100=per100From(patch,g||100);
   updateMeal(e.id,patch); ui.editMeal=null; commit(); }
 
 /* ===== MANUAL ADD ===== */
@@ -1191,7 +1206,8 @@ function saPhaseHtml(){
         '<span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;margin:0 6px;white-space:nowrap;'+(it.fromCustom?'color:var(--good);background:var(--successBg)':it.fromDB?'color:var(--accent);background:var(--successBg)':'color:var(--warn);background:var(--warnBg)')+'">'+(it.fromCustom?'✓ как раньше':it.fromDB?'из базы':'оценка ИИ')+'</span>'+
         '<button style="padding:4px" onclick="saToggleFav('+idx+')" title="Запомнить">'+(isFavName(it.name)?'❤️':'🤍')+'</button>'+
         '<button style="color:var(--danger);padding:6px" onclick="saRemoveItem('+idx+')">✕</button></div>'+
-        '<div class="muted" id="sa-macro-'+idx+'" style="margin-top:3px">Б '+r1(it.protein)+' · Ж '+r1(it.fat)+' · У '+r1(it.carbs)+' г</div>'+
+        '<div style="display:flex;gap:6px;margin-top:8px">'+['protein','fat','carbs'].map(function(key,mi){var label=['Б','Ж','У'][mi];return '<label style="flex:1;color:var(--textDim);font-size:11px;font-weight:700">'+label+', г<input id="sa-'+key+'-'+idx+'" style="width:100%;margin-top:3px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px;text-align:center;color:var(--text);font-weight:700" inputmode="decimal" value="'+r1(it[key])+'" oninput="saMacroInput('+idx+',\''+key+'\',this.value)"></label>';}).join('')+'</div>'+
+        '<div id="sa-warning-'+idx+'">'+foodNumbersWarningHtml(it)+'</div>'+
         '<div style="display:flex;align-items:center;gap:4px;margin-top:8px">'+
           '<button style="width:30px;height:32px;border-radius:8px;background:var(--card);border:1px solid var(--primaryDim);color:var(--primary);font-size:20px;font-weight:800" onclick="saStepGrams('+idx+',-'+step+')">−</button>'+
           '<input id="sa-grams-'+idx+'" style="width:72px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;color:var(--text);font-weight:700" inputmode="numeric" value="'+(it.grams!=null?it.grams:'')+'" oninput="saGramsInput('+idx+',this.value)">'+
@@ -1353,15 +1369,19 @@ function saGramsInput(idx,v){ var g=Math.max(0,Math.round(Number(String(v).repla
   var per100=it.per100||per100From(it,it.grams||100); var sc=scale(per100,g);
   s.items[idx]=Object.assign({},it,{per100:per100,grams:g,kcal:sc.kcal,protein:sc.protein,fat:sc.fat,carbs:sc.carbs});
   saPatchItem(idx,true); }
-function saKcalInput(idx,v){ var k=Number(String(v).replace(/[^0-9]/g,''))||0; var s=ui.smart; var it=s.items[idx]; var g=it.grams||100;
+function saKcalInput(idx,v){ var k=cleanFoodNumber(v); var s=ui.smart; var it=s.items[idx]; var g=it.grams||100;
   var per100=Object.assign({},it.per100||{protein:0,fat:0,carbs:0},{kcal:g?(k/g)*100:k});
-  s.items[idx]=Object.assign({},it,{kcal:k,per100:per100}); saPatchTotal(); }
+  s.items[idx]=Object.assign({},it,{kcal:k,per100:per100}); saPatchWarning(idx); saPatchTotal(); }
+function saMacroInput(idx,key,v){ var val=cleanFoodNumber(v),it=ui.smart.items[idx],g=cleanFoodNumber(it.grams)||100;
+  var per100=Object.assign({},it.per100||per100From(it,g)); per100[key]=g?(val/g)*100:val;
+  it[key]=val; it.per100=per100; saPatchWarning(idx); }
+function saPatchWarning(idx){ var el=document.getElementById('sa-warning-'+idx); if(el)el.innerHTML=foodNumbersWarningHtml(ui.smart.items[idx]); }
 function saPatchItem(idx,skipGrams){
   var it=ui.smart.items[idx];
   if(!skipGrams){ var ge=document.getElementById('sa-grams-'+idx); if(ge)ge.value=it.grams; }
   var ke=document.getElementById('sa-kcal-'+idx); if(ke)ke.value=it.kcal;
-  var me=document.getElementById('sa-macro-'+idx); if(me)me.textContent='Б '+r1(it.protein)+' · Ж '+r1(it.fat)+' · У '+r1(it.carbs)+' г';
-  saPatchTotal();
+  ['protein','fat','carbs'].forEach(function(key){var me=document.getElementById('sa-'+key+'-'+idx);if(me)me.value=r1(it[key]);});
+  saPatchWarning(idx); saPatchTotal();
 }
 function saPatchTotal(){ var t=ui.smart.items.reduce(function(a,i){return a+(Number(i.kcal)||0);},0); var el=document.getElementById('sa-total'); if(el)el.textContent='Итого: '+Math.round(t)+' ккал'; }
 function saRemoveItem(idx){ ui.smart.items.splice(idx,1); renderModals(); }
@@ -1371,7 +1391,7 @@ function saToggleFav(idx){ var it=ui.smart.items[idx]; var per100=it.per100||per
 function saAddEmpty(){ ui.smart.items.push({name:'Новое блюдо',grams:100,kcal:0,protein:0,fat:0,carbs:0,per100:{kcal:0,protein:0,fat:0,carbs:0},fromAI:true}); renderModals(); }
 function saRemoveDayItem(gi,ii){ var s=ui.smart; s.dayMeals[gi].items.splice(ii,1); s.dayMeals=s.dayMeals.filter(function(g){return g.items.length;}); renderModals(); }
 function autoSaveToBase(it){ if(it.fromDB) return; var per100=it.per100||per100From(it,it.grams||100); if(per100&&Number(per100.kcal)>0) addCustomFood({name:String(it.name||'Блюдо'),per100:per100}); }
-function saSaveAll(){ var s=ui.smart; s.items.forEach(function(it){ autoSaveToBase(it); addMeal({type:s.mealType,time:s.mealTime,name:String(it.name||'Блюдо'),grams:Math.round(Number(it.grams)||0),per100:it.per100||per100From(it,it.grams||100),kcal:Math.round(Number(it.kcal)||0),protein:Math.round(Number(it.protein)||0),fat:Math.round(Number(it.fat)||0),carbs:Math.round(Number(it.carbs)||0)}); }); saClose(); commit(); }
+function saSaveAll(){ var s=ui.smart; var bad=s.items.map(foodNumbersWarning).filter(Boolean); if(bad.length){alert(bad[0]);return;} s.items.forEach(function(it){ autoSaveToBase(it); addMeal({type:s.mealType,time:s.mealTime,name:String(it.name||'Блюдо'),grams:Math.round(Number(it.grams)||0),per100:it.per100||per100From(it,it.grams||100),kcal:Math.round(Number(it.kcal)||0),protein:Math.round(Number(it.protein)||0),fat:Math.round(Number(it.fat)||0),carbs:Math.round(Number(it.carbs)||0)}); }); saClose(); commit(); }
 function saSaveAllDay(){ var s=ui.smart; (s.dayMeals||[]).forEach(function(g){ g.items.forEach(function(it){ autoSaveToBase(it); addMeal({type:g.type,time:g.time,name:String(it.name||'Блюдо'),grams:Math.round(Number(it.grams)||0),per100:it.per100||per100From(it,it.grams||100),kcal:Math.round(Number(it.kcal)||0),protein:Math.round(Number(it.protein)||0),fat:Math.round(Number(it.fat)||0),carbs:Math.round(Number(it.carbs)||0)}); }); }); saClose(); commit(); }
 
 /* ===== FOOD SEARCH MODAL (per-item, used by SmartAdd) ===== */
