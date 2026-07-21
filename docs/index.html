@@ -984,8 +984,8 @@ function renderManualAdd(){
   var m=ui.manual;
   var h='<div class="overlay bottom" onclick="if(event.target===this){closeManual();}"><div class="sheet">'+
     '<div class="mhead"><h2 class="h2" style="margin:0">'+esc(m.label||'Добавить')+' — вручную</h2><button class="closeX" onclick="closeManual()">✕</button></div>'+
+    '<div id="ma-pending">'+manualPending()+'</div>'+
     '<div id="ma-body">'+manualBody()+'</div>'+
-    manualPending()+
     '<button class="btn ghost mt16" onclick="closeManual()">Закрыть</button>'+
   '</div></div>';
   return h;
@@ -1073,7 +1073,7 @@ function manualCustomForm(){
 function manualPending(){
   var m=ui.manual; if(!m.pending.length) return '';
   var total=m.pending.reduce(function(a,i){return a+i.kcal;},0);
-  var h='<div class="mt16"><p class="muted">Добавлено:</p>';
+  var h='<div style="background:linear-gradient(145deg,rgba(64,47,94,.55),rgba(31,29,40,.92));border:1px solid rgba(155,125,255,.30);border-radius:16px;padding:10px 12px;margin:6px 0 10px"><div style="color:var(--primary);font-size:12px;font-weight:900;margin-bottom:3px">Добавлено</div>';
   m.pending.forEach(function(it,idx){ h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:15px">'+esc(it.name)+'</span>'+(it.grams?'<span class="muted" style="margin-right:8px">'+it.grams+' г</span>':'')+'<span style="color:var(--accent);font-weight:800;margin-right:8px">'+it.kcal+' ккал</span><button style="color:var(--danger);padding:4px" onclick="maРremovePending('+idx+')">✕</button></div>'; });
   h+='<div style="display:flex;align-items:center;gap:10px;background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-top:8px">'+
     '<span style="font-size:18px">🕐</span><span style="font-size:14px;font-weight:700;color:var(--text)">Во сколько ела?</span>'+
@@ -1097,7 +1097,7 @@ function maGrams(v){ var g=v.replace(/[^0-9]/g,''); ui.manual.grams=g; var el=do
   var c=document.getElementById('ma-computed'); if(c){ var comp=g?scale(ui.manual.selected.per100,g):null; c.textContent=comp?('= '+comp.kcal+' ккал  ·  Б '+comp.protein+' Ж '+comp.fat+' У '+comp.carbs):''; }
   enableIf('ma-add-btn',!!g); }
 function maStep(d){ ui.manual.grams=String(Math.max(0,(Number(ui.manual.grams)||0)+d)); renderModals(); }
-function maAddItem(){ var m=ui.manual; if(!m.selected||!m.grams) return; m.pending.push(makeItem(m.selected.name,m.grams,m.selected.per100)); m.selected=null; m.grams=''; m.query=''; renderModals(); }
+function maAddItem(){ var m=ui.manual; if(!m.selected||!m.grams) return; m.pending.push(makeItem(m.selected.name,m.grams,m.selected.per100)); m.selected=null; m.grams=''; m.query=''; renderModals(); setTimeout(function(){var sh=document.querySelector('.overlay.bottom .sheet');if(sh)sh.scrollTop=0;},30); }
 function maРremovePending(idx){ ui.manual.pending.splice(idx,1); renderModals(); }
 function maSaveAll(){ ui.manual.pending.forEach(function(it){ addMeal(Object.assign({type:ui.manual.type,time:ui.manual.mealTime},it)); }); ui.manual=null; commit(); }
 function maSaveCustom(){ var m=ui.manual; var name=m.query.trim(); if(!name||!m.cKcal) return; var per100={kcal:r0(m.cKcal),protein:r1(m.cP),fat:r1(m.cF),carbs:r1(m.cC)}; addCustomFood({name:name,per100:per100}); commitNoRender(); m.selected={name:name,per100:per100}; m.customMode=false; m.cKcal='';m.cP='';m.cF='';m.cC='';m.grams=''; renderModals(); }
