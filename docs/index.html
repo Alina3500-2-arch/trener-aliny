@@ -336,7 +336,7 @@ function makeItem(name,grams,per100){ var g=Math.round(Number(grams)||0); var s=
 var GROQ_PROXY='https://divine-dream-5ce0.alinatyu456.workers.dev';
 var WIDGET_PROXY='https://trener-aliny-widget.alina-3500-2.workers.dev';
 var AI_MODEL='llama-3.3-70b-versatile';
-var AI_VISION='meta-llama/llama-4-maverick-17b-128e-instruct';
+var AI_VISION='qwen/qwen3.6-27b';
 var AI_BASE=GROQ_PROXY;
 var CHAT_URL=AI_BASE+'/openai/v1/chat/completions';
 var TRANSCRIBE_URL=AI_BASE+'/openai/v1/audio/transcriptions';
@@ -398,8 +398,9 @@ function parseDayMeals(text){
 }
 function parseMealPhoto(base64,history){
   history=history||[];
-  var system='Ты — диетолог. Смотришь на ФОТО и определяешь, есть ли там ЕДА или напиток.\nСНАЧАЛА проверь: реально ли на фото видна еда/напиток. Если на фото НЕТ еды (стена, мебель, человек, предмет, пустая тарелка, размытое или тёмное фото) — НЕ выдумывай блюда. Верни строго {"nofood":true}.\nТолько если еда действительно видна — определи блюда и оцени калорийность и БЖУ.\nЕсли по фото трудно понять вес/размер порции и это заметно влияет на калории (каши, гарниры, мясо, рыба, выпечка, паста, салаты с заправкой, сыр) — задай ОДИН короткий уточняющий вопрос про количество, например: «Сколько примерно грамм каши?» или «Это два тоста?».\nНе спрашивай про очевидное (1 банан, чашка кофе). Спрашивай не больше одного раза за реплику. Когда данных достаточно — посчитай.\nОтвечай СТРОГО валидным JSON, одно из трёх:\n{"nofood":true}\nили\n{"question":"короткий вопрос"}\nили\n{"items":[{"name":"...","grams":число,"kcal":число,"protein":число,"fat":число,"carbs":число}]}\ngrams — сколько грамм съедено (оцени по фото). БЖУ в граммах на всю съеденную порцию.';
-  var messages=[{role:'system',content:system},{role:'user',content:[{type:'text',text:'Что за еда на фото? Оцени калории и БЖУ.'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64}}]}];
+  var system='Ты — опытный диетолог, который распознаёт еду по фотографии. Сначала внимательно опиши для себя, что находится в тарелке или упаковке, затем назови наиболее вероятное блюдо и оцени порцию. Простые на вид продукты — творог, каша, йогурт, суп, салаты вроде оливье, пюре — это ЕДА, даже если выглядят как однородная масса. Если блюдо похоже на несколько вариантов, выбери самый вероятный и можешь задать ОДИН короткий вопрос для уточнения. Возвращай nofood только когда на снимке явно нет ничего съедобного: мебель, человек, пустая поверхность, документ или полностью пустая тарелка. Не отклоняй фото только из-за плохого света или неуверенности — сначала попробуй распознать. Оцени граммы, калории и БЖУ для всей видимой порции. Отвечай СТРОГО валидным JSON, одно из трёх: {"nofood":true} или {"question":"короткий вопрос"} или {"items":[{"name":"название блюда","grams":число,"kcal":число,"protein":число,"fat":число,"carbs":число}]}.';
+
+  var messages=[{role:'system',content:system},{role:'user',content:[{type:'text',text:'Распознай всю еду на фото. Даже если это однородное блюдо вроде творога, каши или салата, назови наиболее вероятный вариант и оцени порцию, калории и БЖУ.'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64}}]}];
   history.forEach(function(h){ messages.push({role:'assistant',content:'(уточняю)'}); messages.push({role:'user',content:h}); });
   return chatReq({model:AI_VISION,messages:messages,temperature:0.2,response_format:{type:'json_object'}},25000).then(function(raw){ return interpret(parseJSONLoose(raw)); });
 }
@@ -767,8 +768,6 @@ function renderToday(){
   var predGrams=Math.round((balance/7700)*1000);
   var visibleMeals=MEAL_TYPES.filter(function(m){ return !m.optional||todayLocal.extraMeals.includes(m.key)||meals.some(function(x){return x.type===m.key;}); });
   var hiddenOptional=MEAL_TYPES.filter(function(m){ return m.optional&&!todayLocal.extraMeals.includes(m.key)&&!meals.some(function(x){return x.type===m.key;}); });
-  var predColor=predGrams>0?'var(--alert)':'var(--good)';
-  var showPred=eaten.kcal>=1300||eaten.kcal>=budget;
   var divider='<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.12);margin:1px 12px"></div>';
   var goalTargetW=state.goal&&state.goal.startWeight!=null?Number((state.goal.startWeight+state.goal.targetDeltaKg).toFixed(1)):null;
   var goalBar='';
@@ -790,8 +789,7 @@ function renderToday(){
       '<div style="min-width:0;text-align:center"><div style="font-size:22px;font-weight:800;letter-spacing:-.5px">'+budget+'</div><div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">норма</div>'+(burned>0?'<div style="color:var(--good);font-size:10px;font-weight:800;margin-top:1px">+'+burned+'</div>':'')+'</div>'+
       calorieRingSVG(eaten.kcal,budget,164,14,over?'var(--alert)':'#C76BFF','#FFFFFF')+
       '<div style="min-width:0;text-align:center"><div style="font-size:22px;font-weight:800;letter-spacing:-.5px;'+(over?'color:var(--alert)':'')+'">'+(over?'+':'')+Math.round(over?eaten.kcal-budget:budget-eaten.kcal)+'</div><div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">'+(over?'перебор':'осталось')+'</div>'+
-        (showPred?('<div style="font-size:10px;font-weight:800;margin-top:2px;color:'+predColor+'">на весах ≈ '+(predGrams>0?'+':predGrams<0?'−':'')+Math.abs(predGrams)+' г</div>'+
-        '<div style="font-size:8px;font-weight:800;color:'+predColor+'">'+(predGrams>0?'⚠️ жир копится!':predGrams<0?'жир уходит':'вес держится')+'</div>'):'')+'</div>'+
+        '</div>'+
     '</div>'+
     '<div style="display:flex;align-items:stretch;margin-top:8px">'+heroMacro('Белки',eaten.protein,mt.protein,'protein')+divider+heroMacro('Жиры',eaten.fat,mt.fat,'limit')+divider+heroMacro('Углеводы',eaten.carbs,mt.carbs,'limit')+'</div>'+
     ''+
@@ -824,9 +822,10 @@ function renderToday(){
   if(!isToday){
     // no coach card for past/future days
   } else if(over){
-    h+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;border:1.5px solid var(--alert);background:var(--dangerBg);border-radius:16px;padding:10px;text-align:left">'+
-      '<div style="color:var(--alert);font-size:12px;font-weight:800;margin-bottom:4px">❗ Перебор</div>'+
-      '<div style="color:var(--alert);font-size:11px;line-height:14px;font-weight:700">Стоп! Перебор на '+overTarget+' ккал. На сегодня хватит — попей воды. Завтра с чистого листа!</div></div>';
+    h+='<div style="flex:.75;min-width:0;border:1px solid rgba(255,107,107,.45);background:linear-gradient(155deg,rgba(75,31,42,.88),rgba(37,24,34,.96));border-radius:16px;padding:10px;text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 22px rgba(30,8,16,.18)">'+
+      '<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px"><span style="width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,107,107,.13);color:#ff8b96"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg></span><span style="color:#ff9ca5;font-size:11px;font-weight:900">Выше нормы</span></div>'+
+      '<div style="color:#fff;font-size:12px;line-height:15px;font-weight:800">Сегодня на '+overTarget+' ккал больше</div>'+
+      '<div style="color:rgba(255,255,255,.62);font-size:10px;line-height:13px;margin-top:4px">Ничего страшного. Завтра просто возвращаемся к обычному плану.</div></div>';
   } else {
     h+='<div style="flex:.75;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:9px">'+
       '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">💜</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
