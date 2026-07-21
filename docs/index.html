@@ -915,15 +915,17 @@ function renderMealSheet(){
     '<div class="mhead"><div style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:7px">'+mealIconSVG(m.key)+esc(m.label)+'</div><button class="closeX" onclick="ui.mealSheet=null;renderModals()">✕</button></div>';
   if(items.length){
     h+='<div style="margin-bottom:9px">';
+    h+='<div style="font-size:10.5px;color:var(--textDim);margin:-2px 2px 7px">Смахни блюдо в сторону, чтобы удалить</div>';
     items.forEach(function(x){
       var grams=Math.round(Number(x.grams)||0),kcal=Math.round(Number(x.kcal)||0);
-      h+='<div style="background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 11px;margin-bottom:7px">'+
-        '<div style="display:flex;align-items:center;gap:8px"><button style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:800;line-height:19px" onclick="mealSheetEdit(\''+x.id+'\')">'+esc(x.name)+'</button>'+
-        '<span style="color:var(--accent);font-size:14px;font-weight:900;white-space:nowrap">'+kcal+' ккал</span>'+
-        '<button aria-label="Удалить" style="color:var(--danger);padding:4px 6px" onclick="mealSheetDelete(\''+x.id+'\')">✕</button></div>'+
+      h+='<div class="meal-swipe" data-meal-id="'+esc(x.id)+'" style="position:relative;overflow:hidden;border-radius:14px;margin-bottom:7px;background:var(--dangerBg)">'+
+        '<button aria-label="Удалить блюдо" onclick="mealSwipeDelete(\''+x.id+'\')" style="position:absolute;inset:0;width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;background:linear-gradient(90deg,#d94f5d,#ef6b77);font-size:14px;font-weight:900"><span>Удалить</span><span>Удалить</span></button>'+
+        '<div class="meal-swipe-card" ontouchstart="mealSwipeStart(event,this)" ontouchmove="mealSwipeMove(event,this)" ontouchend="mealSwipeEnd(event,this)" onclick="mealSwipeTap(event,this,\''+x.id+'\')" style="position:relative;z-index:1;background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 11px;transition:transform .18s ease;touch-action:pan-y">'+
+        '<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:800;line-height:19px">'+esc(x.name)+'</div>'+
+        '<span style="color:var(--accent);font-size:14px;font-weight:900;white-space:nowrap">'+kcal+' ккал</span></div>'+
         '<div style="display:flex;align-items:center;gap:8px;margin-top:5px;color:var(--textDim);font-size:11px;font-weight:700">'+
           (grams?'<span>'+grams+' г</span>':'')+(x.time?'<span>'+esc(x.time)+'</span>':'')+
-          '<span style="margin-left:auto">Б '+r1(x.protein)+' · Ж '+r1(x.fat)+' · У '+r1(x.carbs)+' г</span></div></div>';
+          '<span style="margin-left:auto">Б '+r1(x.protein)+' · Ж '+r1(x.fat)+' · У '+r1(x.carbs)+' г</span></div></div></div>';
     });
     h+='<div style="background:linear-gradient(145deg,rgba(91,55,160,.42),rgba(41,30,67,.7));border:1px solid rgba(155,125,255,.38);border-radius:15px;padding:11px 12px;margin-top:8px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:900">Итого — '+esc(m.label.toLowerCase())+'</span><span style="color:#c8a9ff;font-size:17px;font-weight:900">'+Math.round(totals.kcal)+' ккал</span></div>'+
@@ -936,8 +938,18 @@ function renderMealSheet(){
   '</div></div></div>';
   return h;
 }
-function mealSheetEdit(id){ var meal=state.meals.find(function(m){return m.id===id;}); ui.mealSheet=null; openEditMeal(meal); }
-function mealSheetDelete(id){ if(confirm('Удалить запись?')) removeMeal(id); else return; }
+var mealSwipe={el:null,startX:0,startY:0,dx:0,moved:false,dragging:false};
+function mealSwipeClose(except){
+  document.querySelectorAll('.meal-swipe-card').forEach(function(el){if(el!==except){el.style.transform='translateX(0)';el.parentNode.dataset.open='';}});
+}
+function mealSwipeStart(ev,el){ var t=ev.touches&&ev.touches[0]; if(!t)return; mealSwipeClose(el); mealSwipe={el:el,startX:t.clientX,startY:t.clientY,dx:0,moved:false,dragging:true}; el.style.transition='none'; }
+function mealSwipeMove(ev,el){ if(!mealSwipe.dragging||mealSwipe.el!==el)return; var t=ev.touches&&ev.touches[0];if(!t)return;var dx=t.clientX-mealSwipe.startX,dy=t.clientY-mealSwipe.startY;
+  if(Math.abs(dx)>8&&Math.abs(dx)>Math.abs(dy)){ev.preventDefault();mealSwipe.dx=Math.max(-92,Math.min(92,dx));mealSwipe.moved=Math.abs(dx)>12;el.style.transform='translateX('+mealSwipe.dx+'px)';}}
+function mealSwipeEnd(ev,el){ if(mealSwipe.el!==el)return;el.style.transition='transform .18s ease';if(Math.abs(mealSwipe.dx)>=42){var x=mealSwipe.dx<0?-86:86;el.style.transform='translateX('+x+'px)';el.parentNode.dataset.open=String(x);}else{el.style.transform='translateX(0)';el.parentNode.dataset.open='';}
+  setTimeout(function(){mealSwipe.dragging=false;},0); }
+function mealSwipeTap(ev,el,id){ if(mealSwipe.moved){ev.preventDefault();ev.stopPropagation();mealSwipe.moved=false;return;} if(el.parentNode.dataset.open){el.style.transform='translateX(0)';el.parentNode.dataset.open='';return;} mealSheetEdit(id); }
+function mealSwipeDelete(id){ if(confirm('Точно удалить это блюдо?')){removeMeal(id);} }
+function mealSheetEdit(id){ var meal=state.meals.find(function(m){return m.id===id;}); if(!meal)return; ui.mealSheet=null; openEditMeal(meal); }
 function mealSheetVoice(){ var k=ui.mealSheet; ui.mealSheet=null; openSmart({defaultType:k,autoStart:true}); }
 function mealSheetManual(){ var k=ui.mealSheet; ui.mealSheet=null; openManual(k); }
 function mealSheetPhoto(){ var k=ui.mealSheet; ui.mealSheet=null; openSmart({defaultType:k,startMode:'photo'}); }
