@@ -94,6 +94,7 @@ var emptyState={
   goal:null, customFoods:[], weights:[], meals:[], workouts:[], activities:[],
   workoutPlan:null, workoutDays:[], workoutTime:'18:00', workoutDaysSince:null, favorites:[],
   smartMealReminders:true,
+  mealReminderSkips:{}, mealReminderSnoozes:{},
   reminders:[
     {id:'weigh',label:'Взвешивание',body:'Доброе утро! Взвесься и запиши вес 💜',time:'08:00',enabled:true},
     {id:'breakfast',label:'Завтрак',body:'Что ты позавтракала? Запиши голосом 🍳',time:'10:00',enabled:true},
@@ -435,43 +436,32 @@ function coachTip(ctx){
 }
 
 /* ===== NOTIFICATIONS BRIDGE ===== */
-function scheduleReminders(reminders,workout){
+function scheduleReminders(reminders,workout,snooze){
   try{
     if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.notify){
-      window.webkit.messageHandlers.notify.postMessage({reminders:reminders,workout:workout});
+      window.webkit.messageHandlers.notify.postMessage({reminders:reminders,workout:workout,snooze:snooze||null});
     }else{ console.log('[reminders no-op]',reminders,workout); }
   }catch(e){ console.log('reminders error',e); }
 }
-/* Умные напоминания о еде: эскалирующие подсказки каждый час, пока приём пищи не записан.
-   Пересчитывается на каждый commit() — как только Алина что-то записывает, лишние
-   уведомления для этого приёма пищи автоматически пропадают из очереди. */
+/* Умные напоминания о еде: один вопрос на приём пищи с действиями в iOS.
+   После записи приёма или выбора «Сегодня без контроля» уведомления пересчитываются. */
 var MEAL_REMIND_INFO={
-  breakfast:{verb:'позавтракала',noun:'завтрак',emoji:'🍳',hours:[7,8,9,10]},
-  brunch:{verb:'перекусила',noun:'ланч',emoji:'🥪',hours:[10,11,12,13]},
-  lunch:{verb:'пообедала',noun:'обед',emoji:'🍲',hours:[13,14,15]},
-  snack:{verb:'перекусила',noun:'полдник',emoji:'🍎',hours:[16,17,18]},
-  dinner:{verb:'поужинала',noun:'ужин',emoji:'🍽️',hours:[18,19,20]},
+  breakfast:{verb:'позавтракала',noun:'завтрак',emoji:'🍳',time:'08:00'},
+  brunch:{verb:'перекусила',noun:'ланч',emoji:'🥪',time:'11:00'},
+  lunch:{verb:'пообедала',noun:'обед',emoji:'🍲',time:'13:00'},
+  snack:{verb:'перекусила',noun:'полдник',emoji:'🍎',time:'16:00'},
+  dinner:{verb:'поужинала',noun:'ужин',emoji:'🍽️',time:'18:00'},
 };
-function mealRemindBody(info,tier){
-  if(tier===0) return 'Алина, ты '+info.verb+'? Обязательно запиши, что ела на '+info.noun+' '+info.emoji;
-  if(tier===1) return 'Алина, ты всё ещё не '+info.verb+'? Я не увидела записи в дневнике 👀';
-  if(tier===2) return 'Алина, не может быть, чтобы ты ещё не '+info.verb+'! Обязательно запиши — это недолго. Нет времени? Хотя бы сфотографируй 📸';
-  return 'Алина, пропускать приёмы пищи вредно для метаболизма! Это не так сложно — просто нажми и запиши, что поела 💜';
-}
+function mealRemindBody(info){ return 'Ты '+info.verb+'? Выбери: записать, ещё не ела или сегодня без контроля '+info.emoji; }
+function reminderDaySkipped(date){ return !!(state.mealReminderSkips&&state.mealReminderSkips[date]); }
 function computeMealReminderQueue(){
   var today=todayStr(); var todaysMeals=(state.meals||[]).filter(function(m){return m.date===today;});
-  var out=[], missing=[];
+  var out=[];
   Object.keys(MEAL_REMIND_INFO).forEach(function(key){
     var info=MEAL_REMIND_INFO[key];
-    if(todaysMeals.some(function(m){return m.type===key;})) return;
-    missing.push((MEAL_TYPES.find(function(m){return m.key===key;})||{}).label||info.noun);
-    info.hours.forEach(function(hour,tier){
-      out.push({id:'sm-'+key+'-'+hour,label:info.noun,body:mealRemindBody(info,tier),time:String(hour).padStart(2,'0')+':00',enabled:true});
-    });
+    var done=todaysMeals.some(function(m){return m.type===key;});
+    out.push({id:'sm-'+key,label:info.noun,mealKey:key,body:mealRemindBody(info),time:info.time,enabled:true,actions:true,skipToday:done||reminderDaySkipped(today),skipDate:today});
   });
-  if(missing.length){
-    out.push({id:'sm-summary',label:'Итог дня',body:'Алина, ты пропустила запись: '+missing.join(', ')+'. Обязательно запиши, а то мы не сможем контролировать твоё питание. Это несложно — просто нажми и сделай это 💜',time:'21:00',enabled:true});
-  }
   return out;
 }
 function buildReminderPayload(){
@@ -599,6 +589,7 @@ function render(){
     renderModals();
     if(ui.tab==='today') afterTodayRender();
     if(ui.tab==='workout') afterWorkoutRender();
+    setTimeout(checkMealDecisionPrompt,80);
   }catch(e){
     document.getElementById('app').innerHTML='<div id="app-error"><h2 class="h2">Ой, что-то сломалось</h2><p class="muted">'+esc(e&&e.message||e)+'</p><button class="btn mt16" onclick="location.reload()">Обновить</button></div>';
     console.error(e);
@@ -902,9 +893,50 @@ function renderModals(){
   if(ui.wlog) h+=renderWorkoutLog();
   if(ui.actModal) h+=renderActModal();
   if(ui.deleteWorkout) h+=renderWorkoutDeleteConfirm();
+  if(ui.mealDecision) h+=renderMealDecision();
   m.innerHTML=h;
 }
-function closeModals(){ ui.mealSheet=null; ui.editMeal=null; ui.manual=null; ui.smart=null; ui.foodSearch=null; ui.deleteWorkout=null; renderModals(); }
+function closeModals(){ ui.mealSheet=null; ui.editMeal=null; ui.manual=null; ui.smart=null; ui.foodSearch=null; ui.deleteWorkout=null; ui.mealDecision=null; renderModals(); }
+
+/* ===== ОБЯЗАТЕЛЬНЫЙ ВЫБОР ПО ПИТАНИЮ ===== */
+function minutesNow(){ var d=new Date(); return d.getHours()*60+d.getMinutes(); }
+function timeMinutes(s){ var p=String(s||'').split(':').map(Number); return (p[0]||0)*60+(p[1]||0); }
+function cleanReminderChoices(){
+  var today=todayStr(),changed=false;
+  ['mealReminderSkips','mealReminderSnoozes'].forEach(function(k){
+    var src=state[k]||{},next={}; Object.keys(src).forEach(function(x){ if(x===today||x.indexOf(today+'|')===0) next[x]=src[x]; else changed=true; }); state[k]=next;
+  });
+  if(changed) saveState();
+}
+function mealPromptCandidate(){
+  if(state.smartMealReminders===false||reminderDaySkipped(todayStr())) return null;
+  var now=minutesNow(),today=todayStr(),meals=todayMeals(state,today),snoozes=state.mealReminderSnoozes||{};
+  var current=Object.keys(MEAL_REMIND_INFO).map(function(key){return {key:key,info:MEAL_REMIND_INFO[key]};})
+    .filter(function(x){var due=timeMinutes(x.info.time);return now>=due&&now-due<=180;})
+    .sort(function(a,b){return timeMinutes(b.info.time)-timeMinutes(a.info.time);})[0]||null;
+  if(!current||Date.now()<Number(snoozes[today+'|'+current.key]||0)||meals.some(function(m){return m.type===current.key;})) return null;
+  return current;
+}
+function checkMealDecisionPrompt(){
+  if(!state.onboarded||ui.mealDecision||ui.mealSheet||ui.editMeal||ui.manual||ui.smart||ui.foodSearch||ui.wlog||ui.actModal||ui.deleteWorkout) return;
+  cleanReminderChoices(); var c=mealPromptCandidate(); if(c){ui.mealDecision=c.key;renderModals();}
+}
+function renderMealDecision(){
+  var key=ui.mealDecision,info=MEAL_REMIND_INFO[key]; if(!info)return '';
+  return '<div class="overlay center" style="z-index:170;background:rgba(7,6,12,.78)"><div class="dialog" style="max-width:350px;text-align:center;background:linear-gradient(155deg,#20172f,#17141f);border-color:rgba(155,125,255,.46);box-shadow:0 24px 70px rgba(0,0,0,.45)">'+
+    '<div style="width:58px;height:58px;margin:0 auto 12px;border-radius:19px;display:flex;align-items:center;justify-content:center;background:rgba(155,125,255,.15);border:1px solid rgba(155,125,255,.28);font-size:28px">'+info.emoji+'</div>'+
+    '<div style="font-size:22px;font-weight:900">Ты '+esc(info.verb)+'?</div>'+
+    '<div class="muted" style="font-size:14px;line-height:20px;margin:7px 8px 17px">Выбери один вариант — и я больше не буду повторять одно и то же уведомление.</div>'+
+    '<button class="btn" onclick="mealDecisionRecord()">Записать '+esc(info.noun)+'</button>'+
+    '<button class="btn soft mt8" onclick="mealDecisionSnooze()">Ещё не ела · напомнить через час</button>'+
+    '<button class="btn ghost mt8" style="color:var(--textDim)" onclick="mealDecisionSkipDay()">Сегодня без контроля</button></div></div>';
+}
+function mealDecisionRecord(){ var key=ui.mealDecision;ui.mealDecision=null;ui.tab='today';ui.viewDate=todayStr();render();openMealSheet(key); }
+function mealDecisionSnooze(){
+  var key=ui.mealDecision,today=todayStr(),info=MEAL_REMIND_INFO[key];state.mealReminderSnoozes=state.mealReminderSnoozes||{};state.mealReminderSnoozes[today+'|'+key]=Date.now()+60*60*1000;ui.mealDecision=null;
+  saveState();scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'},{mealKey:key,body:'Ты уже '+info.verb+'? Если да — запиши '+info.noun+' '+info.emoji});syncWidget();render();
+}
+function mealDecisionSkipDay(){ state.mealReminderSkips=state.mealReminderSkips||{};state.mealReminderSkips[todayStr()]=true;ui.mealDecision=null;commit(); }
 
 /* ===== MEAL SHEET ===== */
 function openMealSheet(key){ ui.mealSheet=key; renderModals(); }
@@ -1488,7 +1520,7 @@ function renderRemindersCard(){
   });
   var smOn=state.smartMealReminders!==false;
   h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0">'+
-    '<div style="flex:1"><div style="font-size:15px;font-weight:600">Умные напоминания о еде</div><div class="muted">Каждый час, пока не запишешь приём пищи — с 7:00 до 21:00, с нарастающей настойчивостью</div></div>'+
+    '<div style="flex:1"><div style="font-size:15px;font-weight:600">Контроль питания</div><div class="muted">Один вопрос на приём пищи: записать, напомнить через час или отключить контроль до завтра</div></div>'+
     '<button onclick="toggleSmartReminders()" style="width:44px;height:26px;border-radius:999px;background:'+(smOn?'var(--primaryDim)':'var(--line)')+';position:relative"><span style="position:absolute;top:2px;'+(smOn?'right:2px;background:var(--primary)':'left:2px;background:#888')+';width:22px;height:22px;border-radius:50%"></span></button>'+
   '</div>';
   h+='</div>';
@@ -2302,6 +2334,8 @@ function applyDeepLink(){
   var val=decodeURIComponent(m[1]); if(!val) return;
   var parts=val.split(':'); var kind=parts[0], arg=parts[1];
   if(kind==='meal'&&arg){ ui.tab='today'; render(); openMealSheet(arg); }
+  else if(kind==='meal-snooze'&&arg){ state.mealReminderSnoozes=state.mealReminderSnoozes||{};state.mealReminderSnoozes[todayStr()+'|'+arg]=Date.now()+60*60*1000;saveState();ui.mealDecision=null;render(); }
+  else if(kind==='meal-skip'){ state.mealReminderSkips=state.mealReminderSkips||{};state.mealReminderSkips[todayStr()]=true;saveState();ui.mealDecision=null;render(); }
   else if(kind==='tab'&&arg){ setTab(arg,true); return; }
   try{ history.replaceState(null,'',location.pathname); }catch(e){}
 }

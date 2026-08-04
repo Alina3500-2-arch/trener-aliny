@@ -13,6 +13,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        WebViewController.registerNotificationCategories()
         // Спросить разрешение на уведомления сразу при старте, чтобы системный
         // алерт появился при первом запуске, а не только на экране напоминаний.
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }

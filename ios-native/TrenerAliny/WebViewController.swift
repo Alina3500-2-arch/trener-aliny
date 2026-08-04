@@ -8,11 +8,42 @@ import WidgetKit
 // через window.webkit.messageHandlers.notify.postMessage(...).
 final class WebViewController: UIViewController {
 
+    private static let mealCategory = "MEAL_DECISION"
+    private static let mealRecordAction = "MEAL_RECORD"
+    private static let mealSnoozeAction = "MEAL_SNOOZE"
+    private static let mealSkipDayAction = "MEAL_SKIP_DAY"
+
     // URL веб-приложения (GitHub Pages). Правки UI/логики происходят в docs/index.html
     // и публикуются мгновенно через Pages — пересборка .ipa для этого не нужна.
     private let appURL = URL(string: "https://alina3500-2-arch.github.io/trener-aliny/")!
 
     private var webView: WKWebView!
+    private var skipNextActiveReload = false
+
+    static func registerNotificationCategories() {
+        let record = UNNotificationAction(
+            identifier: mealRecordAction,
+            title: "Записать",
+            options: [.foreground]
+        )
+        let snooze = UNNotificationAction(
+            identifier: mealSnoozeAction,
+            title: "Ещё не ела",
+            options: [.foreground]
+        )
+        let skip = UNNotificationAction(
+            identifier: mealSkipDayAction,
+            title: "Сегодня без контроля",
+            options: [.foreground]
+        )
+        let category = UNNotificationCategory(
+            identifier: mealCategory,
+            actions: [record, snooze, skip],
+            intentIdentifiers: [],
+            options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
 
     override func loadView() {
         let config = WKWebViewConfiguration()
@@ -51,6 +82,10 @@ final class WebViewController: UIViewController {
     }
 
     @objc private func reloadIfNeeded() {
+        if skipNextActiveReload {
+            skipNextActiveReload = false
+            return
+        }
         // Если по какой-то причине страница не загружена — грузим заново,
         // иначе просто reload для получения последней версии.
         if webView.url == nil {
@@ -96,11 +131,12 @@ extension WebViewController: WKScriptMessageHandler {
 
         let reminders = payload["reminders"] as? [[String: Any]] ?? []
         let workout = payload["workout"] as? [String: Any]
+        let snooze = payload["snooze"] as? [String: Any]
 
         // Запросить разрешение (если ещё не дано) и перепланировать всё.
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return } // тихо ничего не планируем, если запрещено
-            self.scheduleNotifications(reminders: reminders, workout: workout)
+            self.scheduleNotifications(reminders: reminders, workout: workout, snooze: snooze)
         }
     }
 
@@ -114,11 +150,13 @@ extension WebViewController: WKScriptMessageHandler {
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyWorkoutWidget")
     }
 
-    private func scheduleNotifications(reminders: [[String: Any]], workout: [String: Any]?) {
+    private func scheduleNotifications(reminders: [[String: Any]], workout: [String: Any]?, snooze: [String: Any]?) {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
 
-        // Ежедневные напоминания.
+        // Обычные напоминания повторяются ежедневно. Напоминания о еде
+        // планируем отдельными датами на неделю: так «Сегодня без контроля»
+        // отключает только текущий день, а не все будущие.
         for r in reminders {
             let enabled = (r["enabled"] as? Bool) ?? false
             guard enabled else { continue }
@@ -130,6 +168,30 @@ extension WebViewController: WKScriptMessageHandler {
             content.title = "Тренер Алины"
             content.body = body
             content.sound = .default
+
+            let isMeal = (r["actions"] as? Bool) == true
+            if isMeal, let mealKey = r["mealKey"] as? String {
+                content.categoryIdentifier = Self.mealCategory
+                content.userInfo = ["mealKey": mealKey]
+                let skipToday = (r["skipToday"] as? Bool) ?? false
+                let calendar = Calendar.current
+                let now = Date()
+
+                for dayOffset in 0..<8 {
+                    guard let day = calendar.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+                    var comps = calendar.dateComponents([.year, .month, .day], from: day)
+                    comps.hour = h
+                    comps.minute = m
+                    guard let fireDate = calendar.date(from: comps), fireDate > now else { continue }
+                    if dayOffset == 0 && skipToday { continue }
+
+                    let dateKey = Self.dateKey(day)
+                    let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+                    let id = "reminder-sm-\(mealKey)-\(dateKey)"
+                    center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+                }
+                continue
+            }
 
             var comps = DateComponents()
             comps.hour = h
@@ -162,6 +224,12 @@ extension WebViewController: WKScriptMessageHandler {
                 }
             }
         }
+
+        if let snooze,
+           let mealKey = snooze["mealKey"] as? String {
+            let body = (snooze["body"] as? String) ?? "Пора записать приём пищи"
+            scheduleMealSnooze(mealKey: mealKey, body: body)
+        }
     }
 
     private static func parseTime(_ s: String) -> (Int, Int)? {
@@ -170,6 +238,37 @@ extension WebViewController: WKScriptMessageHandler {
               let h = Int(parts[0]), let m = Int(parts[1]),
               (0...23).contains(h), (0...59).contains(m) else { return nil }
         return (h, m)
+    }
+
+    private static func dateKey(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func scheduleMealSnooze(mealKey: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Тренер Алины"
+        content.body = body
+        content.sound = .default
+        content.categoryIdentifier = Self.mealCategory
+        content.userInfo = ["mealKey": mealKey]
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60 * 60, repeats: false)
+        let id = "reminder-sm-\(mealKey)-snooze-\(Int(Date().timeIntervalSince1970))"
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+    }
+
+    private func removeTodayMealNotifications() {
+        let today = Self.dateKey(Date())
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { requests in
+            let ids = requests.map(\.identifier).filter {
+                $0.hasPrefix("reminder-sm-") && ($0.hasSuffix("-\(today)") || $0.contains("-snooze-"))
+            }
+            center.removePendingNotificationRequests(withIdentifiers: ids)
+        }
     }
 }
 
@@ -191,8 +290,26 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if let target = Self.deepLinkTarget(for: response.notification.request.identifier) {
-            openDeepLink(target)
+        let request = response.notification.request
+        let mealKey = request.content.userInfo["mealKey"] as? String
+
+        switch response.actionIdentifier {
+        case Self.mealRecordAction:
+            if let mealKey { openDeepLink("meal:\(mealKey)") }
+        case Self.mealSnoozeAction:
+            if let mealKey {
+                scheduleMealSnooze(mealKey: mealKey, body: request.content.body)
+                openDeepLink("meal-snooze:\(mealKey)")
+            }
+        case Self.mealSkipDayAction:
+            removeTodayMealNotifications()
+            openDeepLink("meal-skip:today")
+        default:
+            if let mealKey {
+                openDeepLink("meal:\(mealKey)")
+            } else if let target = Self.deepLinkTarget(for: request.identifier) {
+                openDeepLink(target)
+            }
         }
         completionHandler()
     }
@@ -204,13 +321,10 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         case "reminder-sm-summary": return "tab:today"
         default:
             if identifier.hasPrefix("workout-") { return "tab:workout" }
-            // Умные напоминания о еде: "reminder-sm-<mealKey>-<hour>" → открыть лист приёма пищи.
+            // Запасной разбор старых идентификаторов напоминаний о еде.
             if identifier.hasPrefix("reminder-sm-") {
-                let rest = identifier.dropFirst("reminder-sm-".count) // напр. "breakfast-7"
-                if let lastDash = rest.range(of: "-", options: .backwards) {
-                    let mealKey = rest[rest.startIndex..<lastDash.lowerBound]
-                    return "meal:\(mealKey)"
-                }
+                let rest = identifier.dropFirst("reminder-sm-".count)
+                if let firstDash = rest.firstIndex(of: "-") { return "meal:\(rest[..<firstDash])" }
             }
             return nil
         }
@@ -224,6 +338,7 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         guard var comps = URLComponents(url: appURL, resolvingAgainstBaseURL: false) else { return }
         comps.queryItems = [URLQueryItem(name: "open", value: target)]
         guard let url = comps.url else { return }
+        skipNextActiveReload = true
         webView.load(URLRequest(url: url))
     }
 }
