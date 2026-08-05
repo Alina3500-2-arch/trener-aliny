@@ -2,9 +2,9 @@
  * Groq-прокси на Cloudflare Workers.
  *
  * Зачем: телефон в некоторых регионах не может обращаться к api.groq.com напрямую
- * (ошибка 403), и даже VPN не всегда помогает. Этот worker крутится в сети Cloudflare
- * (США), поэтому запросы к Groq идут из «разрешённой» сети. Приложение обращается
- * к worker'у, а тот подставляет секретный ключ и пересылает запрос в Groq.
+ * (ошибка 403), и даже VPN не всегда помогает. Приложение обращается к Worker,
+ * а тот передаёт запрос через американский Durable Object, подставляет секретный
+ * ключ и пересылает запрос в Groq.
  *
  * Секрет (задать один раз):
  *   npx wrangler secret put GROQ_KEY        // сам ключ Groq (gsk_...)
@@ -15,6 +15,8 @@
  *   POST /openai/v1/chat/completions
  *   POST /openai/v1/audio/transcriptions
  */
+
+import { DurableObject } from 'cloudflare:workers';
 
 const GROQ_BASE = 'https://api.groq.com';
 const ALLOWED = ['/openai/v1/chat/completions', '/openai/v1/audio/transcriptions'];
@@ -53,13 +55,19 @@ export default {
       return withCors(new Response('Forbidden', { status: 401 }));
     }
 
-    // Пересобираем заголовки: подставляем ключ Groq, убираем лишнее.
+    // Обычный Worker запускается рядом с клиентом, поэтому Groq всё ещё
+    // может увидеть заблокированный регион. Передаём Groq-запрос в Durable Object,
+    // жёстко ограниченный юрисдикцией US. Это даёт стабильный американский egress
+    // независимо от VPN и местоположения телефона.
     const headers = new Headers(request.headers);
-    headers.set('Authorization', `Bearer ${env.GROQ_KEY}`);
+    headers.delete('authorization');
     headers.delete('host');
     headers.delete('x-proxy-token');
 
-    const upstream = await fetch(GROQ_BASE + url.pathname, {
+    const usNamespace = env.GROQ_US.jurisdiction('us');
+    const usId = usNamespace.idFromName('groq-egress-v1');
+    const usEgress = usNamespace.get(usId);
+    const upstream = await usEgress.fetch(GROQ_BASE + url.pathname, {
       method: 'POST',
       headers,
       body: request.body,
@@ -68,6 +76,30 @@ export default {
     return withCors(upstream);
   },
 };
+
+// Единственная задача объекта — сделать исходящий Groq-запрос из США.
+// Тело аудио/фото и ответ передаются потоком без буферизации.
+export class GroqUSEgress extends DurableObject {
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (request.method !== 'POST' || url.origin !== GROQ_BASE || !ALLOWED.includes(url.pathname)) {
+      return new Response('Not found', { status: 404 });
+    }
+    if (!this.env.GROQ_KEY) {
+      return new Response('Proxy is not configured (no GROQ_KEY secret)', { status: 500 });
+    }
+
+    const headers = new Headers(request.headers);
+    headers.set('Authorization', `Bearer ${this.env.GROQ_KEY}`);
+    headers.delete('host');
+
+    return fetch(GROQ_BASE + url.pathname, {
+      method: 'POST',
+      headers,
+      body: request.body,
+    });
+  }
+}
 
 async function handleWidgetGet(env) {
   try {
