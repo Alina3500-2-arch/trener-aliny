@@ -1,6 +1,17 @@
 name = "groq-proxy"
 main = "src/index.js"
-compatibility_date = "2024-11-01"
+compatibility_date = "2026-08-05"
+compatibility_flags = ["nodejs_compat"]
+
+# Groq блокирует часть регионов. Durable Object в US-юрисдикции даёт
+# стабильный американский исходящий маршрут для голоса, фото и чата.
+[[durable_objects.bindings]]
+name = "GROQ_US"
+class_name = "GroqUSEgress"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GroqUSEgress"]
 
 # KV для хранения данных виджета тренировок
 [[kv_namespaces]]
