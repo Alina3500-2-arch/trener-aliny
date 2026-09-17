@@ -61,7 +61,7 @@ EXPO_PUBLIC_GROQ_PROXY_TOKEN=та-же-строка
 ```bash
 curl -X POST https://groq-proxy.ТВОЙ-АККАУНТ.workers.dev/openai/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"llama-3.3-70b-versatile","messages":[{"role":"user","content":"привет"}]}'
+  -d '{"model":"openai/gpt-oss-20b","messages":[{"role":"user","content":"привет"}]}'
 ```
 
 Должен прийти JSON-ответ от модели (а не 403).

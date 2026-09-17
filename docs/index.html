@@ -340,8 +340,9 @@ function makeItem(name,grams,per100){ var g=Math.round(Number(grams)||0); var s=
 /* ===== AI (Groq via Cloudflare Worker proxy) ===== */
 var GROQ_PROXY='https://divine-dream-5ce0.alinatyu456.workers.dev';
 var WIDGET_PROXY='https://trener-aliny-widget.alina-3500-2.workers.dev';
-var AI_MODEL='llama-3.3-70b-versatile';
-var AI_VISION='qwen/qwen3.6-27b';
+var AI_MODEL='openai/gpt-oss-20b';
+var AI_MODEL_FALLBACK='openai/gpt-oss-120b';
+var AI_VISION='qwen/qwen3.8-27b';
 var AI_BASE=GROQ_PROXY;
 var CHAT_URL=AI_BASE+'/openai/v1/chat/completions';
 var TRANSCRIBE_URL=AI_BASE+'/openai/v1/audio/transcriptions';
@@ -378,10 +379,23 @@ function transcribeAudio(blob,filename,type){
   }).then(function(data){ return (data.text||'').trim(); });
 }
 function chatReq(body,ms){
-  return fetchT(CHAT_URL,{method:'POST',headers:groqHeaders({'Content-Type':'application/json'}),body:JSON.stringify(body)},ms).then(function(res){
-    if(!res.ok) return res.text().then(function(t){ throw aiError(res.status,t); });
-    return res.json();
-  }).then(function(data){ var raw=data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content; if(!raw) throw new Error('Пустой ответ'); return raw; });
+  function send(payload,canFallback){
+    return fetchT(CHAT_URL,{method:'POST',headers:groqHeaders({'Content-Type':'application/json'}),body:JSON.stringify(payload)},ms).then(function(res){
+      if(!res.ok) return res.text().then(function(t){
+        var missingModel=(res.status===404||res.status===400)&&/model[^\n]*(does not exist|not found|access)/i.test(t||'');
+        if(canFallback&&missingModel){
+          return send(Object.assign({},payload,{model:AI_MODEL_FALLBACK}),false);
+        }
+        throw aiError(res.status,t);
+      });
+      return res.json();
+    });
+  }
+  return send(body,body&&body.model===AI_MODEL).then(function(data){
+    var raw=data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
+    if(!raw) throw new Error('Пустой ответ');
+    return raw;
+  });
 }
 function parseMeal(history){
   var system='Ты — диетолог, ведёшь короткий диалог. Пользователь говорит свободной речью, что съел — вытаскивай только про еду.\nВАЖНО: если для блюда не названо количество/вес/размер порции и это заметно влияет на калории (каши, гарниры, мясо, рыба, выпечка, паста, салаты с заправкой, сыр) — задай ОДИН короткий уточняющий вопрос про количество, например: «Сколько грамм каши?» или «Сколько кусочков хлеба?».\nОценивай сам БЕЗ вопроса только для очевидных единичных вещей: 1 банан, чашка кофе, стакан кефира, 1 яблоко, 1 конфета.\nСпрашивай не больше одного раза за реплику. Когда данных достаточно — посчитай.\nЕсли пользователь САМ назвал калорийность блюда — поставь "userKcal":true и используй именно его kcal.\nОтвечай СТРОГО валидным JSON, одно из двух:\n{"question":"короткий вопрос"}\nили\n{"items":[{"name":"...","grams":число,"kcal":число,"protein":число,"fat":число,"carbs":число,"userKcal":true/false}]}\ngrams — сколько грамм съедено (оцени, если не сказано). БЖУ в граммах на всю съеденную порцию.';
@@ -430,9 +444,9 @@ function generateWorkoutPlans(ctx){
 function coachTip(ctx){
   var system='Ты — персональный ИИ-тренер и диетолог. Пользователя зовут Алина, обращайся к ней по имени и на «ты», тепло. Дай ОДИН короткий практичный совет на сейчас — МАКСИМУМ 1–2 предложения (до ~30 слов), без списков и без воды.\nГЛАВНОЕ ПРАВИЛО: порция должна ЗАПОЛНЯТЬ бо́льшую часть остатка калорий (примерно 60–100% от остатка), и указывай примерное кол-во ккал в скобках. Порция не должна превышать остаток, но и не быть смешно маленькой.\n- Остаток БОЛЬШОЙ (400+ ккал) — предлагай ПОЛНОЦЕННЫЙ приём пищи на ~остаток (например курица/рыба/индейка + гарнир + овощи, ~350–450 ккал). НЕ предлагай кефир или яблоко на 100 ккал, когда осталось 400+.\n- Остаток средний (150–400) — нормальный перекус/приём под остаток (творог с ягодами, омлет, салат с яйцом).\n- Остаток МАЛЕНЬКИЙ (<150) — только лёгкое: яблоко, кефир, огурец, чай.\nУчитывай БЖУ (не хватает белка — белковое; жиров/углеводов много — постное), время суток и цель. Блюда предлагай КАЖДЫЙ раз РАЗНЫЕ.\nПЛАН НА ДЕНЬ ВПЕРЁД: отталкивайся от того, что она уже съела, и веди к следующему приёму. Например: «Хорошо позавтракала — теперь продержись до обеда, на обед курица с гречкой (~450). Если сильно проголодаешься — на ланч яблоко или йогурт (~120)». Коротко: похвали за записанное и подскажи, что и когда съесть дальше, чтобы уложиться в норму.';
   var user='Данные на сейчас:\n- Цель: '+(ctx.goalText||'не задана')+'\n- Норма на день: '+ctx.target+' ккал\n- Уже съедено: '+ctx.eaten+' ккал\n- Осталось: '+ctx.left+' ккал\n- Белок: '+(ctx.protein!=null?ctx.protein:'?')+' из '+(ctx.pTarget!=null?ctx.pTarget:'?')+' г; жиры '+(ctx.fat!=null?ctx.fat:'?')+'/'+(ctx.fTarget!=null?ctx.fTarget:'?')+' г; углеводы '+(ctx.carbs!=null?ctx.carbs:'?')+'/'+(ctx.cTarget!=null?ctx.cTarget:'?')+' г\n- Время: '+ctx.hour+':00\n- Сегодня ела: '+(ctx.meals&&ctx.meals.length?ctx.meals.join(', '):'пока ничего')+'\n'+(ctx.burned>0?'- Сегодня была нагрузка/активность и сожгла ~'+ctx.burned+' ккал — эти калории добавились в запас, поэтому можно поесть плотнее. Упомяни это.':'')+'\n'+(ctx.avoid?'- НЕ повторяй прошлый совет: «'+ctx.avoid+'»':'')+'\nДай свежий совет'+(ctx.nonce?' (вариант '+ctx.nonce+')':'')+'.';
-  return fetchT(CHAT_URL,{method:'POST',headers:groqHeaders({'Content-Type':'application/json'}),body:JSON.stringify({model:AI_MODEL,messages:[{role:'system',content:system},{role:'user',content:user}],temperature:0.9,max_tokens:90})},15000).then(function(res){
-    if(!res.ok) throw aiError(res.status,''); return res.json();
-  }).then(function(data){ var t=data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content; t=t&&t.trim(); if(!t) throw new Error('Пустой ответ'); return t; });
+  return chatReq({model:AI_MODEL,messages:[{role:'system',content:system},{role:'user',content:user}],temperature:0.9,max_tokens:90},15000).then(function(t){
+    t=t&&t.trim(); if(!t) throw new Error('Пустой ответ'); return t;
+  });
 }
 
 /* ===== NOTIFICATIONS BRIDGE ===== */
