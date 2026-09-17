@@ -1274,22 +1274,23 @@ function saPhaseHtml(){
       '<input type="time" value="'+esc(s.mealTime)+'" oninput="ui.smart.mealTime=this.value" style="margin-left:auto;background:var(--card);border:1px solid var(--primaryDim);border-radius:8px;padding:6px 10px;color:var(--text);font-weight:700;font-size:15px">'+
       '</div>';
     s.items.forEach(function(it,idx){
-      var unit=unitFor(it.name); var step=unit?unit.grams:10;
+      var unit=unitFor(it.name); var step=10;
       h+='<div style="background:var(--cardAlt);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:8px">'+
         '<div style="display:flex;align-items:center"><button style="flex:1;text-align:left;color:var(--text);font-size:15px;font-weight:700" onclick="saOpenSearch('+idx+')">'+esc(String(it.name))+' 🔍</button>'+
         '<span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;margin:0 6px;white-space:nowrap;'+(it.fromCustom?'color:var(--good);background:var(--successBg)':it.fromDB?'color:var(--accent);background:var(--successBg)':'color:var(--warn);background:var(--warnBg)')+'">'+(it.fromCustom?'✓ как раньше':it.fromDB?'из базы':'оценка ИИ')+'</span>'+
         '<button style="padding:4px" onclick="saToggleFav('+idx+')" title="Запомнить">'+(isFavName(it.name)?'❤️':'🤍')+'</button>'+
         '<button style="color:var(--danger);padding:6px" onclick="saRemoveItem('+idx+')">✕</button></div>'+
-        '<div style="display:flex;gap:6px;margin-top:8px">'+['protein','fat','carbs'].map(function(key,mi){var label=['Б','Ж','У'][mi];return '<label style="flex:1;color:var(--textDim);font-size:11px;font-weight:700">'+label+', г<input id="sa-'+key+'-'+idx+'" style="width:100%;margin-top:3px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px;text-align:center;color:var(--text);font-weight:700" inputmode="decimal" value="'+r1(it[key])+'" oninput="saMacroInput('+idx+',\''+key+'\',this.value)"></label>';}).join('')+'</div>'+
-        '<div id="sa-warning-'+idx+'">'+foodNumbersWarningHtml(it)+'</div>'+
-        '<div style="display:flex;align-items:center;gap:4px;margin-top:8px">'+
-          '<button style="width:30px;height:32px;border-radius:8px;background:var(--card);border:1px solid var(--primaryDim);color:var(--primary);font-size:20px;font-weight:800" onclick="saStepGrams('+idx+',-'+step+')">−</button>'+
-          '<input id="sa-grams-'+idx+'" style="width:72px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;color:var(--text);font-weight:700" inputmode="numeric" value="'+(it.grams!=null?it.grams:'')+'" oninput="saGramsInput('+idx+',this.value)">'+
-          '<button style="width:30px;height:32px;border-radius:8px;background:var(--card);border:1px solid var(--primaryDim);color:var(--primary);font-size:20px;font-weight:800" onclick="saStepGrams('+idx+','+step+')">＋</button>'+
-          '<span class="muted" style="font-weight:700">г</span>'+
-          '<input id="sa-kcal-'+idx+'" style="width:72px;margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;color:var(--text);font-weight:700" inputmode="numeric" value="'+(it.kcal!=null?it.kcal:'')+'" oninput="saKcalInput('+idx+',this.value)">'+
-          '<span class="muted" style="font-weight:700">ккал</span></div>'+
+        '<div style="display:flex;align-items:flex-end;gap:12px;margin-top:12px">'+
+          '<div style="flex:1;min-width:0"><div style="color:var(--textDim);font-size:11px;font-weight:800;margin-bottom:5px">ГРАММЫ</div><div style="display:flex;align-items:center;gap:6px">'+
+            '<button style="width:40px;height:44px;flex:none;border-radius:11px;background:var(--card);border:1px solid var(--primaryDim);color:var(--primary);font-size:25px;font-weight:800" onclick="saStepGrams('+idx+',-'+step+')">−</button>'+
+            '<input id="sa-grams-'+idx+'" style="width:82px;height:44px;background:var(--card);border:1px solid var(--primaryDim);border-radius:11px;padding:5px;text-align:center;color:var(--text);font-size:24px;font-weight:850" inputmode="numeric" value="'+(it.grams!=null?it.grams:'')+'" oninput="saGramsInput('+idx+',this.value)">'+
+            '<button style="width:40px;height:44px;flex:none;border-radius:11px;background:var(--card);border:1px solid var(--primaryDim);color:var(--primary);font-size:25px;font-weight:800" onclick="saStepGrams('+idx+','+step+')">＋</button>'+
+            '<span class="muted" style="font-size:14px;font-weight:800">г</span></div></div>'+
+          '<label style="width:92px;flex:none;color:var(--textDim);font-size:11px;font-weight:800">КАЛОРИИ<input id="sa-kcal-'+idx+'" style="width:100%;height:44px;margin-top:5px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:5px;text-align:center;color:var(--text);font-size:21px;font-weight:850" inputmode="numeric" value="'+(it.kcal!=null?it.kcal:'')+'" oninput="saKcalInput('+idx+',this.value)"></label>'+
+        '</div>'+
         (unit?'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px"><span class="muted" style="font-weight:700">Порции:</span>'+[1,2,3,4].map(function(n){return '<button style="padding:4px 8px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--text);font-size:12px;font-weight:700" onclick="saSetGrams('+idx+','+(n*unit.grams)+')">'+n+' '+unit.label+'</button>';}).join('')+'</div>':'')+
+        '<div style="display:flex;justify-content:flex-end;align-items:center;gap:9px;margin-top:11px;padding-top:9px;border-top:1px solid var(--line)"><span style="color:var(--textDim);font-size:10px;font-weight:800;margin-right:2px">БЖУ</span>'+['protein','fat','carbs'].map(function(key,mi){var label=['Б','Ж','У'][mi];return '<label style="display:flex;align-items:center;gap:3px;color:var(--textDim);font-size:10px;font-weight:800">'+label+'<input id="sa-'+key+'-'+idx+'" style="width:46px;background:var(--card);border:1px solid var(--line);border-radius:7px;padding:4px 3px;text-align:center;color:var(--text);font-size:12px;font-weight:700" inputmode="decimal" value="'+r1(it[key])+'" oninput="saMacroInput('+idx+',\''+key+'\',this.value)"></label>';}).join('')+'</div>'+
+        '<div id="sa-warning-'+idx+'">'+foodNumbersWarningHtml(it)+'</div>'+
       '</div>';
     });
     if(s.items.length===0) h+='<p class="muted mt8">Все позиции удалены.</p>';
