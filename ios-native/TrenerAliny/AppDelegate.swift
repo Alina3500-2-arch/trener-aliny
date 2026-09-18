@@ -28,8 +28,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window.makeKeyAndVisible()
         self.window = window
 
-        if launchOptions?[.url] != nil {
-            webViewController.openWorkoutFromWidget()
+        if let url = launchOptions?[.url] as? URL {
+            webViewController.openTabFromWidget(Self.widgetTab(from: url))
         }
         return true
     }
@@ -40,7 +40,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
         guard url.scheme == "treneraliny" else { return false }
-        (window?.rootViewController as? WebViewController)?.openWorkoutFromWidget()
+        (window?.rootViewController as? WebViewController)?.openTabFromWidget(Self.widgetTab(from: url))
         return true
+    }
+
+    private static func widgetTab(from url: URL) -> String {
+        let tab = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name == "tab" })?
+            .value
+        return tab == "today" ? "today" : "workout"
     }
 }

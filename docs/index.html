@@ -92,6 +92,7 @@ var emptyState={
   onboarded:false,
   profile:{name:'Алина',sex:'f',height:165,age:30,activity:1.375},
   goal:null, customFoods:[], weights:[], meals:[], workouts:[], activities:[],
+  dailyKcalOverride:null,
   workoutPlan:null, workoutDays:[], workoutTime:'18:00', workoutDaysSince:null, favorites:[],
   smartMealReminders:true,
   mealReminderSkips:{}, mealReminderSnoozes:{},
@@ -111,26 +112,41 @@ function loadState(){
 function saveState(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
 var state=loadState();
 
-/* Передаём только краткое расписание в локальный iOS-виджет. */
+/* Данные для двух iOS-виджетов: тренировки и калории за неделю. */
 function buildWidgetPayload(){
+  var today=todayStr(),target=dailyTarget(state),main=['breakfast','lunch','dinner'];
+  var labels=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  var calorieDays=[];
+  for(var back=6;back>=0;back--){
+    var ds=addDays(today,-back),meals=todayMeals(state,ds);
+    var actual=Math.round(meals.reduce(function(sum,m){return sum+(Number(m.kcal)||0);},0));
+    var mainComplete=main.every(function(type){return meals.some(function(m){return m.type===type;});});
+    var incomplete=ds!==today&&!mainComplete;
+    var a=ds.split('-').map(Number);
+    calorieDays.push({date:ds,label:labels[dow(a[0],a[1],a[2])],kcal:incomplete?Math.max(2000,actual):actual,actualKcal:actual,complete:!incomplete});
+  }
+  var payload={calorieTarget:target,todayKcal:eatenToday(state,today).kcal,calorieDays:calorieDays};
   var days=(state.workoutDays||[]).slice().sort(function(a,b){return a-b;});
   var plan=state.workoutPlan;
-  if(!days.length||!plan||!plan.days||!plan.days.length) return null;
-  var now=new Date(); now.setHours(0,0,0,0); var done=workoutDatesSet(state.workouts||[]);
-  var next=null;
-  for(var add=0;add<8;add++){
-    var d=new Date(now); d.setDate(now.getDate()+add);
-    if(days.includes(dowOf(d))&&!(add===0&&done.has(todayStr(d)))){next=d;break;}
+  if(days.length&&plan&&plan.days&&plan.days.length){
+    var now=new Date(); now.setHours(0,0,0,0); var done=workoutDatesSet(state.workouts||[]);
+    var next=null;
+    for(var add=0;add<8;add++){
+      var d=new Date(now); d.setDate(now.getDate()+add);
+      if(days.includes(dowOf(d))&&!(add===0&&done.has(todayStr(d)))){next=d;break;}
+    }
+    if(next){
+      var pos=days.indexOf(dowOf(next)); var day=plan.days[(pos<0?0:pos)%plan.days.length];
+      payload.nextDate=Math.floor(next.getTime()/1000);
+      payload.title=tidyDayTitle(day.title||plan.name||'Тренировка',pos<0?0:pos).toUpperCase();
+      payload.durationMinutes=Math.max(25,Math.min(60,10+((day.ex||[]).length*5)));
+      payload.workoutDays=days;
+    }
   }
-  if(!next) return null;
-  var pos=days.indexOf(dowOf(next)); var day=plan.days[(pos<0?0:pos)%plan.days.length];
-  var title=tidyDayTitle(day.title||plan.name||'Тренировка',pos<0?0:pos).toUpperCase();
-  var duration=Math.max(25,Math.min(60,10+((day.ex||[]).length*5)));
-  return {nextDate:Math.floor(next.getTime()/1000),title:title,durationMinutes:duration,workoutDays:days};
+  return payload;
 }
 function syncWidget(){
   var payload=buildWidgetPayload();
-  if(!payload) return;
   // Сохраняем локально для fallback
   try{ localStorage.setItem('widget_payload',JSON.stringify(payload)); }catch(e){}
   // Отправляем на Worker (виджет получит оттуда)
@@ -199,9 +215,12 @@ function burnedToday(st,dateStr,weightKg){
 function latestWeight(st){ return st.weights.length?st.weights[st.weights.length-1].kg:null; }
 function todayMeals(st,dateStr){ return st.meals.filter(function(m){return m.date===dateStr;}); }
 function eatenToday(st,dateStr){ return todayMeals(st,dateStr).reduce(function(acc,m){acc.kcal+=m.kcal||0;acc.protein+=m.protein||0;acc.fat+=m.fat||0;acc.carbs+=m.carbs||0;return acc;},{kcal:0,protein:0,fat:0,carbs:0}); }
-function dailyTarget(st){ return calcDailyKcal(st.profile,latestWeight(st),st.goal); }
+function dailyTarget(st){
+  var manual=Math.round(Number(st.dailyKcalOverride)||0);
+  return manual>=800&&manual<=5000?manual:calcDailyKcal(st.profile,latestWeight(st),st.goal);
+}
 function macroTargets(st){
-  if(st.goal&&st.goal.macros) return st.goal.macros;
+  if(!st.dailyKcalOverride&&st.goal&&st.goal.macros) return st.goal.macros;
   var w=latestWeight(st)||(st.goal&&st.goal.startWeight)||65;
   var kcal=dailyTarget(st); var protein=Math.round(w*1.8),fat=Math.round(w*0.9);
   var carbs=Math.max(Math.round((kcal-protein*4-fat*9)/4),0);
@@ -1826,6 +1845,14 @@ function renderSettings(){
     '<label class="flabel" style="margin-top:8px">Уровень активности:</label>'+
     '<div class="chips">'+ACT_OPTS.map(function(a){return '<button class="chip'+(p.activity===a.v?' on':'')+'" onclick="settingsSetProfile(\'activity\','+a.v+');render()">'+a.label+'</button>';}).join('')+'</div>'+
     '<button class="btn mt12" onclick="settingsSaveProfile()">Сохранить профиль</button></div>';
+  // Manual calorie target
+  h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:6px">Цель калорий на день</div>'+
+    '<p class="muted">Эта цифра используется в дневнике, советах, графиках и виджете.</p>'+
+    '<div class="row g8 mt8" style="align-items:flex-end"><div style="flex:1"><label class="flabel">Ккал в день</label>'+
+    '<input class="field" id="settings-kcal-target" inputmode="numeric" value="'+dailyTarget(state)+'"></div>'+
+    '<button class="btn" style="width:auto;padding:12px 18px" onclick="settingsSaveKcalTarget()">Сохранить</button></div>'+
+    (state.dailyKcalOverride?'<button class="btn ghost mt8" onclick="settingsResetKcalTarget()">Вернуть автоматический расчёт</button>':'')+
+    '</div>';
   // Goal
   h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:6px">Цель по весу</div>'+
     (goal?
@@ -1846,6 +1873,12 @@ function renderSettings(){
 }
 function settingsSetProfile(key,val){ state.profile=Object.assign({},state.profile); state.profile[key]=val; commitNoRender(); }
 function settingsSaveProfile(){ commitNoRender(); alert('Профиль сохранён. Норма калорий пересчитана.'); }
+function settingsSaveKcalTarget(){
+  var el=document.getElementById('settings-kcal-target'),v=Math.round(Number(el&&el.value)||0);
+  if(v<800||v>5000){ alert('Укажи цель от 800 до 5000 ккал.'); return; }
+  state.dailyKcalOverride=v; commit(); alert('Цель сохранена: '+v+' ккал в день.');
+}
+function settingsResetKcalTarget(){ state.dailyKcalOverride=null; commit(); alert('Вернула автоматический расчёт калорий.'); }
 function settingsOpenProgram(){ if(workoutLocal) workoutLocal.phase='setup'; setTab('workout'); }
 
 /* ===== WORKOUT SCREEN ===== */

@@ -98,6 +98,10 @@ final class WebViewController: UIViewController {
     func openWorkoutFromWidget() {
         openDeepLink("tab:workout")
     }
+
+    func openTabFromWidget(_ tab: String) {
+        openDeepLink("tab:\(tab == "today" ? "today" : "workout")")
+    }
 }
 
 // MARK: - Разрешения на камеру/микрофон внутри WKWebView (iOS 15+)
@@ -148,6 +152,7 @@ extension WebViewController: WKScriptMessageHandler {
 
         defaults.set(json, forKey: "widgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyWorkoutWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyCaloriesWidget")
     }
 
     private func scheduleNotifications(reminders: [[String: Any]], workout: [String: Any]?, snooze: [String: Any]?) {
