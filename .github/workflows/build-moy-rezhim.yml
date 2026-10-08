@@ -1,0 +1,28 @@
+name: Build Moy Rezhim IPA
+on:
+  push:
+    branches: [moy-rezhim-ios]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate icon
+        run: swift scripts/make_icon.swift
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build iPhone app without signing
+        run: |
+          xcodebuild -project MoyRezhim.xcodeproj -scheme MoyRezhim -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package IPA for SideStore
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/MoyRezhim.app Payload/
+          zip -qry MoyRezhim-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MoyRezhim-iPhone-IPA
+          path: MoyRezhim-unsigned.ipa
