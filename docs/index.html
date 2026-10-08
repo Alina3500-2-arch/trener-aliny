@@ -44,6 +44,14 @@ input:focus,textarea:focus{outline:none;}
 /* tab bar */
 #tabbar{position:fixed;left:0;right:0;bottom:0;height:calc(62px + var(--sab));padding-bottom:var(--sab);
   display:flex;background:var(--card);border-top:1px solid var(--line);z-index:50;}
+/* Embedded habit tracker, separate from food/weight data */
+#app.screen-routine{padding:0;min-height:0;height:100dvh;background:#fbf8f6}
+#routine-frame{display:block;position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#fbf8f6}
+.screen-routine ~ #tabbar{background:#fffafb;border-top-color:#f0e2e8}
+#tabbar .tab{min-width:0;font-size:10px;letter-spacing:-.15px}
+#tabbar .tab .ico{width:21px;height:21px}
+#tabbar .tab .ico svg{width:21px;height:21px}
+
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--textDim);font-size:11px;font-weight:600;padding-top:6px;}
 .tab .ico{width:23px;height:23px;opacity:.58;line-height:1;display:flex;align-items:center;justify-content:center}.tab .ico svg{width:23px;height:23px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tab.on{color:var(--primary);} .tab.on .ico{opacity:1;}
@@ -543,6 +551,7 @@ var TABS=[
   {key:'activity',label:'Нагрузка',ico:'🏃'},
   {key:'progress',label:'Прогресс',ico:'📈'},
   {key:'settings',label:'Настройки',ico:'⚙️'},
+  {key:'routine',label:'Режим',ico:'🌸'},
 ];
 function setTab(t,keepDeepLink){
   if(!keepDeepLink&&location.search.indexOf('open=')>=0){
@@ -556,7 +565,8 @@ function tabIcon(key){
     workout:'<path d="M6 9v6M3.5 10.5v3M18 9v6M20.5 10.5v3M6 12h12"/>',
     activity:'<circle cx="14.5" cy="4.5" r="2"/><path d="m12.5 8-3 4 3 2.5 2.2 5M12 9l4 2 2.5-2M9.5 12 5 18M12.5 14.5l-5 1"/>',
     progress:'<path d="M4 19V5M4 19h16"/><path d="m7 15 3-4 3 2 5-6"/>',
-    settings:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M4 12h4M12 12h8"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="10" cy="12" r="2"/>'
+    settings:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M4 12h4M12 12h8"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="10" cy="12" r="2"/>',
+    routine:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 3v3M16 3v3M7 14l3 3 6-6"/>'
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true">'+paths[key]+'</svg>';
 }
@@ -617,6 +627,7 @@ function render(){
     else if(ui.tab==='activity') html=renderActivity();
     else if(ui.tab==='progress') html=renderProgress();
     else if(ui.tab==='settings') html=renderSettings();
+    else if(ui.tab==='routine') html='<iframe title="Мой режим — трекер привычек" src="routine.html" id="routine-frame" loading="eager"></iframe>';
     app.innerHTML=html;
     renderTabBar();
     renderModals();
