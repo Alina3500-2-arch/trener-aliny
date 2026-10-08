@@ -1,0 +1,23 @@
+name: MoyRezhim
+options:
+  bundleIdPrefix: com.alina
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+    TARGETED_DEVICE_FAMILY: '1'
+targets:
+  MoyRezhim:
+    type: application
+    platform: iOS
+    sources:
+      - path: Routine
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.alina.moyrezhim
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Мой режим
+        INFOPLIST_KEY_UIUserInterfaceStyle: Light
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Manual
