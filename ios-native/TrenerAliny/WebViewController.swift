@@ -101,7 +101,8 @@ final class WebViewController: UIViewController {
     }
 
     func openTabFromWidget(_ tab: String) {
-        openDeepLink("tab:\(["today", "workout", "routine"].contains(tab) ? tab : "workout")")
+        let target = ["today", "workout", "routine"].contains(tab) ? tab : "workout"
+        openDeepLink("tab:\(target)")
     }
 }
 
