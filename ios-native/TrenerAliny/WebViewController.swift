@@ -52,6 +52,7 @@ final class WebViewController: UIViewController {
         let controller = WKUserContentController()
         controller.add(self, name: "notify")
         controller.add(self, name: "widget")
+        controller.add(self, name: "routine")
         config.userContentController = controller
 
         // Разрешить inline-воспроизведение и не требовать жеста пользователя для
@@ -100,7 +101,7 @@ final class WebViewController: UIViewController {
     }
 
     func openTabFromWidget(_ tab: String) {
-        openDeepLink("tab:\(tab == "today" ? "today" : "workout")")
+        openDeepLink("tab:\(["today", "workout", "routine"].contains(tab) ? tab : "workout")")
     }
 }
 
@@ -131,6 +132,11 @@ extension WebViewController: WKScriptMessageHandler {
             return
         }
 
+        if message.name == "routine" {
+            updateRoutine(payload)
+            return
+        }
+
         guard message.name == "notify" else { return }
 
         let reminders = payload["reminders"] as? [[String: Any]] ?? []
@@ -153,6 +159,41 @@ extension WebViewController: WKScriptMessageHandler {
         defaults.set(json, forKey: "widgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyWorkoutWidget")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyCaloriesWidget")
+    }
+
+    private func updateRoutine(_ payload: [String: Any]) {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8),
+              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+        defaults.set(json, forKey: "routineWidgetPayload")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyRoutineWidget")
+        // Напоминания отдельные, не затрагивают питание и тренировки.
+        scheduleRoutineNotifications()
+    }
+
+    private func scheduleRoutineNotifications() {
+        let center = UNUserNotificationCenter.current()
+        let messages: [(String, String, String, Int, Int)] = [
+            ("routine-goals", "🌷 Аффирмации и цели", "Начни день с целей и аффирмаций. Ты строишь свою новую привычку.", 6, 30),
+            ("routine-reading", "📖 Время читать", "Твои 20 страниц ждут тебя. Полчаса только для себя.", 20, 0),
+            ("routine-check", "🌸 Отметь привычки", "Открой «Мой режим» и поставь галочки за сегодня.", 21, 0)
+        ]
+        center.removePendingNotificationRequests(withIdentifiers: messages.map { $0.0 })
+        for (id, title, body, hour, minute) in messages {
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            var comps = DateComponents()
+            comps.hour = hour
+            comps.minute = minute
+            center.add(UNNotificationRequest(
+                identifier: id,
+                content: content,
+                trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            ))
+        }
     }
 
     private func scheduleNotifications(reminders: [[String: Any]], workout: [String: Any]?, snooze: [String: Any]?) {
@@ -235,6 +276,8 @@ extension WebViewController: WKScriptMessageHandler {
             let body = (snooze["body"] as? String) ?? "Пора записать приём пищи"
             scheduleMealSnooze(mealKey: mealKey, body: body)
         }
+        // Re-add routine notifications after the trainer refresh clears pending requests.
+        scheduleRoutineNotifications()
     }
 
     private static func parseTime(_ s: String) -> (Int, Int)? {
@@ -324,6 +367,7 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         case "reminder-weigh": return "tab:weight"
         case "reminder-workout": return "tab:workout"
         case "reminder-sm-summary": return "tab:today"
+        case "routine-goals", "routine-reading", "routine-check": return "tab:routine"
         default:
             if identifier.hasPrefix("workout-") { return "tab:workout" }
             // Запасной разбор старых идентификаторов напоминаний о еде.
