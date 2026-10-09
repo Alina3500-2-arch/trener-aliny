@@ -167,6 +167,37 @@ extension WebViewController: WKScriptMessageHandler {
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
               let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+        // A widget may have updated habits while the web view was closed.
+        // Do not overwrite those taps with stale localStorage from the iframe.
+        if let pendingDate = defaults.string(forKey: "routinePendingDate"),
+           let payloadDate = payload["date"] as? String,
+           pendingDate == payloadDate,
+           let pendingData = defaults.data(forKey: "routinePendingChecks"),
+           let pending = try? JSONDecoder().decode([String: Bool].self, from: pendingData),
+           !pending.isEmpty {
+            let habits = payload["habits"] as? [[String: Any]] ?? []
+            let matches = pending.allSatisfy { key, value in
+                habits.first(where: { $0["id"] as? String == key })?["done"] as? Bool == value
+            }
+            if !matches {
+                if let commands = try? JSONSerialization.data(withJSONObject: ["date": pendingDate, "checks": pending]),
+                   let commandString = String(data: commands, encoding: .utf8) {
+                    let javascript = """
+                    (function() {
+                        var frame=document.getElementById('routine-frame');
+                        if(frame && frame.contentWindow) frame.contentWindow.postMessage(
+                            {type:'alina-routine-apply-widget-v1',payload:\(commandString)},
+                            location.origin
+                        );
+                    })();
+                    """
+                    DispatchQueue.main.async { self.webView.evaluateJavaScript(javascript, completionHandler: nil) }
+                }
+                return
+            }
+            defaults.removeObject(forKey: "routinePendingChecks")
+            defaults.removeObject(forKey: "routinePendingDate")
+        }
         defaults.set(json, forKey: "routineWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyRoutineWidget")
         // Напоминания отдельные, не затрагивают питание и тренировки.
