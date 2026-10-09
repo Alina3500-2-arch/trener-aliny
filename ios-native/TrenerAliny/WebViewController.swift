@@ -167,6 +167,42 @@ extension WebViewController: WKScriptMessageHandler {
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
               let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+        // Reconcile edits made directly in the interactive weekly widget.
+        if let pendingData = defaults.data(forKey: "routinePendingWeekChecks"),
+           let pending = try? JSONDecoder().decode([String: [String: Bool]].self, from: pendingData),
+           !pending.isEmpty {
+            let week = payload["weekDays"] as? [[String: Any]] ?? []
+            let matches = pending.allSatisfy { date, checks in
+                guard let day = week.first(where: { $0["date"] as? String == date }),
+                      let habits = day["habits"] as? [[String: Any]] else { return false }
+                return checks.allSatisfy { id, value in
+                    habits.first(where: { $0["id"] as? String == id })?["done"] as? Bool == value
+                }
+            }
+            if !matches {
+                if let commands = try? JSONSerialization.data(withJSONObject: ["batches": pending]),
+                   let commandString = String(data: commands, encoding: .utf8) {
+                    let javascript = """
+                    (function() {
+                        var frame=document.getElementById('routine-frame');
+                        if(frame && frame.contentWindow) frame.contentWindow.postMessage(
+                            {type:'alina-routine-apply-widget-v1',payload:\(commandString)},
+                            location.origin
+                        );
+                    })();
+                    """
+                    DispatchQueue.main.async {
+                        self.webView.evaluateJavaScript(javascript) { _, error in
+                            if error == nil {
+                                defaults.removeObject(forKey: "routinePendingWeekChecks")
+                            }
+                        }
+                    }
+                }
+                return
+            }
+            defaults.removeObject(forKey: "routinePendingWeekChecks")
+        }
         // A widget may have updated habits while the web view was closed.
         // Do not overwrite those taps with stale localStorage from the iframe.
         if let pendingDate = defaults.string(forKey: "routinePendingDate"),
