@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import AppIntents
 
 private let widgetEndpoint = "https://trener-aliny-widget.alina-3500-2.workers.dev/widget/aline"
 
@@ -356,6 +357,74 @@ struct TrenerAlinyCaloriesWidget: Widget {
 }
 
 
+// iOS 17+ interactive widget action: toggles without launching the host app.
+struct ToggleRoutineHabitIntent: AppIntent {
+    static var title: LocalizedStringResource = "Отметить привычку"
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Привычка")
+    var habitId: String
+
+    init() {}
+    init(habitId: String) { self.habitId = habitId }
+
+    func perform() async throws -> some IntentResult {
+        let valid = ["wake", "affirm", "read", "food"]
+        guard valid.contains(habitId),
+              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else {
+            return .result()
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        let today = formatter.string(from: Date())
+        guard today >= "2026-10-12" && today <= "2026-11-08" else { return .result() }
+
+        let existing: RoutinePayload? = defaults.string(forKey: "routineWidgetPayload")
+            .flatMap { $0.data(using: .utf8) }
+            .flatMap { try? JSONDecoder().decode(RoutinePayload.self, from: $0) }
+
+        let isToday = existing?.date == today
+        let currentHabits = isToday ? (existing?.habits ?? []) : valid.map { RoutineHabit(id: $0, done: false) }
+        let before = currentHabits.first(where: { $0.id == habitId })?.done ?? false
+        let after = !before
+        let changed = valid.map { id in
+            RoutineHabit(id: id, done: id == habitId ? after : (currentHabits.first(where: { $0.id == id })?.done ?? false))
+        }
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        let extra = ([2,4,7].contains(weekday) ? 1 : 0)
+            + ([2,4,6].contains(weekday) ? 1 : 0)
+            + ([3,5,7].contains(weekday) ? 2 : 0)
+        let total = isToday ? (existing?.total ?? 4 + extra) : 4 + extra
+        let previousDone = isToday ? (existing?.done ?? 0) : 0
+        let done = max(0, min(total, previousDone + (after ? 1 : -1)))
+        let weekDone = max(0, (isToday ? (existing?.weekDone ?? 0) : 0) + (after ? 1 : -1))
+        let weekTotal = isToday ? (existing?.weekTotal ?? 0) : 0
+        let payload = RoutinePayload(
+            date: today, active: true, habits: changed, done: done, total: total,
+            percent: total > 0 ? Int((Double(done) * 100 / Double(total)).rounded()) : 0,
+            weekPercent: weekTotal > 0 ? Int((Double(weekDone) * 100 / Double(weekTotal)).rounded()) : 0,
+            weekDone: weekDone, weekTotal: weekTotal
+        )
+        if let data = try? JSONEncoder().encode(payload),
+           let json = String(data: data, encoding: .utf8) {
+            defaults.set(json, forKey: "routineWidgetPayload")
+        }
+        // Pending absolute values are reconciled into the HTML tracker on next app open.
+        var pending: [String: Bool] = [:]
+        if defaults.string(forKey: "routinePendingDate") == today,
+           let data = defaults.data(forKey: "routinePendingChecks"),
+           let stored = try? JSONDecoder().decode([String: Bool].self, from: data) {
+            pending = stored
+        }
+        pending[habitId] = after
+        defaults.set(today, forKey: "routinePendingDate")
+        defaults.set(try? JSONEncoder().encode(pending), forKey: "routinePendingChecks")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyRoutineWidget")
+        return .result()
+    }
+}
+
 private struct RoutineHabit: Codable {
     let id: String
     let done: Bool
@@ -476,23 +545,27 @@ private struct RoutineWidgetView: View {
             }
         }
         .padding(family == .systemSmall ? 12 : 17)
-        .widgetURL(URL(string: "treneraliny://open?tab=routine"))
         .containerBackground(for: .widget) {
             Color(red: 1.0, green: 0.974, blue: 0.981)
         }
     }
 
     private func habitRow(_ id: String, _ title: String) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: isDone(id) ? "checkmark.square.fill" : "square")
-                .foregroundStyle(isDone(id) ? rose : faded.opacity(0.65))
-                .font(.system(size: 16))
-            Text(title)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+        Button(intent: ToggleRoutineHabitIntent(habitId: id)) {
+            HStack(spacing: 7) {
+                Image(systemName: isDone(id) ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(isDone(id) ? rose : faded.opacity(0.65))
+                    .font(.system(size: 16))
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 }
 
