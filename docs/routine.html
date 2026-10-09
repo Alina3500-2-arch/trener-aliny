@@ -276,7 +276,7 @@ const r=get(selected),progress=scoreDay(selected),inRange=isPlanned(selected);do
 const MATRIX_ROWS=[['wake','Подъём 06:30'],['affirm','Аффирмации + цели'],['read','20 страниц'],['food','Учёт питания'],['gym','Спортзал'],['motivation','Мотивация'],['ai','Обучение ИИ']];
 function renderMatrix(){
  const w=matrixWeek,wi=Math.round((parseISO(w)-parseISO(START))/604800000),head=document.getElementById('matrix-title');
- head.textContent='Неделя '+(wi+1);
+ head.textContent=w<START?'Тестовая неделя':'Неделя '+(wi+1);
  document.getElementById('matrix-dates').textContent=fmt(w,{day:'numeric',month:'short'})+' — '+fmt(addDays(w,6),{day:'numeric',month:'short'});
  let done=0,total=0;
  const cols=Array.from({length:7},(_,i)=>addDays(w,i));
