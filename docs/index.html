@@ -168,6 +168,21 @@ function syncWidget(){
   }catch(e){ console.log('widget sync skipped',e); }
 }
 
+/* Встроенный трекер «Мой режим» отправляет отметки в нативный виджет.
+   Сообщения принимаем только от нашего iframe с тем же origin. */
+window.addEventListener('message',function(event){
+  if(event.origin!==location.origin)return;
+  var frame=document.getElementById('routine-frame');
+  if(!frame||event.source!==frame.contentWindow)return;
+  var msg=event.data;
+  if(!msg||msg.type!=='alina-routine-sync-v1'||!msg.payload)return;
+  try{
+    localStorage.setItem('alina-routine-widget-v1',JSON.stringify(msg.payload));
+    if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.routine)
+      window.webkit.messageHandlers.routine.postMessage(msg.payload);
+  }catch(e){console.log('routine bridge skipped',e)}
+});
+
 /* ===== UTILS ===== */
 function todayStr(d){ d=d||new Date(); var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+day; }
 function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
