@@ -236,6 +236,24 @@ function syncNativeRoutine(){
   }},location.origin);
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));syncNativeRoutine()}catch(e){alert('Не удалось сохранить данные в браузере. Выгрузи резервную копию.') }}
+window.addEventListener('message',function(event){
+  if(event.origin!==location.origin||event.source!==window.parent)return;
+  const message=event.data;
+  if(!message||message.type!=='alina-routine-apply-widget-v1')return;
+  const data=message.payload;
+  if(!data||data.date!==iso(new Date())||!isPlanned(data.date)||!data.checks)return;
+  const r=rec(data.date);
+  let changed=false;
+  for(const [id,value] of Object.entries(data.checks)){
+    if(!['wake','affirm','read','food'].includes(id)||typeof value!=='boolean')continue;
+    if(id==='read'){
+      if(checked(data.date,'read')!==value){r.pages=value?20:0;changed=true}
+    }else if(!!r.checks[id]!==value){r.checks[id]=value;changed=true}
+  }
+  if(changed){save();render()}
+  else syncNativeRoutine();
+});
+
 function habits(s){const dow=parseISO(s).getDay();let list=[...DAILY];if([1,3,6].includes(dow))list.push(OTHER.gym);if([1,3,5].includes(dow))list.push(OTHER.motivation);if([2,4,6].includes(dow))list.push(OTHER.ai,OTHER.money);return list}
 function checked(s,id){const r=get(s);return id==='read'?Number(r.pages||0)>=20:!!r.checks?.[id]}
 function scoreDay(s){const h=habits(s);const v=h.filter(x=>checked(s,x.id)).length;return {done:v,total:h.length,pct:Math.round(100*v/h.length),paused:!!get(s).paused}}
