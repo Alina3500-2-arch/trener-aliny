@@ -49,6 +49,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .queryItems?
             .first(where: { $0.name == "tab" })?
             .value
-        return tab == "today" ? "today" : "workout"
+        return ["today", "workout", "routine"].contains(tab ?? "") ? tab! : "workout"
     }
 }
