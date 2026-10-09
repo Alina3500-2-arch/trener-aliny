@@ -197,7 +197,7 @@
 </nav>
 <script>
 (()=>{'use strict';
-const START='2026-10-12', END='2026-11-08', KEY='alina-my-routine-v1';
+const TEST_START='2026-10-09', START='2026-10-12', END='2026-11-08', KEY='alina-my-routine-v1';
 const DEFAULT_GOALS=['Я укрепляю тело и тренируюсь 3 раза в неделю','Я создаю стабильный доход благодаря своим навыкам и проектам','Я развиваю навыки ИИ и учусь их монетизировать'];
 const DW=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 const DLF=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
@@ -210,13 +210,13 @@ function parseISO(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-
 function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function addDays(s,n){const d=parseISO(s);d.setDate(d.getDate()+n);return iso(d)}
 function dayNum(s){return (parseISO(s).getDay()+6)%7}
-function isPlanned(s){return s>=START&&s<=END}
+function isPlanned(s){return s>=TEST_START&&s<=END}
 function fmt(s,options={day:'numeric',month:'long'}){return new Intl.DateTimeFormat('ru-RU',options).format(parseISO(s))}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 const today=iso(new Date());
 let state={days:{},goals:[...DEFAULT_GOALS]};
 try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved&&typeof saved==='object'&&saved.days&&typeof saved.days==='object'){state.days=saved.days;if(Array.isArray(saved.goals))state.goals=saved.goals.slice(0,3).map(String)}}catch(e){}
-let selected=(today<START?START:today>END?END:today);
+let selected=(today<TEST_START?TEST_START:today>END?END:today);
 let displayedWeek=addDays(selected,-dayNum(selected));
 let schedDay=parseISO(selected).getDay();
 let matrixWeek=weekStartFor(selected);
@@ -224,15 +224,19 @@ function rec(s){if(!state.days[s])state.days[s]={checks:{},pages:0,paused:false,
 function get(s){return state.days[s]||{checks:{},pages:0,paused:false,moneyNote:'',selfNote:''}}
 function syncNativeRoutine(){
   if(window.parent===window)return;
-  const d=iso(new Date()), active=d>=START&&d<=END;
+  const d=iso(new Date()), active=isPlanned(d);
   const ids=['wake','affirm','read','food'];
   const daily=ids.map(id=>({id,done:active&&checked(d,id)}));
   const dayScore=active?scoreDay(d):{done:0,total:0,pct:0};
-  const w=weekStartFor(d<START?START:d>END?END:d);
+  const w=weekStartFor(d<TEST_START?TEST_START:d>END?END:d);
   const weekly=scoreWeek(w);
+  const weekDays=Array.from({length:7},(_,i)=>{
+    const date=addDays(w,i);
+    return {date,habits:MATRIX_ROWS.map(([id])=>({id,planned:isPlanned(date)&&habits(date).some(h=>h.id===id)&&!get(date).paused,done:checked(date,id)}))};
+  });
   window.parent.postMessage({type:'alina-routine-sync-v1',payload:{
     date:d,active,habits:daily,done:dayScore.done,total:dayScore.total,percent:dayScore.pct,
-    weekPercent:weekly.pct,weekDone:weekly.done,weekTotal:weekly.total
+    weekPercent:weekly.pct,weekDone:weekly.done,weekTotal:weekly.total,weekDays
   }},location.origin);
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));syncNativeRoutine()}catch(e){alert('Не удалось сохранить данные в браузере. Выгрузи резервную копию.') }}
@@ -241,14 +245,18 @@ window.addEventListener('message',function(event){
   const message=event.data;
   if(!message||message.type!=='alina-routine-apply-widget-v1')return;
   const data=message.payload;
-  if(!data||data.date!==iso(new Date())||!isPlanned(data.date)||!data.checks)return;
-  const r=rec(data.date);
+  if(!data||!data.checks)return;
+  const batches=data.batches&&typeof data.batches==='object'?data.batches:{[data.date]:data.checks};
   let changed=false;
-  for(const [id,value] of Object.entries(data.checks)){
+  for(const [date,checks] of Object.entries(batches)){
+  if(!isPlanned(date)||date>iso(new Date())||!checks||typeof checks!=='object')continue;
+  const r=rec(date);
+  for(const [id,value] of Object.entries(checks)){
     if(!['wake','affirm','read','food'].includes(id)||typeof value!=='boolean')continue;
     if(id==='read'){
-      if(checked(data.date,'read')!==value){r.pages=value?20:0;changed=true}
+      if(checked(date,'read')!==value){r.pages=value?20:0;changed=true}
     }else if(!!r.checks[id]!==value){r.checks[id]=value;changed=true}
+  }
   }
   if(changed){save();render()}
   else syncNativeRoutine();
@@ -260,10 +268,10 @@ function scoreDay(s){const h=habits(s);const v=h.filter(x=>checked(s,x.id)).leng
 function weekStartFor(s){return addDays(s,-dayNum(s))}
 function weeks(){return [0,1,2,3].map(n=>addDays(START,7*n))}
 function currentElapsed(s){return s<=today&&isPlanned(s)}
-function renderHeader(){let remain;if(today<START){remain=Math.round((parseISO(START)-parseISO(today))/86400000);document.getElementById('countdown').textContent='До старта '+remain+' дн.';document.getElementById('phase-caption').textContent='Начало в понедельник'}else if(today<=END){remain=Math.round((parseISO(END)-parseISO(today))/86400000);document.getElementById('countdown').textContent=remain?'До итога '+remain+' дн.':'Сегодня финальный итог';document.getElementById('phase-caption').textContent='Итог 8 ноября'}else{document.getElementById('countdown').textContent='28 дней завершены';document.getElementById('phase-caption').textContent='Время оценить результат'}}
+function renderHeader(){let remain;if(today<START){remain=Math.round((parseISO(START)-parseISO(today))/86400000);document.getElementById('countdown').textContent='Тестируем · до старта '+remain+' дн.';document.getElementById('phase-caption').textContent='Отмечай привычки уже сейчас'}else if(today<=END){remain=Math.round((parseISO(END)-parseISO(today))/86400000);document.getElementById('countdown').textContent=remain?'До итога '+remain+' дн.':'Сегодня финальный итог';document.getElementById('phase-caption').textContent='Итог 8 ноября'}else{document.getElementById('countdown').textContent='28 дней завершены';document.getElementById('phase-caption').textContent='Время оценить результат'}}
 function selectDate(s){selected=s;displayedWeek=weekStartFor(s);renderToday()}
 function renderToday(){renderHeader();const ws=displayedWeek;document.getElementById('week-caption').textContent=fmt(ws,{day:'numeric',month:'short'})+' — '+fmt(addDays(ws,6),{day:'numeric',month:'short'});document.getElementById('daystrip').innerHTML=Array.from({length:7},(_,i)=>{const s=addDays(ws,i),r=scoreDay(s),cls=s===selected?' selected':'';return `<button class="daybtn${cls}" data-date="${s}" aria-label="${escapeHtml(fmt(s,{weekday:'long',day:'numeric',month:'long'}))}" aria-pressed="${s===selected}"><span class="dow">${DW[parseISO(s).getDay()]}</span><span class="dnum">${parseISO(s).getDate()}</span><span class="dot${r.done?'':' empty'}"></span></button>`}).join('');
-const r=get(selected),progress=scoreDay(selected),inRange=isPlanned(selected);document.getElementById('selected-heading').textContent=fmt(selected,{day:'numeric',month:'long'});document.getElementById('daytype').textContent=PLANS[parseISO(selected).getDay()].label;document.getElementById('habit-fraction').textContent=r.paused?'Пауза':`${progress.done}/${progress.total}`;document.getElementById('dayprogress').style.width=r.paused?'0%':progress.pct+'%';document.getElementById('habit-list').innerHTML=habits(selected).map(h=>`<button type="button" class="habit${checked(selected,h.id)?' done':''}" data-habit="${h.id}" aria-pressed="${checked(selected,h.id)}" ${r.paused||!inRange?'disabled':''}><span class="habit-icon">${ICONS[h.id]}</span><span class="habittext"><span class="habitname">${escapeHtml(h.name)}</span><span class="habitdesc">${escapeHtml(h.desc)}</span></span><span class="checkmark">${checked(selected,h.id)?'✓':''}</span></button>`).join('');document.getElementById('pause-area').innerHTML=!inRange?'<div class="paused">Этот день за пределами первого 28-дневного марафона. Для галочек выбери 12 октября — 8 ноября.</div>':(r.paused?'<div class="paused">Сегодня уважительная пауза. Этот день не влияет на оценку дисциплины. Восстанавливайся без чувства вины.</div>':'')+`<button class="pausebtn" id="pause-toggle">${r.paused?'Отменить паузу':'Болезнь / форс-мажор? Отметить паузу без штрафа'}</button>`;document.getElementById('pages-input').value=r.pages||0;document.getElementById('pages-input').disabled=r.paused||!inRange;document.querySelectorAll('[data-pages-add],[data-pages-set]').forEach(b=>b.disabled=r.paused||!inRange);document.getElementById('money-note').value=r.moneyNote||'';document.getElementById('self-note').value=r.selfNote||'';document.getElementById('daily-quote').textContent=QUOTES[Math.abs(Math.round((parseISO(selected)-parseISO(START))/86400000))%QUOTES.length];}
+const r=get(selected),progress=scoreDay(selected),inRange=isPlanned(selected);document.getElementById('selected-heading').textContent=fmt(selected,{day:'numeric',month:'long'});document.getElementById('daytype').textContent=PLANS[parseISO(selected).getDay()].label;document.getElementById('habit-fraction').textContent=r.paused?'Пауза':`${progress.done}/${progress.total}`;document.getElementById('dayprogress').style.width=r.paused?'0%':progress.pct+'%';document.getElementById('habit-list').innerHTML=habits(selected).map(h=>`<button type="button" class="habit${checked(selected,h.id)?' done':''}" data-habit="${h.id}" aria-pressed="${checked(selected,h.id)}" ${r.paused||!inRange?'disabled':''}><span class="habit-icon">${ICONS[h.id]}</span><span class="habittext"><span class="habitname">${escapeHtml(h.name)}</span><span class="habitdesc">${escapeHtml(h.desc)}</span></span><span class="checkmark">${checked(selected,h.id)?'✓':''}</span></button>`).join('');document.getElementById('pause-area').innerHTML=!inRange?'<div class="paused">Для тестирования доступны дни с 9 октября, основной марафон начнётся 12 октября.</div>':(r.paused?'<div class="paused">Сегодня уважительная пауза. Этот день не влияет на оценку дисциплины. Восстанавливайся без чувства вины.</div>':'')+`<button class="pausebtn" id="pause-toggle">${r.paused?'Отменить паузу':'Болезнь / форс-мажор? Отметить паузу без штрафа'}</button>`;document.getElementById('pages-input').value=r.pages||0;document.getElementById('pages-input').disabled=r.paused||!inRange;document.querySelectorAll('[data-pages-add],[data-pages-set]').forEach(b=>b.disabled=r.paused||!inRange);document.getElementById('money-note').value=r.moneyNote||'';document.getElementById('self-note').value=r.selfNote||'';document.getElementById('daily-quote').textContent=QUOTES[Math.abs(Math.round((parseISO(selected)-parseISO(START))/86400000))%QUOTES.length];}
 
 const MATRIX_ROWS=[['wake','Подъём 06:30'],['affirm','Аффирмации + цели'],['read','20 страниц'],['food','Учёт питания'],['gym','Спортзал'],['motivation','Мотивация'],['ai','Обучение ИИ']];
 function renderMatrix(){
@@ -280,7 +288,7 @@ function renderMatrix(){
  document.getElementById('matrix-table').innerHTML=html;
  const pct=total?Math.round(100*done/total):0;
  document.getElementById('matrix-percent').textContent=pct+'%';document.getElementById('matrix-count').textContent=done+' из '+total+' отметок';document.getElementById('matrix-progress').style.width=pct+'%';
- document.getElementById('matrix-prev').disabled=w<=START;document.getElementById('matrix-next').disabled=w>=addDays(START,21);
+ document.getElementById('matrix-prev').disabled=w<=weekStartFor(TEST_START);document.getElementById('matrix-next').disabled=w>=addDays(START,21);
 }
 
 function renderSchedule(){document.getElementById('schedule-daystrip').innerHTML=Array.from({length:7},(_,i)=>{const d=(i+1)%7;return `<button class="daybtn${schedDay===d?' selected':''}" data-schedule-day="${d}"><span class="dow">${DW[d]}</span><span class="dnum">${d===0?'7':d}</span><span class="dot empty"></span></button>`}).join('');document.getElementById('schedule-heading').textContent=DLF[schedDay].replace(/^./,m=>m.toUpperCase());document.getElementById('schedule-subhead').textContent=PLANS[schedDay].label;document.getElementById('schedule-timeline').innerHTML=PLANS[schedDay].rows.map(r=>`<div class="timeline-item"><div class="time">${escapeHtml(r[0])}</div><div class="timeline-desc">${escapeHtml(r[1])}</div></div>`).join('')}
