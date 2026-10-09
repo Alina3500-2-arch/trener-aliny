@@ -362,64 +362,67 @@ struct ToggleRoutineHabitIntent: AppIntent {
     static var title: LocalizedStringResource = "Отметить привычку"
     static var openAppWhenRun: Bool = false
 
-    @Parameter(title: "Привычка")
-    var habitId: String
+    @Parameter(title: "Привычка") var habitId: String
+    @Parameter(title: "Дата") var dateKey: String
 
     init() {}
-    init(habitId: String) { self.habitId = habitId }
+    init(habitId: String, dateKey: String) {
+        self.habitId = habitId
+        self.dateKey = dateKey
+    }
 
     func perform() async throws -> some IntentResult {
-        let valid = ["wake", "affirm", "read", "food"]
-        guard valid.contains(habitId),
-              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else {
-            return .result()
-        }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        let today = formatter.string(from: Date())
-        guard today >= "2026-10-12" && today <= "2026-11-08" else { return .result() }
+        let valid = ["wake", "affirm", "read", "food", "gym", "motivation", "ai"]
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.dateFormat = "yyyy-MM-dd"
+        let today = fmt.string(from: Date())
+        guard valid.contains(habitId), dateKey >= "2026-10-09",
+              dateKey <= "2026-11-08", dateKey <= today,
+              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return .result() }
 
-        let existing: RoutinePayload? = defaults.string(forKey: "routineWidgetPayload")
+        var payload = defaults.string(forKey: "routineWidgetPayload")
             .flatMap { $0.data(using: .utf8) }
             .flatMap { try? JSONDecoder().decode(RoutinePayload.self, from: $0) }
+            ?? RoutinePayload(date: today, active: true, habits: [], done: 0, total: 0,
+                              percent: 0, weekPercent: 0, weekDone: 0, weekTotal: 0, weekDays: nil)
 
-        let isToday = existing?.date == today
-        let currentHabits = isToday ? (existing?.habits ?? []) : valid.map { RoutineHabit(id: $0, done: false) }
-        let before = currentHabits.first(where: { $0.id == habitId })?.done ?? false
-        let after = !before
-        let changed = valid.map { id in
-            RoutineHabit(id: id, done: id == habitId ? after : (currentHabits.first(where: { $0.id == id })?.done ?? false))
+        var week = payload.weekDays ?? []
+        let weekIndex = week.firstIndex(where: { $0.date == dateKey })
+        guard let index = weekIndex,
+              let habitIndex = week[index].habits.firstIndex(where: { $0.id == habitId }),
+              week[index].habits[habitIndex].planned else { return .result() }
+
+        let newValue = !week[index].habits[habitIndex].done
+        week[index].habits[habitIndex].done = newValue
+        payload.weekDays = week
+        let weekHabits = week.flatMap { $0.habits }.filter { $0.planned }
+        payload.weekTotal = weekHabits.count
+        payload.weekDone = weekHabits.filter { $0.done }.count
+        payload.weekPercent = payload.weekTotal > 0 ? Int((Double(payload.weekDone) * 100 / Double(payload.weekTotal)).rounded()) : 0
+
+        if dateKey == today {
+            payload.date = today
+            payload.active = true
+            let todayHabits = week[index].habits.filter { $0.planned }
+            payload.total = todayHabits.count
+            payload.done = todayHabits.filter { $0.done }.count
+            payload.percent = payload.total > 0 ? Int((Double(payload.done) * 100 / Double(payload.total)).rounded()) : 0
+            payload.habits = ["wake", "affirm", "read", "food"].map { id in
+                RoutineHabit(id: id, done: week[index].habits.first(where: { $0.id == id })?.done ?? false)
+            }
         }
-        let weekday = Calendar.current.component(.weekday, from: Date())
-        let extra = ([2,4,7].contains(weekday) ? 1 : 0)
-            + ([2,4,6].contains(weekday) ? 1 : 0)
-            + ([3,5,7].contains(weekday) ? 2 : 0)
-        let total = isToday ? (existing?.total ?? 4 + extra) : 4 + extra
-        let previousDone = isToday ? (existing?.done ?? 0) : 0
-        let done = max(0, min(total, previousDone + (after ? 1 : -1)))
-        let weekDone = max(0, (isToday ? (existing?.weekDone ?? 0) : 0) + (after ? 1 : -1))
-        let weekTotal = isToday ? (existing?.weekTotal ?? 0) : 0
-        let payload = RoutinePayload(
-            date: today, active: true, habits: changed, done: done, total: total,
-            percent: total > 0 ? Int((Double(done) * 100 / Double(total)).rounded()) : 0,
-            weekPercent: weekTotal > 0 ? Int((Double(weekDone) * 100 / Double(weekTotal)).rounded()) : 0,
-            weekDone: weekDone, weekTotal: weekTotal
-        )
         if let data = try? JSONEncoder().encode(payload),
            let json = String(data: data, encoding: .utf8) {
             defaults.set(json, forKey: "routineWidgetPayload")
         }
-        // Pending absolute values are reconciled into the HTML tracker on next app open.
-        var pending: [String: Bool] = [:]
-        if defaults.string(forKey: "routinePendingDate") == today,
-           let data = defaults.data(forKey: "routinePendingChecks"),
-           let stored = try? JSONDecoder().decode([String: Bool].self, from: data) {
-            pending = stored
+        var pending: [String: [String: Bool]] = [:]
+        if let stored = defaults.data(forKey: "routinePendingWeekChecks"),
+           let parsed = try? JSONDecoder().decode([String: [String: Bool]].self, from: stored) {
+            pending = parsed
         }
-        pending[habitId] = after
-        defaults.set(today, forKey: "routinePendingDate")
-        defaults.set(try? JSONEncoder().encode(pending), forKey: "routinePendingChecks")
+        pending[dateKey, default: [:]][habitId] = newValue
+        defaults.set(try? JSONEncoder().encode(pending), forKey: "routinePendingWeekChecks")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyRoutineWidget")
         return .result()
     }
@@ -431,15 +434,26 @@ private struct RoutineHabit: Codable {
 }
 
 private struct RoutinePayload: Codable {
+    var date: String
+    var active: Bool
+    var habits: [RoutineHabit]
+    var done: Int
+    var total: Int
+    var percent: Int
+    var weekPercent: Int
+    var weekDone: Int
+    var weekTotal: Int
+    var weekDays: [RoutineWeekDay]? = nil
+}
+
+private struct RoutineWeekHabit: Codable {
+    let id: String
+    let planned: Bool
+    var done: Bool
+}
+private struct RoutineWeekDay: Codable {
     let date: String
-    let active: Bool
-    let habits: [RoutineHabit]
-    let done: Int
-    let total: Int
-    let percent: Int
-    let weekPercent: Int
-    let weekDone: Int
-    let weekTotal: Int
+    var habits: [RoutineWeekHabit]
 }
 
 private struct RoutineEntry: TimelineEntry {
@@ -473,99 +487,148 @@ private struct RoutineProvider: TimelineProvider {
 private struct RoutineWidgetView: View {
     let entry: RoutineEntry
     @Environment(\.widgetFamily) private var family
-
     private let rose = Color(red: 0.72, green: 0.45, blue: 0.57)
     private let ink = Color(red: 0.23, green: 0.17, blue: 0.22)
-    private let faded = Color(red: 0.57, green: 0.49, blue: 0.54)
+    private let faded = Color(red: 0.55, green: 0.51, blue: 0.54)
+    private let labels: [(String, String)] = [
+        ("wake","Подъём 06:30"), ("affirm","Аффирмации + цели"),
+        ("read","20 страниц"), ("food","Учёт питания"),
+        ("gym","Спортзал"), ("motivation","Мотивация"), ("ai","Обучение ИИ")
+    ]
+    private let days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"]
 
-    private var todayKey: String {
+    private var today: String {
         let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
         return f.string(from: entry.date)
     }
-    private var fresh: Bool { entry.payload?.date == todayKey }
-    private var done: Int { fresh ? (entry.payload?.done ?? 0) : 0 }
-    private var total: Int { fresh ? (entry.payload?.total ?? 0) : 0 }
-    private var percentage: Int { fresh ? (entry.payload?.percent ?? 0) : 0 }
-
-    private let labels: [(String, String)] = [
-        ("wake", "Подъём 06:30"),
-        ("affirm", "Цели"),
-        ("read", "20 страниц"),
-        ("food", "Питание")
-    ]
-
-    private func isDone(_ id: String) -> Bool {
-        fresh && (entry.payload?.habits.first(where: { $0.id == id })?.done ?? false)
-    }
+    private var week: [RoutineWeekDay] { entry.payload?.weekDays ?? [] }
+    private var pct: Int { entry.payload?.weekPercent ?? 0 }
+    private var todayPct: Int { entry.payload?.date == today ? (entry.payload?.percent ?? 0) : 0 }
+    private var weekStart: String { week.first?.date ?? today }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 11) {
-            HStack(spacing: 5) {
-                Image(systemName: "sparkle")
-                    .foregroundStyle(rose)
-                Text("МОЙ РЕЖИМ")
-                    .tracking(0.9)
-                    .foregroundStyle(rose)
-                Spacer(minLength: 2)
-                Text("\(percentage)%")
-                    .foregroundStyle(ink)
-            }
-            .font(.system(size: 11, weight: .bold, design: .rounded))
-
-            GeometryReader { g in
-                Capsule().fill(rose.opacity(0.13))
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(rose).frame(width: g.size.width * CGFloat(percentage) / 100)
-                    }
-            }
-            .frame(height: 6)
-
-            if family == .systemSmall {
-                VStack(alignment: .leading, spacing: 7) {
-                    ForEach(labels.indices, id: \.self) { index in
-                        habitRow(labels[index].0, labels[index].1)
+        VStack(alignment: .leading, spacing: family == .systemLarge ? 12 : 8) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Моя неделя")
+                        .font(.system(size: family == .systemSmall ? 18 : 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(ink)
+                    if family != .systemSmall {
+                        Text("Отмечай выполненное")
+                            .font(.system(size: 11))
+                            .foregroundStyle(faded)
                     }
                 }
+                Spacer()
+                Text("\(family == .systemLarge ? pct : todayPct)%")
+                    .font(.system(size: family == .systemSmall ? 20 : 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(ink)
+            }
+            GeometryReader { g in
+                Capsule().fill(rose.opacity(0.14))
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(rose)
+                            .frame(width: g.size.width * CGFloat(family == .systemLarge ? pct : todayPct) / 100)
+                    }
+            }
+            .frame(height: 5)
+
+            if family == .systemLarge && week.count == 7 {
+                weeklyTable
             } else {
-                LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading),
-                                    GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: 12) {
-                    ForEach(labels.indices, id: \.self) { index in
-                        habitRow(labels[index].0, labels[index].1)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(0..<4, id: \.self) { idx in
+                        let id = labels[idx].0
+                        let selected = week.first(where: { $0.date == today })?.habits.first(where: { $0.id == id })
+                        HStack(spacing: 9) {
+                            cell(id: id, date: today, planned: selected?.planned ?? false, done: selected?.done ?? false, size: 18)
+                            Text(labels[idx].1)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(ink)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
                     }
                 }
                 Spacer(minLength: 0)
-                HStack {
-                    Text("Сегодня: \(done) из \(total)")
-                    Spacer()
-                    Text("Неделя: \(fresh ? (entry.payload?.weekPercent ?? 0) : 0)%")
+                if family == .systemMedium {
+                    Text("Сегодня · \(entry.payload?.date == today ? (entry.payload?.done ?? 0) : 0) отметок")
+                        .font(.system(size: 10))
+                        .foregroundStyle(faded)
                 }
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(faded)
             }
         }
-        .padding(family == .systemSmall ? 12 : 17)
+        .padding(family == .systemLarge ? 17 : 12)
         .containerBackground(for: .widget) {
-            Color(red: 1.0, green: 0.974, blue: 0.981)
+            Color(red: 1, green: 0.981, blue: 0.985)
         }
     }
 
-    private func habitRow(_ id: String, _ title: String) -> some View {
-        Button(intent: ToggleRoutineHabitIntent(habitId: id)) {
-            HStack(spacing: 7) {
-                Image(systemName: isDone(id) ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(isDone(id) ? rose : faded.opacity(0.65))
-                    .font(.system(size: 16))
-                Text(title)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                Spacer(minLength: 0)
+    private var weeklyTable: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Text("Привычка")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(0..<7, id: \.self) { i in
+                    Text(days[i])
+                        .frame(width: 25)
+                }
             }
-            .contentShape(Rectangle())
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(faded)
+            .padding(.bottom, 6)
+
+            ForEach(0..<7, id: \.self) { row in
+                Rectangle().fill(rose.opacity(0.12)).frame(height: 0.5)
+                HStack(spacing: 0) {
+                    Text(labels[row].1)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(0..<7, id: \.self) { col in
+                        let day = week[col]
+                        let habit = day.habits.first(where: { $0.id == labels[row].0 })
+                        cell(id: labels[row].0, date: day.date,
+                             planned: habit?.planned ?? false,
+                             done: habit?.done ?? false, size: 17)
+                            .frame(width: 25, height: 31)
+                    }
+                }
+                .frame(height: 31)
+            }
+            Spacer(minLength: 0)
+            HStack {
+                Text("\(entry.payload?.weekDone ?? 0) из \(entry.payload?.weekTotal ?? 0) отметок")
+                Spacer()
+                Text("9 окт. — тест")
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(faded)
         }
-        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func cell(id: String, date: String, planned: Bool, done: Bool, size: CGFloat) -> some View {
+        if planned && date <= today {
+            Button(intent: ToggleRoutineHabitIntent(habitId: id, dateKey: date)) {
+                Image(systemName: done ? "checkmark.square.fill" : "square")
+                    .font(.system(size: size))
+                    .foregroundStyle(done ? rose : faded.opacity(0.75))
+                    .frame(minWidth: 25, minHeight: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } else if planned {
+            Image(systemName: done ? "checkmark.square.fill" : "square")
+                .font(.system(size: size))
+                .foregroundStyle(done ? rose : faded.opacity(0.75))
+        } else {
+            Text("–").font(.system(size: 13)).foregroundStyle(faded.opacity(0.7))
+        }
     }
 }
 
@@ -577,7 +640,7 @@ struct TrenerAlinyRoutineWidget: Widget {
         }
         .configurationDisplayName("Мой режим")
         .description("Ежедневные привычки, галочки и прогресс за неделю.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
     }
 }
