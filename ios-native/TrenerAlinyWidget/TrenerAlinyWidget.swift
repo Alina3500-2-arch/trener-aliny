@@ -476,7 +476,7 @@ private enum RoutineWeek {
             let day = cal.date(byAdding: .day, value: offset, to: monday) ?? monday
             let key = self.key(day)
             let dow = cal.component(.weekday, from: day)
-            let active = key >= "2026-10-09" && key <= "2026-11-08"
+            let active = key >= "2026-10-09" && key <= "2026-11-08" && dow != 1
             return RoutineWeekDay(date: key, habits: ids.map { id in
                 let scheduled: Bool
                 switch id {
@@ -527,7 +527,7 @@ private struct RoutineProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<RoutineEntry>) -> Void) {
         let now = Date()
-        let next = Calendar.current.date(byAdding: .hour, value: 1, to: now) ?? now.addingTimeInterval(3600)
+        let next = Calendar.current.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(1200)
         completion(Timeline(entries: [RoutineEntry(date: now, payload: load())], policy: .after(next)))
     }
 
@@ -550,7 +550,7 @@ private struct RoutineWidgetView: View {
         ("read","20 страниц"), ("food","Учёт питания"),
         ("gym","Спортзал"), ("motivation","Мотивация"), ("ai","Обучение ИИ")
     ]
-    private let days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"]
+    private let days = ["Пн","Вт","Ср","Чт","Пт","Сб","♡"]
 
     private var today: String {
         let f = DateFormatter()
@@ -559,9 +559,11 @@ private struct RoutineWidgetView: View {
         return f.string(from: entry.date)
     }
     private var week: [RoutineWeekDay] { RoutineWeek.merged(entry.payload, date: entry.date) }
-    private var pct: Int { let h = week.flatMap { $0.habits }.filter { $0.planned }; return h.isEmpty ? 0 : Int((Double(h.filter { $0.done }.count) * 100 / Double(h.count)).rounded()) }
+    private var pct: Int { weekPlanned.isEmpty ? 0 : Int((Double(weekDone) * 100 / Double(weekPlanned.count)).rounded()) }
     private var todayPct: Int { let h = week.first(where: { $0.date == today })?.habits.filter { $0.planned } ?? []; return h.isEmpty ? 0 : Int((Double(h.filter { $0.done }.count) * 100 / Double(h.count)).rounded()) }
     private var weekStart: String { week.first?.date ?? today }
+    private var weekPlanned: [RoutineWeekHabit] { week.flatMap { $0.habits }.filter { $0.planned } }
+    private var weekDone: Int { weekPlanned.filter { $0.done }.count }
 
     var body: some View {
         VStack(alignment: .leading, spacing: family == .systemLarge ? 9 : 5) {
@@ -577,7 +579,7 @@ private struct RoutineWidgetView: View {
                     }
                 }
                 Spacer()
-                Text("\(family == .systemLarge ? pct : todayPct)%")
+                Text("\(pct)%")
                     .font(.system(size: family == .systemLarge ? 22 : 19, weight: .semibold, design: .rounded))
                     .foregroundStyle(ink)
             }
@@ -585,7 +587,7 @@ private struct RoutineWidgetView: View {
                 Capsule().fill(rose.opacity(0.14))
                     .overlay(alignment: .leading) {
                         Capsule().fill(rose)
-                            .frame(width: g.size.width * CGFloat(family == .systemLarge ? pct : todayPct) / 100)
+                            .frame(width: g.size.width * CGFloat(pct) / 100)
                     }
             }
             .frame(height: 4)
@@ -629,16 +631,16 @@ private struct RoutineWidgetView: View {
             HStack(spacing: 0) {
                 Text("Привычка").frame(maxWidth: .infinity, alignment: .leading)
                 ForEach(0..<7, id: \.self) { i in
-                    Text(days[i]).frame(width: 27)
+                    Text(days[i]).frame(width: 28)
                 }
             }
-            .font(.system(size: 9, weight: .medium))
+            .font(.system(size: 11, weight: .medium))
             .foregroundStyle(faded)
             .padding(.bottom, 3)
             ForEach(0..<4, id: \.self) { row in
                 HStack(spacing: 0) {
                     Text(labels[row].1)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
@@ -648,8 +650,8 @@ private struct RoutineWidgetView: View {
                         let habit = day.habits.first(where: { $0.id == labels[row].0 })
                         cell(id: labels[row].0, date: day.date,
                              planned: habit?.planned ?? false,
-                             done: habit?.done ?? false, size: 15)
-                            .frame(width: 27, height: 22)
+                             done: habit?.done ?? false, size: 19)
+                            .frame(width: 28, height: 27)
                     }
                 }
             }
@@ -663,18 +665,18 @@ private struct RoutineWidgetView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 ForEach(0..<7, id: \.self) { i in
                     Text(days[i])
-                        .frame(width: 25)
+                        .frame(width: 28)
                 }
             }
-            .font(.system(size: 10, weight: .medium))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(faded)
-            .padding(.bottom, 6)
+            .padding(.bottom, 5)
 
             ForEach(0..<7, id: \.self) { row in
                 Rectangle().fill(rose.opacity(0.12)).frame(height: 0.5)
                 HStack(spacing: 0) {
                     Text(labels[row].1)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(ink)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
@@ -684,19 +686,19 @@ private struct RoutineWidgetView: View {
                         let habit = day.habits.first(where: { $0.id == labels[row].0 })
                         cell(id: labels[row].0, date: day.date,
                              planned: habit?.planned ?? false,
-                             done: habit?.done ?? false, size: 17)
-                            .frame(width: 25, height: 31)
+                             done: habit?.done ?? false, size: 21)
+                            .frame(width: 28, height: 34)
                     }
                 }
-                .frame(height: 31)
+                .frame(height: 34)
             }
             Spacer(minLength: 0)
             HStack {
-                Text("\(entry.payload?.weekDone ?? 0) из \(entry.payload?.weekTotal ?? 0) отметок")
+                Text("\(weekDone) из \(weekPlanned.count) отметок")
                 Spacer()
-                Text(week.first?.date ?? "")
+                Text("♡ Воскресенье — для себя")
             }
-            .font(.system(size: 10))
+            .font(.system(size: 11))
             .foregroundStyle(faded)
         }
     }
@@ -705,19 +707,23 @@ private struct RoutineWidgetView: View {
     private func cell(id: String, date: String, planned: Bool, done: Bool, size: CGFloat) -> some View {
         if planned && date <= today {
             Button(intent: ToggleRoutineHabitIntent(habitId: id, dateKey: date)) {
-                Image(systemName: done ? "checkmark.square.fill" : "square")
-                    .font(.system(size: size))
-                    .foregroundStyle(done ? rose : faded.opacity(0.75))
-                    .frame(minWidth: 25, minHeight: 28)
+                Image(systemName: done ? "checkmark.square.fill" : (date < today ? "xmark.square.fill" : "square"))
+                    .font(.system(size: size, weight: .medium))
+                    .foregroundStyle(done ? rose : (date < today ? Color(red: 0.80, green: 0.30, blue: 0.36) : faded.opacity(0.85)))
+                    .frame(width: 29, height: 34)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         } else if planned {
             Image(systemName: done ? "checkmark.square.fill" : "square")
-                .font(.system(size: size))
+                .font(.system(size: size, weight: .medium))
                 .foregroundStyle(done ? rose : faded.opacity(0.75))
+                .frame(width: 29, height: 34)
         } else {
-            Text("–").font(.system(size: 13)).foregroundStyle(faded.opacity(0.7))
+            Text("–")
+                .font(.system(size: 14))
+                .foregroundStyle(faded.opacity(0.45))
+                .frame(width: 29, height: 34)
         }
     }
 }
