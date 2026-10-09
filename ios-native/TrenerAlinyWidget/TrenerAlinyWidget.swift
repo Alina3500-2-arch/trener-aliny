@@ -387,7 +387,7 @@ struct ToggleRoutineHabitIntent: AppIntent {
             ?? RoutinePayload(date: today, active: true, habits: [], done: 0, total: 0,
                               percent: 0, weekPercent: 0, weekDone: 0, weekTotal: 0, weekDays: nil)
 
-        var week = payload.weekDays ?? []
+        var week = RoutineWeek.merged(payload, date: Date())
         let weekIndex = week.firstIndex(where: { $0.date == dateKey })
         guard let index = weekIndex,
               let habitIndex = week[index].habits.firstIndex(where: { $0.id == habitId }),
@@ -456,6 +456,61 @@ private struct RoutineWeekDay: Codable {
     var habits: [RoutineWeekHabit]
 }
 
+
+// Shared schedule: renders checkboxes even before the web tracker has ever synced.
+private enum RoutineWeek {
+    static let ids = ["wake", "affirm", "read", "food", "gym", "motivation", "ai"]
+    static func key(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
+    }
+    static func days(around date: Date) -> [RoutineWeekDay] {
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: date)
+        let monday = cal.startOfDay(for: cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: date) ?? date)
+        return (0..<7).map { offset in
+            let day = cal.date(byAdding: .day, value: offset, to: monday) ?? monday
+            let key = self.key(day)
+            let dow = cal.component(.weekday, from: day)
+            let active = key >= "2026-10-09" && key <= "2026-11-08"
+            return RoutineWeekDay(date: key, habits: ids.map { id in
+                let scheduled: Bool
+                switch id {
+                case "gym": scheduled = [2,4,7].contains(dow)
+                case "motivation": scheduled = [2,4,6].contains(dow)
+                case "ai": scheduled = [3,5,7].contains(dow)
+                default: scheduled = true
+                }
+                return RoutineWeekHabit(id: id, planned: active && scheduled, done: false)
+            })
+        }
+    }
+    static func merged(_ payload: RoutinePayload?, date: Date) -> [RoutineWeekDay] {
+        var base = days(around: date)
+        let old = payload?.weekDays ?? []
+        for index in base.indices {
+            if let source = old.first(where: { $0.date == base[index].date }) {
+                for j in base[index].habits.indices {
+                    if let habit = source.habits.first(where: { $0.id == base[index].habits[j].id }) {
+                        base[index].habits[j].done = habit.done
+                    }
+                }
+            } else if base[index].date == payload?.date {
+                for j in base[index].habits.indices {
+                    if let habit = payload?.habits.first(where: { $0.id == base[index].habits[j].id }) {
+                        base[index].habits[j].done = habit.done
+                    }
+                }
+            }
+        }
+        return base
+    }
+}
+
 private struct RoutineEntry: TimelineEntry {
     let date: Date
     let payload: RoutinePayload?
@@ -503,19 +558,19 @@ private struct RoutineWidgetView: View {
         f.dateFormat = "yyyy-MM-dd"
         return f.string(from: entry.date)
     }
-    private var week: [RoutineWeekDay] { entry.payload?.weekDays ?? [] }
-    private var pct: Int { entry.payload?.weekPercent ?? 0 }
-    private var todayPct: Int { entry.payload?.date == today ? (entry.payload?.percent ?? 0) : 0 }
+    private var week: [RoutineWeekDay] { RoutineWeek.merged(entry.payload, date: entry.date) }
+    private var pct: Int { let h = week.flatMap { $0.habits }.filter { $0.planned }; return h.isEmpty ? 0 : Int((Double(h.filter { $0.done }.count) * 100 / Double(h.count)).rounded()) }
+    private var todayPct: Int { let h = week.first(where: { $0.date == today })?.habits.filter { $0.planned } ?? []; return h.isEmpty ? 0 : Int((Double(h.filter { $0.done }.count) * 100 / Double(h.count)).rounded()) }
     private var weekStart: String { week.first?.date ?? today }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: family == .systemLarge ? 12 : 8) {
+        VStack(alignment: .leading, spacing: family == .systemLarge ? 9 : 5) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Моя неделя")
-                        .font(.system(size: family == .systemSmall ? 18 : 22, weight: .bold, design: .rounded))
+                        .font(.system(size: family == .systemLarge ? 21 : 17, weight: .semibold, design: .rounded))
                         .foregroundStyle(ink)
-                    if family != .systemSmall {
+                    if family == .systemLarge {
                         Text("Отмечай выполненное")
                             .font(.system(size: 11))
                             .foregroundStyle(faded)
@@ -523,7 +578,7 @@ private struct RoutineWidgetView: View {
                 }
                 Spacer()
                 Text("\(family == .systemLarge ? pct : todayPct)%")
-                    .font(.system(size: family == .systemSmall ? 20 : 24, weight: .bold, design: .rounded))
+                    .font(.system(size: family == .systemLarge ? 22 : 19, weight: .semibold, design: .rounded))
                     .foregroundStyle(ink)
             }
             GeometryReader { g in
@@ -533,10 +588,12 @@ private struct RoutineWidgetView: View {
                             .frame(width: g.size.width * CGFloat(family == .systemLarge ? pct : todayPct) / 100)
                     }
             }
-            .frame(height: 5)
+            .frame(height: 4)
 
-            if family == .systemLarge && week.count == 7 {
+            if family == .systemLarge {
                 weeklyTable
+            } else if family == .systemMedium {
+                mediumTable
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(0..<4, id: \.self) { idx in
@@ -560,9 +617,42 @@ private struct RoutineWidgetView: View {
                 }
             }
         }
-        .padding(family == .systemLarge ? 17 : 12)
+        .padding(family == .systemLarge ? 17 : 14)
         .containerBackground(for: .widget) {
             Color(red: 1, green: 0.981, blue: 0.985)
+        }
+    }
+
+
+    private var mediumTable: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Text("Привычка").frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(0..<7, id: \.self) { i in
+                    Text(days[i]).frame(width: 27)
+                }
+            }
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(faded)
+            .padding(.bottom, 3)
+            ForEach(0..<4, id: \.self) { row in
+                HStack(spacing: 0) {
+                    Text(labels[row].1)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(0..<7, id: \.self) { col in
+                        let day = week[col]
+                        let habit = day.habits.first(where: { $0.id == labels[row].0 })
+                        cell(id: labels[row].0, date: day.date,
+                             planned: habit?.planned ?? false,
+                             done: habit?.done ?? false, size: 15)
+                            .frame(width: 27, height: 22)
+                    }
+                }
+            }
         }
     }
 
@@ -604,7 +694,7 @@ private struct RoutineWidgetView: View {
             HStack {
                 Text("\(entry.payload?.weekDone ?? 0) из \(entry.payload?.weekTotal ?? 0) отметок")
                 Spacer()
-                Text("9 окт. — тест")
+                Text(week.first?.date ?? "")
             }
             .font(.system(size: 10))
             .foregroundStyle(faded)
