@@ -454,15 +454,15 @@ private struct RoutineWidgetView: View {
 
             if family == .systemSmall {
                 VStack(alignment: .leading, spacing: 7) {
-                    ForEach(labels, id: \.0) { id, title in
-                        habitRow(id, title)
+                    ForEach(labels.indices, id: \.self) { index in
+                        habitRow(labels[index].0, labels[index].1)
                     }
                 }
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading),
                                     GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: 12) {
-                    ForEach(labels, id: \.0) { id, title in
-                        habitRow(id, title)
+                    ForEach(labels.indices, id: \.self) { index in
+                        habitRow(labels[index].0, labels[index].1)
                     }
                 }
                 Spacer(minLength: 0)
