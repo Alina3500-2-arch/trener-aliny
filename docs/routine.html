@@ -222,7 +222,20 @@ let schedDay=parseISO(selected).getDay();
 let matrixWeek=weekStartFor(selected);
 function rec(s){if(!state.days[s])state.days[s]={checks:{},pages:0,paused:false,moneyNote:'',selfNote:''};if(!state.days[s].checks)state.days[s].checks={};return state.days[s]}
 function get(s){return state.days[s]||{checks:{},pages:0,paused:false,moneyNote:'',selfNote:''}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){alert('Не удалось сохранить данные в браузере. Выгрузи резервную копию.') }}
+function syncNativeRoutine(){
+  if(window.parent===window)return;
+  const d=iso(new Date()), active=d>=START&&d<=END;
+  const ids=['wake','affirm','read','food'];
+  const daily=ids.map(id=>({id,done:active&&checked(d,id)}));
+  const dayScore=active?scoreDay(d):{done:0,total:0,pct:0};
+  const w=weekStartFor(d<START?START:d>END?END:d);
+  const weekly=scoreWeek(w);
+  window.parent.postMessage({type:'alina-routine-sync-v1',payload:{
+    date:d,active,habits:daily,done:dayScore.done,total:dayScore.total,percent:dayScore.pct,
+    weekPercent:weekly.pct,weekDone:weekly.done,weekTotal:weekly.total
+  }},location.origin);
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));syncNativeRoutine()}catch(e){alert('Не удалось сохранить данные в браузере. Выгрузи резервную копию.') }}
 function habits(s){const dow=parseISO(s).getDay();let list=[...DAILY];if([1,3,6].includes(dow))list.push(OTHER.gym);if([1,3,5].includes(dow))list.push(OTHER.motivation);if([2,4,6].includes(dow))list.push(OTHER.ai,OTHER.money);return list}
 function checked(s,id){const r=get(s);return id==='read'?Number(r.pages||0)>=20:!!r.checks?.[id]}
 function scoreDay(s){const h=habits(s);const v=h.filter(x=>checked(s,x.id)).length;return {done:v,total:h.length,pct:Math.round(100*v/h.length),paused:!!get(s).paused}}
@@ -264,7 +277,7 @@ document.getElementById('pages-input').addEventListener('change',e=>{const n=Num
 for(const id of ['money-note','self-note'])document.getElementById(id).addEventListener('input',e=>{rec(selected)[id==='money-note'?'moneyNote':'selfNote']=e.target.value.slice(0,3000);save()});
 document.querySelectorAll('.goal-input').forEach(el=>el.addEventListener('input',e=>{state.goals[Number(e.target.dataset.goal)]=e.target.value;save()}));
 document.getElementById('import-file').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const parsed=JSON.parse(await file.text());if(!parsed||typeof parsed.days!=='object'||!Array.isArray(parsed.goals))throw new Error('Формат не подходит');if(!confirm('Заменить нынешние данные резервной копией?'))return;state.days=parsed.days;state.goals=parsed.goals.slice(0,3);save();render();alert('Данные восстановлены.')}catch(err){alert('Не удалось прочитать файл: '+err.message)}finally{e.target.value=''}});
-render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+render();syncNativeRoutine();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 })();
 </script>
 </body>
