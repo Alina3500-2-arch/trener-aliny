@@ -355,10 +355,165 @@ struct TrenerAlinyCaloriesWidget: Widget {
     }
 }
 
+
+private struct RoutineHabit: Codable {
+    let id: String
+    let done: Bool
+}
+
+private struct RoutinePayload: Codable {
+    let date: String
+    let active: Bool
+    let habits: [RoutineHabit]
+    let done: Int
+    let total: Int
+    let percent: Int
+    let weekPercent: Int
+    let weekDone: Int
+    let weekTotal: Int
+}
+
+private struct RoutineEntry: TimelineEntry {
+    let date: Date
+    let payload: RoutinePayload?
+}
+
+private struct RoutineProvider: TimelineProvider {
+    func placeholder(in context: Context) -> RoutineEntry {
+        RoutineEntry(date: .now, payload: nil)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (RoutineEntry) -> Void) {
+        completion(RoutineEntry(date: .now, payload: load()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<RoutineEntry>) -> Void) {
+        let now = Date()
+        let next = Calendar.current.date(byAdding: .hour, value: 1, to: now) ?? now.addingTimeInterval(3600)
+        completion(Timeline(entries: [RoutineEntry(date: now, payload: load())], policy: .after(next)))
+    }
+
+    private func load() -> RoutinePayload? {
+        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?
+            .string(forKey: "routineWidgetPayload"),
+              let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(RoutinePayload.self, from: data)
+    }
+}
+
+private struct RoutineWidgetView: View {
+    let entry: RoutineEntry
+    @Environment(\.widgetFamily) private var family
+
+    private let rose = Color(red: 0.72, green: 0.45, blue: 0.57)
+    private let ink = Color(red: 0.23, green: 0.17, blue: 0.22)
+    private let faded = Color(red: 0.57, green: 0.49, blue: 0.54)
+
+    private var todayKey: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: entry.date)
+    }
+    private var fresh: Bool { entry.payload?.date == todayKey }
+    private var done: Int { fresh ? (entry.payload?.done ?? 0) : 0 }
+    private var total: Int { fresh ? (entry.payload?.total ?? 0) : 0 }
+    private var percentage: Int { fresh ? (entry.payload?.percent ?? 0) : 0 }
+
+    private let labels: [(String, String)] = [
+        ("wake", "Подъём 06:30"),
+        ("affirm", "Цели"),
+        ("read", "20 страниц"),
+        ("food", "Питание")
+    ]
+
+    private func isDone(_ id: String) -> Bool {
+        fresh && (entry.payload?.habits.first(where: { $0.id == id })?.done ?? false)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 11) {
+            HStack(spacing: 5) {
+                Image(systemName: "sparkle")
+                    .foregroundStyle(rose)
+                Text("МОЙ РЕЖИМ")
+                    .tracking(0.9)
+                    .foregroundStyle(rose)
+                Spacer(minLength: 2)
+                Text("\(percentage)%")
+                    .foregroundStyle(ink)
+            }
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+
+            GeometryReader { g in
+                Capsule().fill(rose.opacity(0.13))
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(rose).frame(width: g.size.width * CGFloat(percentage) / 100)
+                    }
+            }
+            .frame(height: 6)
+
+            if family == .systemSmall {
+                VStack(alignment: .leading, spacing: 7) {
+                    ForEach(labels, id: \.0) { id, title in
+                        habitRow(id, title)
+                    }
+                }
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading),
+                                    GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: 12) {
+                    ForEach(labels, id: \.0) { id, title in
+                        habitRow(id, title)
+                    }
+                }
+                Spacer(minLength: 0)
+                HStack {
+                    Text("Сегодня: \(done) из \(total)")
+                    Spacer()
+                    Text("Неделя: \(fresh ? (entry.payload?.weekPercent ?? 0) : 0)%")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(faded)
+            }
+        }
+        .padding(family == .systemSmall ? 12 : 17)
+        .widgetURL(URL(string: "treneraliny://open?tab=routine"))
+        .containerBackground(for: .widget) {
+            Color(red: 1.0, green: 0.974, blue: 0.981)
+        }
+    }
+
+    private func habitRow(_ id: String, _ title: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: isDone(id) ? "checkmark.square.fill" : "square")
+                .foregroundStyle(isDone(id) ? rose : faded.opacity(0.65))
+                .font(.system(size: 16))
+            Text(title)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+    }
+}
+
+struct TrenerAlinyRoutineWidget: Widget {
+    let kind = "TrenerAlinyRoutineWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: RoutineProvider()) { entry in
+            RoutineWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Мой режим")
+        .description("Ежедневные привычки, галочки и прогресс за неделю.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
+    }
+}
+
 @main
 struct TrenerAlinyWidgetBundle: WidgetBundle {
     var body: some Widget {
         TrenerAlinyWidget()
         TrenerAlinyCaloriesWidget()
+        TrenerAlinyRoutineWidget()
     }
 }
