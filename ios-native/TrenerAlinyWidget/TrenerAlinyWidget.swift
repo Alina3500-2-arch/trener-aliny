@@ -623,6 +623,7 @@ private struct RoutineWidgetView: View {
         .containerBackground(for: .widget) {
             Color(red: 1, green: 0.981, blue: 0.985)
         }
+        .widgetURL(URL(string: "treneraliny://open?tab=routine"))
     }
 
 
@@ -741,11 +742,136 @@ struct TrenerAlinyRoutineWidget: Widget {
     }
 }
 
+
+private struct DailyTaskItem: Codable, Identifiable {
+    let id: String
+    let title: String
+    let done: Bool
+}
+private struct DailyTaskDay: Codable, Identifiable {
+    let date: String
+    let label: String
+    let tasks: [DailyTaskItem]
+    var id: String { date }
+}
+private struct DailyTaskPayload: Codable {
+    let days: [DailyTaskDay]
+}
+private struct DailyTasksEntry: TimelineEntry {
+    let date: Date
+    let payload: DailyTaskPayload?
+}
+private struct DailyTasksProvider: TimelineProvider {
+    private func load() -> DailyTaskPayload? {
+        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "dailyTasksWidgetPayload"),
+              let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(DailyTaskPayload.self, from: data)
+    }
+    func placeholder(in context: Context) -> DailyTasksEntry { DailyTasksEntry(date: .now, payload: nil) }
+    func getSnapshot(in context: Context, completion: @escaping (DailyTasksEntry) -> Void) {
+        completion(DailyTasksEntry(date: .now, payload: load()))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DailyTasksEntry>) -> Void) {
+        let now = Date()
+        let next = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
+        completion(Timeline(entries: [DailyTasksEntry(date: now, payload: load())], policy: .after(next)))
+    }
+}
+private struct DailyTasksWidgetView: View {
+    let entry: DailyTasksEntry
+    @Environment(\.widgetFamily) private var family
+    private let rose = Color(red: 0.72, green: 0.45, blue: 0.57)
+    private let ink = Color(red: 0.23, green: 0.17, blue: 0.22)
+    private let faded = Color(red: 0.55, green: 0.49, blue: 0.53)
+    private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
+
+    private var days: [DailyTaskDay] {
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: entry.date)
+        let monday = cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: cal.startOfDay(for: entry.date)) ?? entry.date
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return (0..<6).map { i in
+            let date = cal.date(byAdding: .day, value: i, to: monday) ?? monday
+            let key = formatter.string(from: date)
+            return entry.payload?.days.first(where: { $0.date == key })
+                ?? DailyTaskDay(date: key, label: names[i], tasks: [])
+        }
+    }
+    private var all: [DailyTaskItem] { days.flatMap { $0.tasks } }
+    private var doneCount: Int { all.filter { $0.done }.count }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("🌸 Мои дела")
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .foregroundStyle(ink)
+                Spacer()
+                Text("\(doneCount)/\(all.count)")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(rose)
+            }
+            HStack(alignment: .top, spacing: 5) {
+                ForEach(days) { day in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(day.label)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(rose)
+                        Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(faded)
+                        ForEach(Array(day.tasks.prefix(family == .systemLarge ? 4 : 2))) { task in
+                            HStack(alignment: .top, spacing: 2) {
+                                Image(systemName: task.done ? "checkmark.square.fill" : "square")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(rose)
+                                Text(task.title)
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(task.done ? faded : ink)
+                                    .lineLimit(family == .systemLarge ? 2 : 1)
+                                    .minimumScaleFactor(0.8)
+                            }
+                        }
+                        if day.tasks.isEmpty {
+                            Text("—")
+                                .font(.system(size: 12))
+                                .foregroundStyle(faded)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+            Spacer(minLength: 0)
+            Text("Понедельник — суббота · Нажми, чтобы открыть дела")
+                .font(.system(size: 10))
+                .foregroundStyle(faded)
+        }
+        .padding(14)
+        .widgetURL(URL(string: "treneraliny://open?tab=tasks"))
+        .containerBackground(for: .widget) { Color(red: 1, green: 0.981, blue: 0.985) }
+    }
+}
+struct TrenerAlinyDailyTasksWidget: Widget {
+    let kind = "TrenerAlinyDailyTasksWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: DailyTasksProvider()) { entry in
+            DailyTasksWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Мои дела на 6 дней")
+        .description("Задачи с понедельника по субботу, отметки и переход прямо к делам.")
+        .supportedFamilies([.systemMedium, .systemLarge])
+        .contentMarginsDisabled()
+    }
+}
+
 @main
 struct TrenerAlinyWidgetBundle: WidgetBundle {
     var body: some Widget {
         TrenerAlinyWidget()
         TrenerAlinyCaloriesWidget()
         TrenerAlinyRoutineWidget()
+        TrenerAlinyDailyTasksWidget()
     }
 }
