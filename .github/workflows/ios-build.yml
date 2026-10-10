@@ -34,13 +34,26 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Restore flower app icon
+      - name: Create flower app icon
         run: |
           set -e
-          ICON_DIR="ios-native/TrenerAliny/Assets.xcassets/AppIcon.appiconset"
-          base64 -D -i "$ICON_DIR/flower-icon.jpg.base64" -o "$RUNNER_TEMP/flower.jpg"
-          sips -s format png -z 1024 1024 "$RUNNER_TEMP/flower.jpg" --out "$ICON_DIR/icon-1024.png"
-          sips -g pixelWidth -g pixelHeight "$ICON_DIR/icon-1024.png"
+          cat > "$RUNNER_TEMP/flower.swift" <<'SWIFT'
+          import AppKit
+          let size = NSSize(width: 1024, height: 1024)
+          let image = NSImage(size: size)
+          image.lockFocus()
+          let bg = NSBezierPath(rect: NSRect(origin: .zero, size: size))
+          NSGradient(starting: NSColor(calibratedRed: 0.98, green: 0.92, blue: 0.94, alpha: 1), ending: NSColor(calibratedRed: 0.87, green: 0.69, blue: 0.77, alpha: 1))!.draw(in: bg, angle: -50)
+          let flower = "🌸" as NSString
+          let style = NSMutableParagraphStyle()
+          style.alignment = .center
+          flower.draw(in: NSRect(x: 110, y: 165, width: 804, height: 710), withAttributes: [.font: NSFont.systemFont(ofSize: 570), .paragraphStyle: style])
+          image.unlockFocus()
+          let data = NSBitmapImageRep(data: image.tiffRepresentation!)!.representation(using: .png, properties: [:])!
+          try! data.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
+          SWIFT
+          swift "$RUNNER_TEMP/flower.swift" "ios-native/TrenerAliny/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+          sips -g pixelWidth -g pixelHeight ios-native/TrenerAliny/Assets.xcassets/AppIcon.appiconset/icon-1024.png
 
       - name: Build archive (без подписи)
         run: |
