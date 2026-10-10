@@ -1,7 +1,7 @@
 <!-- Тренер Алины — единственный файл приложения (без сборки). Правится и пушится напрямую; GitHub Pages раздаёт папку docs/. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0F1115">
+<meta name="theme-color" content="#FBF7F7">
 <title>Планировщик</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%239B7DFF'/%3E%3Ctext x='50' y='72' font-size='60' text-anchor='middle'%3E%F0%9F%92%AA%3C/text%3E%3C/svg%3E">
 <style>
@@ -91,6 +91,8 @@ input:focus,textarea:focus{outline:none;}
 
 /* Unified light planner theme; preserve existing trainer records and logic */
 html,body{color-scheme:light!important;background:#fbf7f7!important;color:#322c32!important}#tabbar{background:#fff!important;border-top:1px solid #eddfe4!important}#tabbar .tab{color:#877a83!important}#tabbar .tab.on{color:#b97790!important}.card{background:#fff!important;color:#322c32!important;border-color:#eddfe4!important}.field,input,textarea{color:#322c32;background:#fff;border-color:#eadfe4}#app iframe{border:0;width:100%}
+
+#tabbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}#tabbar::-webkit-scrollbar{display:none}#tabbar .tab{flex:0 0 20%;min-width:67px;font-size:10px}#app.screen-result{padding:0;min-height:0;height:100dvh;background:#fbf7f7}#result-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab))!important;border:0;background:#fbf7f7}
 </style>
 <div id="app"></div>
 <div id="tabbar"></div>
@@ -542,7 +544,7 @@ function startupTab(){
     sessionStorage.removeItem('launch_tab');
     if(saved&&saved.tab&&saved.until>Date.now()) return saved.tab;
   }catch(e){}
-  return 'today';
+  return 'routine';
 }
 var ui={ tab:startupTab(), viewDate:todayStr() };
 function syncVisualViewport(){
@@ -564,13 +566,13 @@ function commit(){ saveState(); scheduleReminders(buildReminderPayload(),{days:s
 function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); }
 
 var TABS=[
+  {key:'routine',label:'Планер',ico:'🌸'},
+  {key:'result',label:'Результат',ico:'🎯'},
   {key:'today',label:'Питание',ico:'🍽️'},
   {key:'workout',label:'Тренировки',ico:'💪'},
   {key:'activity',label:'Нагрузка',ico:'🏃'},
   {key:'progress',label:'Прогресс',ico:'📈'},
   {key:'settings',label:'Настройки',ico:'⚙️'},
-  {key:'routine',label:'Режим',ico:'🌸'},
-  {key:'result',label:'Результат',ico:'🎯'},
 ];
 function setTab(t,keepDeepLink){
   if(!keepDeepLink&&location.search.indexOf('open=')>=0){
@@ -838,10 +840,10 @@ function renderToday(){
     goalBar='<div style="position:fixed;left:12px;right:12px;bottom:calc(62px + var(--sab));z-index:46;padding:6px 12px;background:linear-gradient(145deg,rgba(42,29,73,.98),rgba(27,23,43,.98));border:1px solid rgba(155,125,255,.34);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(111,55,210,.18);display:flex;justify-content:space-between;align-items:center">'+
       '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">Цель</div><div style="font-size:14px;font-weight:800;color:#fff">'+goalTargetW+' кг</div></div>'+
       (weightKg!=null?'<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">Сейчас</div><div style="font-size:14px;font-weight:800;color:#fff">'+weightKg+' кг</div></div>':'')+
-      '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">'+(reached?'Результат':(losing?'Осталось':'Набрать'))+'</div><div style="font-size:14px;font-weight:800;color:'+(reached?'var(--good)':'#B98CFF')+'">'+(reached?'🎉 Цель!':(remKg!=null?remKg+' кг':'—'))+'</div></div>'+
+      '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">'+(reached?'Результат':(losing?'Осталось':'Набрать'))+'</div><div style="font-size:14px;font-weight:800;color:'+(reached?'var(--good)':'#C88CA3')+'">'+(reached?'🎉 Цель!':(remKg!=null?remKg+' кг':'—'))+'</div></div>'+
     '</div>';
   }
-  var h='<div style="position:relative;overflow:hidden;background:radial-gradient(circle at 88% 0,rgba(170,91,255,.22),transparent 42%),linear-gradient(145deg,#171128,#21183b);border:1px solid rgba(155,125,255,.28);padding:calc(8px + var(--sat)) 14px 10px;border-radius:0 0 26px 26px;color:#fff;box-shadow:0 14px 35px rgba(42,22,79,.18)">'+
+  var h='<div style="position:relative;overflow:hidden;background:radial-gradient(circle at 88% 0,rgba(170,91,255,.22),transparent 42%),linear-gradient(145deg,#F8EFF2,#F1DEE5);border:1px solid rgba(155,125,255,.28);padding:calc(8px + var(--sat)) 14px 10px;border-radius:0 0 26px 26px;color:#fff;box-shadow:0 14px 35px rgba(42,22,79,.18)">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center;min-height:52px">'+
       '<button onclick="openDateCal()" style="position:absolute;left:0;padding:6px;color:#a855f7" aria-label="Выбрать дату"><svg viewBox="0 0 24 24" style="width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>'+
       '<div style="text-align:center"><div style="font-size:18px;font-weight:900;letter-spacing:-.2px">Дневник питания</div><div style="font-size:11px;font-weight:700;color:#b98cff;text-transform:capitalize;margin-top:1px">'+niceDate(date)+'</div></div>'+    '</div>'+
@@ -1712,9 +1714,9 @@ function renderActivity(){
   var actBurn=todayActs.reduce(function(s,a){return s+(a.kcal||0);},0);
   var wkBurn=todayWks.reduce(function(s,w){return s+workoutKcal(w,weightKg);},0);
   var totalBurn=Math.round(actBurn+wkBurn);
-  var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+  var h='<div style="background:#FBF7F7;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="font-size:17px;font-weight:800;text-align:center">Нагрузка</div>'+
-    '<div style="font-size:13px;color:#B98CFF;font-weight:700;text-align:center;margin-top:2px">за сегодня</div>'+
+    '<div style="font-size:13px;color:#C88CA3;font-weight:700;text-align:center;margin-top:2px">за сегодня</div>'+
     (totalBurn>0?
       '<div style="text-align:center;margin-top:10px"><span style="font-size:36px;font-weight:900;color:#fff">+'+totalBurn+'</span><span style="font-size:14px;color:rgba(255,255,255,.55);font-weight:700"> ккал</span>'+
       '<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:2px">добавлено к дневному лимиту 🎯</div></div>':
@@ -1771,7 +1773,7 @@ function renderProgress(){
   var weights=state.weights||[]; var current=latestWeight(state);
   var goal=state.goal; var startW=goal&&goal.startWeight!=null?goal.startWeight:(weights[0]?weights[0].kg:null);
   var changed=current!=null&&startW!=null?current-startW:null;
-  var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+  var h='<div style="background:#FBF7F7;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="font-size:17px;font-weight:800;text-align:center">Прогресс</div>'+
     '<div style="display:flex;justify-content:space-around;margin-top:10px">'+
     '<div style="text-align:center"><div style="font-size:30px;font-weight:900">'+(current!=null?current:'—')+'</div><div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700">кг сейчас</div></div>'+
@@ -1856,9 +1858,9 @@ function progressWeightSave(){ var kg=parseFloat(String(progressLocal.val).repla
 /* ===== SETTINGS SCREEN ===== */
 function renderSettings(){
   var p=state.profile||{}; var goal=state.goal;
-  var h='<div style="background:#0B0B10;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+  var h='<div style="background:#FBF7F7;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="font-size:17px;font-weight:800;text-align:center">Настройки</div>'+
-    (p.name?'<div style="font-size:13px;color:#B98CFF;font-weight:700;text-align:center;margin-top:2px">'+esc(p.name)+'</div>':'')+
+    (p.name?'<div style="font-size:13px;color:#C88CA3;font-weight:700;text-align:center;margin-top:2px">'+esc(p.name)+'</div>':'')+
   '</div>';
   h+='<div class="body-pad">';
   // Profile
@@ -2020,7 +2022,7 @@ function workoutWeekWidget(plan,wDays){
     daysHtml+='<button style="flex:1;text-align:center;min-width:0;padding:0;border:0;background:transparent;color:inherit" onclick="workoutWeekDaySelect(\''+ds+'\')">'+
       '<div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">'+labels[i]+'</div>'+
       '<div style="width:27px;height:27px;margin:4px auto 5px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+(isNext?'#8B2FFF':'transparent')+';color:#fff">'+d.getDate()+'</div>'+
-      '<div style="width:16px;height:3px;border-radius:3px;margin:auto;background:'+(hasWorkout?'#9B7DFF':'rgba(255,255,255,.10)')+'"></div>'+
+      '<div style="width:16px;height:3px;border-radius:3px;margin:auto;background:'+(hasWorkout?'#B97790':'rgba(255,255,255,.10)')+'"></div>'+
     '</button>';
   }
   var nextLabel=nextDate?nextDate.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric'}):'не запланирована';
@@ -2030,7 +2032,7 @@ function workoutWeekWidget(plan,wDays){
     '<div style="font-size:11px;letter-spacing:1.2px;color:#bbb0d0;font-weight:800;margin-bottom:14px">ТРЕНЕР АЛИНЫ</div>'+
     '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">'+
       '<div style="flex:1;min-width:0"><div style="font-size:11px;color:#bbb0d0;font-weight:600">Следующая тренировка</div><div style="font-size:19px;font-weight:900;color:#fff;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(nextLabel)+'</div></div>'+
-      '<div style="max-width:50%;text-align:right"><div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div><div style="font-size:12px;color:#9B7DFF;font-weight:800">'+duration+'</div></div>'+
+      '<div style="max-width:50%;text-align:right"><div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div><div style="font-size:12px;color:#B97790;font-weight:800">'+duration+'</div></div>'+
     '</div>'+
     '<div style="display:flex;gap:0">'+daysHtml+'</div>'+
   '</div>';
