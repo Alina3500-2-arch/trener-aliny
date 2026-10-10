@@ -34,6 +34,14 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Restore flower app icon
+        run: |
+          set -e
+          ICON_DIR="ios-native/TrenerAliny/Assets.xcassets/AppIcon.appiconset"
+          base64 -D -i "$ICON_DIR/flower-icon.jpg.base64" -o "$RUNNER_TEMP/flower.jpg"
+          sips -s format png -z 1024 1024 "$RUNNER_TEMP/flower.jpg" --out "$ICON_DIR/icon-1024.png"
+          sips -g pixelWidth -g pixelHeight "$ICON_DIR/icon-1024.png"
+
       - name: Build archive (без подписи)
         run: |
           set -e
