@@ -2,15 +2,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0F1115">
-<title>Тренер Алины</title>
+<title>Планировщик</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%239B7DFF'/%3E%3Ctext x='50' y='72' font-size='60' text-anchor='middle'%3E%F0%9F%92%AA%3C/text%3E%3C/svg%3E">
 <style>
 :root{
-  --bg:#0F1115; --card:#1A1D24; --cardAlt:#22262F; --primary:#9B7DFF; --primaryDim:#4B3E7A;
-  --accent:#4FD6AC; --danger:#F08A94; --warn:#F0C36B; --text:#F2F3F5; --textDim:#9AA0AD; --line:#2A2F3A;
-  --tint:#20222C; --successBg:#15241F; --dangerBg:#2A1B1D; --warnBg:#2A2416;
+  --bg:#fbf7f7; --card:#ffffff; --cardAlt:#f8eff2; --primary:#b97790; --primaryDim:#f1dfe6;
+  --accent:#b97790; --danger:#c9707b; --warn:#d3a268; --text:#322c32; --textDim:#857781; --line:#eddfe4;
+  --tint:#f8eff2; --successBg:#e8f3ed; --dangerBg:#fbe8e9; --warnBg:#fbf2e7;
   --good:#57E39B; --alert:#FF6B6B; --low:#FFCE5A;
-  --grad:linear-gradient(135deg,#8E74E0,#6B50C6);
+  --grad:linear-gradient(135deg,#c990a4,#ad7188);
   --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -88,6 +88,9 @@ input:focus,textarea:focus{outline:none;}
 @keyframes sp{to{transform:rotate(360deg);}}
 .eqbar{width:6px;height:30px;border-radius:3px;background:var(--primary);animation:eq 1s ease-in-out infinite;}
 @keyframes eq{0%,100%{transform:scaleY(.3);}50%{transform:scaleY(1);}}
+
+/* Unified light planner theme; preserve existing trainer records and logic */
+html,body{color-scheme:light!important;background:#fbf7f7!important;color:#322c32!important}#tabbar{background:#fff!important;border-top:1px solid #eddfe4!important}#tabbar .tab{color:#877a83!important}#tabbar .tab.on{color:#b97790!important}.card{background:#fff!important;color:#322c32!important;border-color:#eddfe4!important}.field,input,textarea{color:#322c32;background:#fff;border-color:#eadfe4}#app iframe{border:0;width:100%}
 </style>
 <div id="app"></div>
 <div id="tabbar"></div>
@@ -567,6 +570,7 @@ var TABS=[
   {key:'progress',label:'Прогресс',ico:'📈'},
   {key:'settings',label:'Настройки',ico:'⚙️'},
   {key:'routine',label:'Режим',ico:'🌸'},
+  {key:'result',label:'Результат',ico:'🎯'},
 ];
 function setTab(t,keepDeepLink){
   if(!keepDeepLink&&location.search.indexOf('open=')>=0){
@@ -581,7 +585,8 @@ function tabIcon(key){
     activity:'<circle cx="14.5" cy="4.5" r="2"/><path d="m12.5 8-3 4 3 2.5 2.2 5M12 9l4 2 2.5-2M9.5 12 5 18M12.5 14.5l-5 1"/>',
     progress:'<path d="M4 19V5M4 19h16"/><path d="m7 15 3-4 3 2 5-6"/>',
     settings:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M4 12h4M12 12h8"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="10" cy="12" r="2"/>',
-    routine:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 3v3M16 3v3M7 14l3 3 6-6"/>'
+    routine:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 3v3M16 3v3M7 14l3 3 6-6"/>',
+    result:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true">'+paths[key]+'</svg>';
 }
@@ -643,6 +648,7 @@ function render(){
     else if(ui.tab==='progress') html=renderProgress();
     else if(ui.tab==='settings') html=renderSettings();
     else if(ui.tab==='routine') html='<iframe title="Мой режим — трекер привычек" src="routine.html" id="routine-frame" loading="eager"></iframe>';
+    else if(ui.tab==='result') html='<iframe title="Режим результата" src="result.html" id="result-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#fbf7f7"></iframe>';
     app.innerHTML=html;
     renderTabBar();
     renderModals();
