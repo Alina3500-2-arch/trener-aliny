@@ -117,7 +117,7 @@ var emptyState={
   smartMealReminders:true,
   mealReminderSkips:{}, mealReminderSnoozes:{},
   reminders:[
-    {id:'weigh',label:'Взвешивание',body:'Доброе утро! Взвесься и запиши вес 💜',time:'08:00',enabled:true},
+    {id:'weigh',label:'Взвешивание',body:'Доброе утро! Взвесься и запиши вес 🌸',time:'08:00',enabled:true},
     {id:'breakfast',label:'Завтрак',body:'Что ты позавтракала? Запиши голосом 🍳',time:'10:00',enabled:true},
     {id:'lunch',label:'Обед',body:'Пора записать обед 🍲',time:'14:00',enabled:true},
     {id:'dinner',label:'Ужин',body:'Не забудь записать ужин 🍽️',time:'19:00',enabled:true},
@@ -325,7 +325,7 @@ function workoutCoachMsg(st){
   var wks=st.workouts||[],days=st.workoutDays||[]; var today=new Date(); var todayDow=dowOf(today);
   var didToday=trainedOn(wks,todayStr()); var missed=missedThisWeek(days,wks,st.workoutDaysSince); var scheduledToday=days.includes(todayDow);
   if(didToday) return {type:'ok',text:'Красавица, тренировка сделана! 💪 Теперь отдых и белок — творог, яйца или протеиновый коктейль восстановят мышцы.'};
-  if(scheduledToday) return {type:'go',text:'Сегодня день тренировки — вперёд! 💜 Даже 20 минут лучше, чем ничего.'};
+  if(scheduledToday) return {type:'go',text:'Сегодня день тренировки — вперёд! 🌸 Даже 20 минут лучше, чем ничего.'};
   if(missed.length) return {type:'warn',text:'Пропущено тренировок на этой неделе: '+missed.length+'. Не страшно — наверстаем сегодня-завтра!'};
   if(days.length) return {type:'rest',text:'Сегодня по плану отдых. Наберись сил и поешь как следует 🍗'};
   return {type:'rest',text:'Выбери дни тренировок ниже — я буду напоминать и следить за прогрессом.'};
@@ -898,8 +898,8 @@ function renderToday(){
       '<div style="color:#fff;font-size:12px;line-height:15px;font-weight:800">Сегодня на '+overTarget+' ккал больше</div>'+
       '<div style="color:rgba(255,255,255,.62);font-size:10px;line-height:13px;margin-top:4px">Ничего страшного. Завтра просто возвращаемся к обычному плану.</div></div>';
   } else {
-    h+='<div style="flex:.75;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#241C3D,#2C2145);padding:9px">'+
-      '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">💜</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
+    h+='<div style="flex:.75;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#FFF9FB,#F6E8EE);padding:9px">'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">🌸</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
       '<div style="color:var(--text);font-size:11px;line-height:14px">'+esc(todayLocal.aiTip||advice).replace(/[🔥💪]/g,'').replace(/\s{2,}/g,' ')+'</div>'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px"><button onclick="askAlina(true)" style="border:1px solid rgba(155,125,255,.35);border-radius:999px;padding:4px 9px;color:#bda8ff;font-size:10px;font-weight:800;background:rgba(155,125,255,.10)">Обновить</button><img src="img/trainer.png" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
       '</div>';
@@ -1305,7 +1305,7 @@ function saPhaseHtml(){
       '<button class="btn ghost mt8" onclick="saGoDraft()">Дальше</button>';
   }
   if(s.phase==='draft'){
-    return '<div class="qBox"><div style="font-size:16px;line-height:22px">💜 Вот что я поняла. Проверь и поправь — что и сколько грамм.</div></div>'+
+    return '<div class="qBox"><div style="font-size:16px;line-height:22px">🌸 Вот что я поняла. Проверь и поправь — что и сколько грамм.</div></div>'+
       '<textarea class="field" id="sa-draft" style="min-height:90px" oninput="ui.smart.draftText=this.value;enableIf(\'sa-draft-btn\',!!ui.smart.draftText.trim())">'+esc(s.draftText)+'</textarea>'+
       '<p class="muted mt8">Граммы можно поправить и на следующем шаге.</p>'+
       '<div class="row g8 mt16"><button class="btn ghost" style="flex:1" onclick="startRec()">🎤 Заново</button><button class="btn" id="sa-draft-btn" style="flex:1" onclick="saConfirmDraft()" '+(s.draftText.trim()?'':'disabled')+'>Посчитать →</button></div>';
@@ -1323,14 +1323,14 @@ function saPhaseHtml(){
   if(s.phase==='question'){
     var ph='';
     if(s.photoUri) ph='<img src="'+s.photoUri+'" style="width:100%;height:180px;object-fit:cover;border-radius:16px;margin:8px 0">';
-    return ph+'<div class="qBox"><div style="font-size:16px;line-height:22px">💜 '+esc(s.question)+'</div></div>'+
+    return ph+'<div class="qBox"><div style="font-size:16px;line-height:22px">🌸 '+esc(s.question)+'</div></div>'+
       '<input class="field" id="sa-ans" placeholder="твой ответ (напр. 200 г)" value="'+esc(s.textInput)+'" oninput="ui.smart.textInput=this.value">'+
       '<button class="btn mt8" onclick="saSendText()">Ответить</button>';
   }
   if(s.phase==='result'&&s.items){
     var ph2=s.photoUri?'<img src="'+s.photoUri+'" style="width:100%;height:180px;object-fit:cover;border-radius:16px;margin:8px 0">':'';
     var total=s.items.reduce(function(a,i){return a+(Number(i.kcal)||0);},0);
-    var h=ph2+'<div class="qBox"><div style="font-size:15px;line-height:21px">💜 Вот что услышала. Название/граммы/ккал можно поправить. Всё, чего нет в базе, сохранится в неё само.</div></div>'+
+    var h=ph2+'<div class="qBox"><div style="font-size:15px;line-height:21px">🌸 Вот что услышала. Название/граммы/ккал можно поправить. Всё, чего нет в базе, сохранится в неё само.</div></div>'+
       '<div style="display:flex;align-items:center;gap:10px;background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-top:8px">'+
       '<span style="font-size:18px">🕐</span><span style="font-size:14px;font-weight:700;color:var(--text)">Во сколько ела?</span>'+
       '<input type="time" value="'+esc(s.mealTime)+'" oninput="ui.smart.mealTime=this.value" style="margin-left:auto;background:var(--card);border:1px solid var(--primaryDim);border-radius:8px;padding:6px 10px;color:var(--text);font-weight:700;font-size:15px">'+
@@ -1363,7 +1363,7 @@ function saPhaseHtml(){
   }
   if(s.phase==='dayResult'&&s.dayMeals){
     var dtotal=s.dayMeals.reduce(function(a,g){return a+g.items.reduce(function(x,it){return x+(Number(it.kcal)||0);},0);},0);
-    var h='<div class="qBox"><div style="font-size:15px;line-height:21px">💜 Вот что услышала — по приёмам. Лишнее убери и нажми «Записать всё».</div></div>';
+    var h='<div class="qBox"><div style="font-size:15px;line-height:21px">🌸 Вот что услышала — по приёмам. Лишнее убери и нажми «Записать всё».</div></div>';
     s.dayMeals.forEach(function(g,gi){
       var sub=g.items.reduce(function(x,it){return x+(Number(it.kcal)||0);},0);
       h+='<div style="background:var(--cardAlt);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:10px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:8px">'+
@@ -1628,7 +1628,7 @@ function renderGoalEdit(){
       '<div style="flex:1"><label class="flabel">За сколько дней</label><input class="field" inputmode="numeric" value="'+esc(gl.days)+'" oninput="goalLocal.days=this.value"></div></div>'+
       '<button class="btn mt8" onclick="goalMakeStrategy()">Составить стратегию</button></div>';
   if(gl.preview){
-    h+='<div class="card" style="border-color:var(--primary)"><h2 class="h2">💜 Стратегия от тренера</h2>'+
+    h+='<div class="card" style="border-color:var(--primary)"><h2 class="h2">🌸 Стратегия от тренера</h2>'+
       '<div style="font-size:15px;line-height:24px;white-space:pre-line">'+esc(gl.preview.text)+'</div>'+
       '<div class="row g8 mt16"><button class="btn ghost" style="flex:1" onclick="goalLocal.preview=null;renderModals()">Переделать</button><button class="btn" style="flex:1" onclick="goalAccept()">Принять цель</button></div></div>';
   }
@@ -2110,7 +2110,7 @@ function workoutTodayPlanSection(plan,wDays,wkg,tdIdx){
     return'<div style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:10px">План на сегодня</div>'+
       '<div style="background:rgba(139,92,246,0.07);border:1px dashed rgba(139,92,246,0.3);border-radius:16px;padding:20px;text-align:center">'+
       '<div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:8px">Нет активной программы тренировок</div>'+
-      '<button class="btn" style="font-size:13px" onclick="workoutLocal.phase=\'setup\';render()">Подобрать программу 💜</button></div></div>';
+      '<button class="btn" style="font-size:13px" onclick="workoutLocal.phase=\'setup\';render()">Подобрать программу 🌸</button></div></div>';
   }
   var h='<div style="margin-bottom:12px">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+
@@ -2196,7 +2196,7 @@ function workoutSetup(){
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">На что упор? (можно несколько)</div><div class="chips">'+W_FOCUS.map(function(f){return '<button class="chip'+(wl.focus.includes(f.key)?' on':'')+'" onclick="workoutToggleFocus(\''+f.key+'\')">'+f.label+'</button>';}).join('')+'</div>'+
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">Дней в неделю</div><div class="chips">'+W_DAYS_OPTS.map(function(d){return '<button class="chip'+(wl.days===d?' on':'')+'" onclick="workoutLocal.days='+d+';render()">'+d+'</button>';}).join('')+'</div>'+
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">Где занимаешься</div><div class="chips">'+W_PLACES.map(function(p){return '<button class="chip'+(wl.place===p.key?' on':'')+'" onclick="workoutLocal.place=\''+p.key+'\';render()">'+p.label+'</button>';}).join('')+'</div>'+
-    (wl.loading?'<div style="text-align:center;margin-top:16px"><div class="spin"></div><p class="muted">Тренер придумывает программы…</p></div>':'<button class="btn mt16" onclick="workoutGenerate()" '+(wl.focus.length?'':'disabled')+'>💜 Подобрать программы</button>')+
+    (wl.loading?'<div style="text-align:center;margin-top:16px"><div class="spin"></div><p class="muted">Тренер придумывает программы…</p></div>':'<button class="btn mt16" onclick="workoutGenerate()" '+(wl.focus.length?'':'disabled')+'>🌸 Подобрать программы</button>')+
     '<button class="btn ghost mt8" onclick="workoutStartOwn()">✍️ Составить свою</button></div>';
   return h;
 }
@@ -2403,16 +2403,16 @@ function wlogFinish(){
   wl.ex.forEach(function(ex){ (wl.log[ex]||[]).forEach(function(s){ if(s.reps||s.weight) list.push({exercise:ex,reps:Number(s.reps)||0,weight:Number(s.weight)||0}); }); });
   if(!list.length){ alert('Отметь хотя бы один подход.'); return; }
   var weightKg=latestWeight(state);
-  if(wl.editingId){ updateWorkout(wl.editingId,{title:wl.title,sets:list}); ui.wlog=null; commit(); alert('Тренировка обновлена 💜'); return; }
+  if(wl.editingId){ updateWorkout(wl.editingId,{title:wl.title,sets:list}); ui.wlog=null; commit(); alert('Тренировка обновлена 🌸'); return; }
   var all=wl.ex.every(function(ex){return (wl.log[ex]||[]).some(function(s){return s.reps||s.weight;});});
   var est=workoutKcal({sets:list},weightKg);
   addWorkout({title:wl.title,sets:list}); ui.wlog=null; commit();
-  alert((all?'🔥 Всё выполнено! Ты сделала ВСЕ упражнения! 💜':'Молодец! 💪 Тренировка записана.')+'\n\nСожжено ≈ '+est+' ккал — добавлены в запас во вкладке Питание.');
+  alert((all?'🔥 Всё выполнено! Ты сделала ВСЕ упражнения! 🌸':'Молодец! 💪 Тренировка записана.')+'\n\nСожжено ≈ '+est+' ккал — добавлены в запас во вкладке Питание.');
 }
 function afterWorkoutRender(){
   var wl=workoutLocal; if(!wl||wl.nagged) return; var plan=state.workoutPlan; var wDays=state.workoutDays||[];
   var todayDow=dowOf(new Date()); var didToday=(state.workouts||[]).some(function(w){return w.date===todayStr();});
-  if(plan&&wDays.includes(todayDow)&&!didToday){ wl.nagged=true; setTimeout(function(){ alert('💪 Сегодня тренировка! По плану у тебя сегодня тренировка. Не пропускай — я в тебя верю 💜'); },300); }
+  if(plan&&wDays.includes(todayDow)&&!didToday){ wl.nagged=true; setTimeout(function(){ alert('💪 Сегодня тренировка! По плану у тебя сегодня тренировка. Не пропускай — я в тебя верю 🌸'); },300); }
 }
 /* ===== DEEP LINK (открыть конкретный экран по тапу на уведомление) ===== */
 // Используем query-параметр (?open=...), а не #hash: переход, отличающийся
