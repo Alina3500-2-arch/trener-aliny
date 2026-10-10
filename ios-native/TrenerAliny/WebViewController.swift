@@ -53,6 +53,7 @@ final class WebViewController: UIViewController {
         controller.add(self, name: "notify")
         controller.add(self, name: "widget")
         controller.add(self, name: "routine")
+        controller.add(self, name: "tasks")
         config.userContentController = controller
 
         // Разрешить inline-воспроизведение и не требовать жеста пользователя для
@@ -101,7 +102,7 @@ final class WebViewController: UIViewController {
     }
 
     func openTabFromWidget(_ tab: String) {
-        let target = ["today", "workout", "routine"].contains(tab) ? tab : "workout"
+        let target = ["today", "workout", "routine", "tasks", "result", "progress", "settings"].contains(tab) ? tab : "routine"
         openDeepLink("tab:\(target)")
     }
 }
@@ -138,6 +139,11 @@ extension WebViewController: WKScriptMessageHandler {
             return
         }
 
+        if message.name == "tasks" {
+            updateTasks(payload)
+            return
+        }
+
         guard message.name == "notify" else { return }
 
         let reminders = payload["reminders"] as? [[String: Any]] ?? []
@@ -149,6 +155,15 @@ extension WebViewController: WKScriptMessageHandler {
             guard granted else { return } // тихо ничего не планируем, если запрещено
             self.scheduleNotifications(reminders: reminders, workout: workout, snooze: snooze)
         }
+    }
+
+    private func updateTasks(_ payload: [String: Any]) {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8),
+              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+        defaults.set(json, forKey: "dailyTasksWidgetPayload")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
     }
 
     private func updateWidget(_ payload: [String: Any]) {
