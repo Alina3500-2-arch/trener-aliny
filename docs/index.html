@@ -681,7 +681,7 @@ function render(){
     else if(ui.tab==='routine') html='<iframe title="Мой режим — трекер привычек" src="routine.html" id="routine-frame" loading="eager"></iframe>';
     else if(ui.tab==='goals') html='<iframe title="Цели" src="goals-projects.html?view=goals" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#fbf7f8"></iframe>';
     else if(ui.tab==='projects') html='<iframe title="Проекты" src="goals-projects.html?view=projects" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#fbf7f8"></iframe>';
-    else if(ui.tab==='tasks') html='<iframe title="Мои дела на день" src="tasks.html" id="tasks-frame" loading="eager"></iframe>';
+    else if(ui.tab==='tasks') html='<iframe title="Мои дела на день" src="tasks.html'+(new URLSearchParams(location.search).get("day")?"?day="+encodeURIComponent(new URLSearchParams(location.search).get("day")):"")+'" id="tasks-frame" loading="eager"></iframe>';
     else if(ui.tab==='result') html='<iframe title="Режим результата" src="result.html" id="result-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#fbf7f7"></iframe>';
     app.innerHTML=html;
     renderTabBar();
