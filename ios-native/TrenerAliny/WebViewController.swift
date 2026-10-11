@@ -105,9 +105,9 @@ final class WebViewController: UIViewController {
         openDeepLink("tab:workout")
     }
 
-    func openTabFromWidget(_ tab: String) {
+    func openTabFromWidget(_ tab: String, day: String? = nil) {
         let target = ["today", "workout", "routine", "tasks", "goals", "projects", "result", "progress", "settings"].contains(tab) ? tab : "routine"
-        openDeepLink("tab:\(target)")
+        openDeepLink("tab:\(target)", day: day)
     }
 }
 
@@ -519,13 +519,16 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         }
     }
 
-    private func openDeepLink(_ target: String) {
+    private func openDeepLink(_ target: String, day: String? = nil) {
         // query-параметр, не #fragment: переход, отличающийся только якорем,
         // WKWebView (как и большинство браузеров) может посчитать навигацией
         // внутри документа и не перезагрузить страницу — тогда JS отработавший
         // на предыдущей загрузке deep-link просто не увидит новое значение.
         guard var comps = URLComponents(url: appURL, resolvingAgainstBaseURL: false) else { return }
         comps.queryItems = [URLQueryItem(name: "open", value: target)]
+        if target == "tab:tasks", let day = day, day.range(of: #"^\\d{4}-\\d{2}-\\d{2}$"#, options: .regularExpression) != nil {
+            comps.queryItems?.append(URLQueryItem(name: "day", value: day))
+        }
         guard let url = comps.url else { return }
         skipNextActiveReload = true
         webView.load(URLRequest(url: url))
