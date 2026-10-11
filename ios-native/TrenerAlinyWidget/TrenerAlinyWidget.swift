@@ -898,15 +898,33 @@ private struct AffirmationProvider: TimelineProvider {
         return arr.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 }
+private struct ChangeAffirmationIntent: AppIntent {
+    static var title: LocalizedStringResource = "Листать аффирмации"
+    static var openAppWhenRun: Bool = false
+    @Parameter(title: "Направление") var direction: Int
+    init() {}
+    init(direction: Int) { self.direction = direction }
+    func perform() async throws -> some IntentResult {
+        guard let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return .result() }
+        let raw = defaults.string(forKey: "routineWidgetPayload") ?? ""
+        let json = (raw.data(using: .utf8)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        let count = max(1, (json?["affirmations"] as? [String])?.count ?? 1)
+        let current = defaults.object(forKey: "affirmationSelectedIndex") as? Int
+            ?? (Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 0) % count
+        defaults.set((current + direction + count) % count, forKey: "affirmationSelectedIndex")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyAffirmationWidget")
+        return .result()
+    }
+}
 private struct AffirmationWidgetView: View {
     let entry: AffirmationEntry
     @Environment(\.widgetFamily) private var family
+    private var selectedIndex: Int { let fallback = Calendar.current.ordinality(of: .day, in: .era, for: entry.date) ?? 0; let saved = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.integer(forKey: "affirmationSelectedIndex") ?? fallback; return entry.affirmations.isEmpty ? 0 : ((saved % entry.affirmations.count) + entry.affirmations.count) % entry.affirmations.count }
     private var quote: String {
         guard !entry.affirmations.isEmpty else { return "Сегодня я выбираю действовать." }
-        let day = Calendar.current.ordinality(of: .day, in: .era, for: entry.date) ?? 0
-        return entry.affirmations[day % entry.affirmations.count]
+        return entry.affirmations[selectedIndex]
     }
-    private var quoteNumber: Int { guard !entry.affirmations.isEmpty else { return 0 }; return ((Calendar.current.ordinality(of: .day, in: .era, for: entry.date) ?? 0) % entry.affirmations.count) + 1 }
+    private var quoteNumber: Int { guard !entry.affirmations.isEmpty else { return 0 }; return selectedIndex + 1 }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -919,18 +937,18 @@ private struct AffirmationWidgetView: View {
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
-                Link(destination: URL(string: "treneraliny://open?tab=routine")!) {
+                Button(intent: ChangeAffirmationIntent(direction: -1)) {
                     Image(systemName: "chevron.left.circle.fill").font(.system(size: 28)).foregroundStyle(Color(red: 0.87, green: 0.31, blue: 0.53))
-                }
+                }.buttonStyle(.plain)
                 Text(quote)
                 .font(.system(size: family == .systemLarge ? 23 : 17, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(red: 0.26, green: 0.19, blue: 0.24))
                 .lineLimit(family == .systemLarge ? 9 : 4)
                 .minimumScaleFactor(0.72)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Link(destination: URL(string: "treneraliny://open?tab=routine")!) {
+                Button(intent: ChangeAffirmationIntent(direction: 1)) {
                     Image(systemName: "chevron.right.circle.fill").font(.system(size: 28)).foregroundStyle(Color(red: 0.87, green: 0.31, blue: 0.53))
-                }
+                }.buttonStyle(.plain)
             }
             Spacer(minLength: 0)
             Text("Мой режим · каждый день")
