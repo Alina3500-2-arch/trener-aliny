@@ -196,7 +196,7 @@ extension WebViewController: WKScriptMessageHandler {
                       let data = try? JSONSerialization.data(withJSONObject: items),
                       let json = String(data: data, encoding: .utf8) else { return }
                 DispatchQueue.main.async {
-                    self.webView.evaluateJavaScript("window.importAppleReminders && window.importAppleReminders(\(json))", completionHandler: nil)
+                    self.webView.evaluateJavaScript("document.getElementById(\"tasks-frame\")?.contentWindow?.postMessage({type:\"apple-reminders\",items:\(json)},\"*\")", completionHandler: nil)
                 }
             }
         }
