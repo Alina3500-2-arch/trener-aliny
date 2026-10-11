@@ -33,6 +33,10 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSRemindersUsageDescription</key>
+	<string>Разреши читать Напоминания, чтобы добавлять задачи, созданные через Siri, в планировщик.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Разреши читать Напоминания, чтобы переносить задачи Siri в карточки недели.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Разреши доступ к камере, чтобы сфотографировать блюдо для подсчёта калорий.</string>
 	<key>NSMicrophoneUsageDescription</key>
