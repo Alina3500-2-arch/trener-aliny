@@ -251,6 +251,7 @@ extension WebViewController: WKScriptMessageHandler {
         }
         defaults.set(json, forKey: "routineWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyRoutineWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyAffirmationWidget")
         // Напоминания отдельные, не затрагивают питание и тренировки.
         scheduleRoutineNotifications()
     }
