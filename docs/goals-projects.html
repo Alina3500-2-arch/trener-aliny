@@ -4,6 +4,51 @@
 const KEY='alina-goals-projects-v1',END='2026-10-31',NAMES=[['agency','🤝','Агентство с Сашей'],['albina','🌷','Проект с Альбиной'],['elina','💼','Работа у Элины'],['extra','💰','Дополнительный заработок']];
 let db={goals:[],projects:NAMES.map(([id,icon,name])=>({id,icon,name,until:END,tasks:[]}))};try{let x=JSON.parse(localStorage.getItem(KEY)||'null');if(x&&Array.isArray(x.goals)&&Array.isArray(x.projects))db=x}catch(e){}
 for(let [id,icon,name] of NAMES)if(!db.projects.some(p=>p.id===id))db.projects.push({id,icon,name,until:END,tasks:[]});
+const OCTOBER_PLAN={
+ elina:{result:'Оборот 600 000 ₽; личный доход — ориентир 40 000 ₽. Главный приоритет: продажи и оплаты.',tasks:[
+ ['Контролировать заявки, предложения, оплаты и повторные продажи','2026-10-31',25],
+ ['Проверить воронку продаж и план достижения оборота 600 000 ₽','2026-10-14',45],
+ ['Настроить ИИ для ответов клиентам — минимально рабочий сценарий','2026-10-23',90],
+ ['Обновить сайт лайтбоксов: цены и примеры работ','2026-10-27',90]]},
+ extra:{result:'30 000 ₽ лично за небольшие разовые заказы. Быстрые оплаты, без долгих проектов.',tasks:[
+ ['Опубликовать 2–3 простых предложения услуг с быстрым сроком','2026-10-13',60],
+ ['Ежедневно искать и откликаться на небольшие оплачиваемые заказы','2026-10-31',30],
+ ['Закрыть первые оплаченные заказы на 5–10 тыс. ₽','2026-10-20',90],
+ ['Довести оплаченный доход от разовых заказов до 30 000 ₽','2026-10-31',30]]},
+ albina:{result:'До 18 октября готова вся воронка; с 19 октября контент-тест. Обучение стартует 2 ноября. Доход октября не планируем.',tasks:[
+ ['Новый сайт с рассрочкой','2026-10-18',90],
+ ['PDF и голосовые для всех 9 вариантов воронки','2026-10-18',90],
+ ['Автосообщение в Директ и переход в Telegram','2026-10-18',60],
+ ['Пройти и проверить все 9 путей клиента','2026-10-18',45],
+ ['С 19 октября: 3 пробных Reels в неделю','2026-10-25',90],
+ ['С 19 октября: 2 карусели в неделю','2026-10-25',90],
+ ['Подготовить начало обучения 2 ноября','2026-10-31',45]]},
+ agency:{result:'Пилотный проект: выполнять согласованный октябрьский план, проверять гипотезы. Доход в октябре не закладываем.',tasks:[
+ ['Перенести согласованные личные пункты из октябрьского плана агентства','2026-10-14',30],
+ ['Проверить гипотезы на заявках и продажах без дополнительных затрат','2026-10-31',45]]}
+};
+const OCTOBER_GOALS=[
+ {id:'october-income-2026',icon:'💰',name:'Личный заработок 60–70 тысяч ₽ за октябрь',period:'1 месяц',result:'Минимум 60 000 ₽, желаемый результат 70 000 ₽. Элина 40 000 ₽ + разовые заказы 30 000 ₽. Помощь мужа не учитывать.',tasks:[]},
+ {id:'october-gym-2026',icon:'💪',name:'6 тренировок до конца октября',period:'1 месяц',result:'6 посещений зала до 31 октября',tasks:[]},
+ {id:'october-food-2026',icon:'📝',name:'Записывать питание каждый день кроме воскресенья',period:'1 месяц',result:'С 12 по 31 октября — 18 дней записи питания',tasks:[]},
+ {id:'october-learning-2026',icon:'🤖',name:'Изучать ИИ и смотреть мотивационные материалы',period:'1 месяц',result:'Практика ИИ и мотивационные материалы 6 дней в неделю',tasks:[]}
+];
+function seedOctoberPlan(){
+ let changed=false;
+ for(const [id,plan] of Object.entries(OCTOBER_PLAN)){
+   const project=db.projects.find(p=>p.id===id);if(!project)continue;
+   if(!project.result){project.result=plan.result;changed=true}
+   if(!Array.isArray(project.tasks))project.tasks=[];
+   for(const [title,due,limit] of plan.tasks){
+     if(project.tasks.some(t=>t.title===title))continue;
+     project.tasks.push({id:'oct26-'+id+'-'+plan.tasks.findIndex(t=>t[0]===title),title,due,limit,done:false,spent:0,running:false,result:'',test:'',stop:''});changed=true
+   }
+ }
+ for(const goal of OCTOBER_GOALS){if(!db.goals.some(g=>g.id===goal.id)){db.goals.push(goal);changed=true}}
+ if(changed)localStorage.setItem(KEY,JSON.stringify(db));
+}
+seedOctoberPlan();
+
 let mode=new URLSearchParams(location.search).get('view')==='projects'?'projects':'goals',current=null,editing=null,taskEditing=null;
 const $=id=>document.getElementById(id),safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){localStorage.setItem(KEY,JSON.stringify(db));syncWidget()}
