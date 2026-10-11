@@ -54,6 +54,7 @@ final class WebViewController: UIViewController {
         controller.add(self, name: "widget")
         controller.add(self, name: "routine")
         controller.add(self, name: "tasks")
+        controller.add(self, name: "projects")
         config.userContentController = controller
 
         // Разрешить inline-воспроизведение и не требовать жеста пользователя для
@@ -102,7 +103,7 @@ final class WebViewController: UIViewController {
     }
 
     func openTabFromWidget(_ tab: String) {
-        let target = ["today", "workout", "routine", "tasks", "result", "progress", "settings"].contains(tab) ? tab : "routine"
+        let target = ["today", "workout", "routine", "tasks", "goals", "projects", "result", "progress", "settings"].contains(tab) ? tab : "routine"
         openDeepLink("tab:\(target)")
     }
 }
@@ -139,6 +140,10 @@ extension WebViewController: WKScriptMessageHandler {
             return
         }
 
+        if message.name == "projects" {
+            updateProjects(payload)
+            return
+        }
         if message.name == "tasks" {
             updateTasks(payload)
             return
@@ -157,6 +162,11 @@ extension WebViewController: WKScriptMessageHandler {
         }
     }
 
+    private func updateProjects(_ payload: [String: Any]) {
+        guard JSONSerialization.isValidJSONObject(payload), let data = try? JSONSerialization.data(withJSONObject: payload), let json = String(data: data, encoding: .utf8), let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+        defaults.set(json, forKey: "projectsWidgetPayload")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyProjectsWidget")
+    }
     private func updateTasks(_ payload: [String: Any]) {
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload),
