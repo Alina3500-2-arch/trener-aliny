@@ -580,8 +580,8 @@ document.addEventListener('focusin',function(ev){
   setTimeout(function(){ try{ev.target.scrollIntoView({block:'center',behavior:'smooth'});}catch(e){} },280);
 });
 document.addEventListener('focusout',function(){ setTimeout(syncVisualViewport,180); });
-function commit(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); render(); }
-function commitNoRender(){ saveState(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); }
+function commit(){ saveState();syncPlannerFood(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); render(); }
+function commitNoRender(){ saveState();syncPlannerFood(); scheduleReminders(buildReminderPayload(),{days:state.workoutDays||[],time:state.workoutTime||'18:00'}); syncWidget(); }
 
 var TABS=[
   {key:'routine',label:'Планер',ico:'🌸'},
@@ -657,6 +657,13 @@ function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   '</div>';
 }
 
+
+function syncPlannerFood(){
+ var days={};
+ (state.meals||[]).forEach(function(m){if(!m.date)return;var d=days[m.date]||(days[m.date]={breakfast:false,lunch:false,dinner:false});if(['breakfast','lunch','dinner'].indexOf(m.type)>=0)d[m.type]=true;});
+ try{localStorage.setItem('alina-food-days-v1',JSON.stringify(days));}catch(e){}
+ var frame=document.getElementById('routine-frame');if(frame&&frame.contentWindow)frame.contentWindow.postMessage({type:'alina-food-sync-v1',days:days},location.origin);
+}
 function render(){
   try{
     var app=document.getElementById('app');
@@ -674,6 +681,7 @@ function render(){
     app.innerHTML=html;
     renderTabBar();
     renderModals();
+    if(ui.tab==='routine'){syncPlannerFood();var rf=document.getElementById('routine-frame');if(rf)rf.addEventListener('load',syncPlannerFood)}
     if(ui.tab==='today') afterTodayRender();
     if(ui.tab==='workout') afterWorkoutRender();
     setTimeout(checkMealDecisionPrompt,80);
