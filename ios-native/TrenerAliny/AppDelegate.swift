@@ -29,7 +29,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         self.window = window
 
         if let url = launchOptions?[.url] as? URL {
-            webViewController.openTabFromWidget(Self.widgetTab(from: url))
+            webViewController.openTabFromWidget(Self.widgetTab(from: url), day: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "day" })?.value)
         }
         return true
     }
