@@ -1017,6 +1017,83 @@ struct TrenerAlinyProjectsWidget: Widget {
         .contentMarginsDisabled()
     }
 }
+
+private struct GoalRow: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let period: String
+    let done: Int
+    let total: Int
+}
+private struct GoalsPayload: Decodable { let goals: [GoalRow] }
+private struct GoalsEntry: TimelineEntry {
+    let date: Date
+    let goals: [GoalRow]
+}
+private struct GoalsProvider: TimelineProvider {
+    func read() -> [GoalRow] {
+        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "projectsWidgetPayload"),
+              let data = json.data(using: .utf8),
+              let parsed = try? JSONDecoder().decode(GoalsPayload.self, from: data) else { return [] }
+        return parsed.goals
+    }
+    func placeholder(in context: Context) -> GoalsEntry { GoalsEntry(date: .now, goals: []) }
+    func getSnapshot(in context: Context, completion: @escaping (GoalsEntry) -> Void) {
+        completion(GoalsEntry(date: .now, goals: read()))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<GoalsEntry>) -> Void) {
+        completion(Timeline(entries: [GoalsEntry(date: .now, goals: read())], policy: .after(Date().addingTimeInterval(1800))))
+    }
+}
+private struct GoalsWidgetView: View {
+    let entry: GoalsEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Text("🎯 МОИ ЦЕЛИ").font(.system(size: 13, weight: .bold))
+                Spacer()
+                Text("✿").foregroundStyle(.pink)
+            }
+            ForEach(Array(entry.goals.prefix(family == .systemLarge ? 5 : 3))) { goal in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text(goal.name).lineLimit(1)
+                        Spacer(minLength: 3)
+                        Text("\(goal.done)/\(goal.total)").foregroundStyle(.pink)
+                    }.font(.system(size: 12, weight: .semibold))
+                    HStack {
+                        Text(goal.period).font(.system(size: 10)).foregroundStyle(.secondary)
+                        Spacer()
+                        ProgressView(value: Double(goal.done), total: Double(max(goal.total, 1)))
+                            .frame(width: 65).tint(.pink)
+                    }
+                }
+            }
+            if entry.goals.isEmpty {
+                Spacer(minLength: 0)
+                Text("Добавь первую цель в Планировщике")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .widgetURL(URL(string: "treneraliny://open?tab=goals"))
+        .containerBackground(for: .widget) { Color(red: 0.99, green: 0.96, blue: 0.97) }
+    }
+}
+struct TrenerAlinyGoalsWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "TrenerAlinyGoalsWidget", provider: GoalsProvider()) { entry in
+            GoalsWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Мои цели 🎯")
+        .description("Цели на месяц, квартал и год")
+        .supportedFamilies([.systemMedium, .systemLarge])
+        .contentMarginsDisabled()
+    }
+}
+
 @main
 struct TrenerAlinyWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -1026,5 +1103,6 @@ struct TrenerAlinyWidgetBundle: WidgetBundle {
         TrenerAlinyDailyTasksWidget()
         TrenerAlinyAffirmationWidget()
         TrenerAlinyProjectsWidget()
+        TrenerAlinyGoalsWidget()
     }
 }
