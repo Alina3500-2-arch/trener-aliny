@@ -194,7 +194,7 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 const today=iso(new Date());
 const AFFIRM_KEY='alina-affirmations-v1';let affirmations=["Я очень красивая, ценю свою особенную красоту, люблю и поддерживаю себя в любом ракурсе и любой ситуации!","Я с лёгкостью зарабатываю миллионы рублей.","Я смелая и уверенная, всегда добиваюсь своих целей.","Я всегда управляю своими эмоциями, я осознанна в любой ситуации.","Я открыта ко всему новому, активная и позитивная, легко меняюсь, вижу только лучшее в себе и в других.","У меня красивый коммерческий вокал и крутые треки, которые занимают первые места в чарте ВК.","Я легко нахожу способы заработка, деньги сами идут ко мне.","Я всегда притягиваю всё прекрасное, мне всегда везёт.","Я благодарна за то, что деньги приходят ко мне из множества источников в больших количествах и на постоянной основе.","В этом году я покупаю себе Mercedes CLA."];try{const x=JSON.parse(localStorage.getItem(AFFIRM_KEY)||'null');if(Array.isArray(x))affirmations=x}catch(e){}
 const SCHEDULE_KEY='alina-schedule-v1';let scheduleCustom={};try{scheduleCustom=JSON.parse(localStorage.getItem(SCHEDULE_KEY)||'{}')||{}}catch(e){}
-function storeAffirm(){localStorage.setItem(AFFIRM_KEY,JSON.stringify(affirmations));renderRules()}
+function storeAffirm(){localStorage.setItem(AFFIRM_KEY,JSON.stringify(affirmations));renderRules();syncNativeRoutine()}
 const FOOD_SYNC_KEY='alina-food-days-v1';let foodDays={};try{foodDays=JSON.parse(localStorage.getItem(FOOD_SYNC_KEY)||'{}')||{}}catch(e){}
 window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==window.parent||e.data?.type!=='alina-food-sync-v1')return;foodDays=e.data.days||{};try{localStorage.setItem(FOOD_SYNC_KEY,JSON.stringify(foodDays))}catch(err){}render()});
 const FINE_KEY='alina-sprint-fines-2026-10-v1',FINE_CAP=1000;
@@ -248,7 +248,7 @@ function syncNativeRoutine(){
   });
   window.parent.postMessage({type:'alina-routine-sync-v1',payload:{
     date:d,active,habits:daily,done:dayScore.done,total:dayScore.total,percent:dayScore.pct,
-    weekPercent:weekly.pct,weekDone:weekly.done,weekTotal:weekly.total,weekDays
+    weekPercent:weekly.pct,weekDone:weekly.done,weekTotal:weekly.total,affirmations:affirmations,weekDays
   }},location.origin);
 }
 function save(){closeFineDays();try{localStorage.setItem(KEY,JSON.stringify(state));syncNativeRoutine()}catch(e){alert('Не удалось сохранить данные в браузере. Выгрузи резервную копию.') }}
