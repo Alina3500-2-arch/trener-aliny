@@ -816,7 +816,7 @@ private struct DailyTasksWidgetView: View {
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                 ForEach(days) { day in
-                    Link(destination: URL(string: "treneraliny://open?tab=tasks&day=\\(day.date)")!) {
+                    Link(destination: URL(string: "treneraliny://open?tab=tasks&day=\(day.date)")!) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack {
                             Text(day.label)
@@ -915,7 +915,7 @@ private struct AffirmationWidgetView: View {
                     .tracking(1.1)
                     .foregroundStyle(Color(red: 0.68, green: 0.40, blue: 0.53))
                 Spacer()
-                Text("\\(quoteNumber)/\\(max(1,entry.affirmations.count))").font(.system(size: 12, weight: .bold)).foregroundStyle(Color(red: 0.83, green: 0.28, blue: 0.49))
+                Text("\(quoteNumber)/\(max(1,entry.affirmations.count))").font(.system(size: 12, weight: .bold)).foregroundStyle(Color(red: 0.83, green: 0.28, blue: 0.49))
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
