@@ -542,7 +542,7 @@ private struct RoutineProvider: TimelineProvider {
 private struct RoutineWidgetView: View {
     let entry: RoutineEntry
     @Environment(\.widgetFamily) private var family
-    private let rose = Color(red: 0.89, green: 0.30, blue: 0.53)
+    private let rose = Color(red: 0.94, green: 0.27, blue: 0.52)
     private let ink = Color(red: 0.23, green: 0.17, blue: 0.22)
     private let faded = Color(red: 0.55, green: 0.51, blue: 0.54)
     private let labels: [(String, String)] = [
@@ -708,7 +708,7 @@ private struct RoutineWidgetView: View {
     private func cell(id: String, date: String, planned: Bool, done: Bool, size: CGFloat) -> some View {
         if planned && date <= today {
             Button(intent: ToggleRoutineHabitIntent(habitId: id, dateKey: date)) {
-                Image(systemName: done ? "checkmark.square.fill" : (date < today ? "xmark.square.fill" : "square"))
+                Image(systemName: done ? "checkmark.circle.fill" : (date < today ? "xmark.circle.fill" : "circle"))
                     .font(.system(size: size, weight: .medium))
                     .foregroundStyle(done ? rose : (date < today ? Color(red: 0.80, green: 0.30, blue: 0.36) : faded.opacity(0.85)))
                     .frame(width: 29, height: 34)
@@ -716,7 +716,7 @@ private struct RoutineWidgetView: View {
             }
             .buttonStyle(.plain)
         } else if planned {
-            Image(systemName: done ? "checkmark.square.fill" : "square")
+            Image(systemName: done ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: size, weight: .medium))
                 .foregroundStyle(done ? rose : faded.opacity(0.75))
                 .frame(width: 29, height: 34)
