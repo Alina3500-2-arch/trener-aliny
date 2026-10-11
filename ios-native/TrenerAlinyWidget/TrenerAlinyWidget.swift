@@ -542,7 +542,7 @@ private struct RoutineProvider: TimelineProvider {
 private struct RoutineWidgetView: View {
     let entry: RoutineEntry
     @Environment(\.widgetFamily) private var family
-    private let rose = Color(red: 0.72, green: 0.45, blue: 0.57)
+    private let rose = Color(red: 0.89, green: 0.30, blue: 0.53)
     private let ink = Color(red: 0.23, green: 0.17, blue: 0.22)
     private let faded = Color(red: 0.55, green: 0.51, blue: 0.54)
     private let labels: [(String, String)] = [
@@ -747,6 +747,7 @@ private struct DailyTaskItem: Codable, Identifiable {
     let id: String
     let title: String
     let done: Bool
+    let overdue: Bool?
 }
 private struct DailyTaskDay: Codable, Identifiable {
     let date: String
@@ -805,7 +806,7 @@ private struct DailyTasksWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack {
-                Text("✿ Дневник недели")
+                Text("✿ Планировщик")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(ink)
                 Spacer()
@@ -815,6 +816,7 @@ private struct DailyTasksWidgetView: View {
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                 ForEach(days) { day in
+                    Link(destination: URL(string: "treneraliny://open?tab=tasks&day=\\(day.date)")!) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack {
                             Text(day.label)
@@ -827,9 +829,9 @@ private struct DailyTasksWidgetView: View {
                         }
                         Rectangle().fill(rose.opacity(0.2)).frame(height: 1)
                         ForEach(Array(day.tasks.prefix(family == .systemLarge ? 3 : 1))) { task in
-                            Text((task.done ? "✓ " : "□ ") + task.title)
+                            Text((task.done ? "✓ " : (task.overdue == true ? "🔴 " : "◯ ")) + task.title)
                                 .font(.system(size: 10))
-                                .foregroundStyle(task.done ? faded : ink)
+                                .foregroundStyle(task.done ? faded : (task.overdue == true ? Color.red : ink))
                                 .lineLimit(1)
                         }
                         if day.tasks.isEmpty {
@@ -844,14 +846,16 @@ private struct DailyTasksWidgetView: View {
                     .frame(maxWidth: .infinity, minHeight: family == .systemLarge ? 76 : 38, alignment: .topLeading)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(rose.opacity(0.25), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(rose.opacity(0.30), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(12)
         .widgetURL(URL(string: "treneraliny://open?tab=tasks"))
-        .containerBackground(for: .widget) { Color(red: 0.988, green: 0.955, blue: 0.966) }
+        .containerBackground(for: .widget) { Color(red: 1.0, green: 0.94, blue: 0.97) }
     }
 }
 struct TrenerAlinyDailyTasksWidget: Widget {
@@ -902,6 +906,7 @@ private struct AffirmationWidgetView: View {
         let day = Calendar.current.ordinality(of: .day, in: .era, for: entry.date) ?? 0
         return entry.affirmations[day % entry.affirmations.count]
     }
+    private var quoteNumber: Int { guard !entry.affirmations.isEmpty else { return 0 }; return ((Calendar.current.ordinality(of: .day, in: .era, for: entry.date) ?? 0) % entry.affirmations.count) + 1 }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -910,15 +915,23 @@ private struct AffirmationWidgetView: View {
                     .tracking(1.1)
                     .foregroundStyle(Color(red: 0.68, green: 0.40, blue: 0.53))
                 Spacer()
-                Text("♡").foregroundStyle(Color(red: 0.73, green: 0.44, blue: 0.56))
+                Text("\\(quoteNumber)/\\(max(1,entry.affirmations.count))").font(.system(size: 12, weight: .bold)).foregroundStyle(Color(red: 0.83, green: 0.28, blue: 0.49))
             }
             Spacer(minLength: 0)
-            Text(quote)
+            HStack(spacing: 8) {
+                Link(destination: URL(string: "treneraliny://open?tab=routine")!) {
+                    Image(systemName: "chevron.left.circle.fill").font(.system(size: 28)).foregroundStyle(Color(red: 0.87, green: 0.31, blue: 0.53))
+                }
+                Text(quote)
                 .font(.system(size: family == .systemLarge ? 23 : 17, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(red: 0.26, green: 0.19, blue: 0.24))
                 .lineLimit(family == .systemLarge ? 9 : 4)
                 .minimumScaleFactor(0.72)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                Link(destination: URL(string: "treneraliny://open?tab=routine")!) {
+                    Image(systemName: "chevron.right.circle.fill").font(.system(size: 28)).foregroundStyle(Color(red: 0.87, green: 0.31, blue: 0.53))
+                }
+            }
             Spacer(minLength: 0)
             Text("Мой режим · каждый день")
                 .font(.system(size: 10, weight: .medium))
@@ -927,7 +940,7 @@ private struct AffirmationWidgetView: View {
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .widgetURL(URL(string: "treneraliny://open?tab=routine"))
-        .containerBackground(for: .widget) { Color(red: 0.988, green: 0.947, blue: 0.958) }
+        .containerBackground(for: .widget) { Color(red: 1.0, green: 0.93, blue: 0.96) }
     }
 }
 struct TrenerAlinyAffirmationWidget: Widget {
