@@ -46,8 +46,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
-        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyAffirmationWidget")
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private static func widgetTab(from url: URL) -> String {

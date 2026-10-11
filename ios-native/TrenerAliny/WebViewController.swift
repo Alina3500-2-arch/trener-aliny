@@ -4,6 +4,34 @@ import UserNotifications
 import WidgetKit
 import EventKit
 
+// Общее хранилище приложения и виджетов (App Group).
+// SideStore при установке переименовывает группу: добавляет к ней ID команды
+// (group.com.aline456.treneraliny.ABCDE12345). Поэтому имя нельзя зашивать —
+// берём реальное из профиля, который SideStore кладёт внутрь приложения.
+// Копия этого кода лежит в TrenerAlinyWidget.swift — менять синхронно.
+enum SharedStore {
+    static let baseGroup = "group.com.aline456.treneraliny"
+    static let groupID: String = resolveGroupID()
+    static let defaults: UserDefaults? = UserDefaults(suiteName: groupID)
+
+    private static func resolveGroupID() -> String {
+        let candidates = (Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? [])
+            + provisionedGroups()
+        return candidates.first { $0 == baseGroup || $0.hasPrefix(baseGroup + ".") } ?? baseGroup
+    }
+
+    private static func provisionedGroups() -> [String] {
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url),
+              let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: data.subdata(in: start.lowerBound..<end.upperBound), format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any] else { return [] }
+        return entitlements["com.apple.security.application-groups"] as? [String] ?? []
+    }
+}
+
 // WKWebView на весь экран, грузит веб-приложение с GitHub Pages.
 // Единственный настоящий нативный мост — планирование локальных уведомлений
 // через window.webkit.messageHandlers.notify.postMessage(...).
@@ -21,6 +49,8 @@ final class WebViewController: UIViewController {
     private var webView: WKWebView!
     private let reminderStore = EKEventStore()
     private var skipNextActiveReload = false
+    private var lastDeepLink: URL?
+    private var lastDeepLinkAt = Date.distantPast
 
     static func registerNotificationCategories() {
         let record = UNNotificationAction(
@@ -208,7 +238,7 @@ extension WebViewController: WKScriptMessageHandler {
     }
 
     private func updateProjects(_ payload: [String: Any]) {
-        guard JSONSerialization.isValidJSONObject(payload), let data = try? JSONSerialization.data(withJSONObject: payload), let json = String(data: data, encoding: .utf8), let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+        guard JSONSerialization.isValidJSONObject(payload), let data = try? JSONSerialization.data(withJSONObject: payload), let json = String(data: data, encoding: .utf8), let defaults = SharedStore.defaults else { return }
         defaults.set(json, forKey: "projectsWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyProjectsWidget")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyGoalsWidget")
@@ -217,7 +247,7 @@ extension WebViewController: WKScriptMessageHandler {
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
-              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+              let defaults = SharedStore.defaults else { return }
         defaults.set(json, forKey: "dailyTasksWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
     }
@@ -226,7 +256,7 @@ extension WebViewController: WKScriptMessageHandler {
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
-              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+              let defaults = SharedStore.defaults else { return }
 
         defaults.set(json, forKey: "widgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyWorkoutWidget")
@@ -237,7 +267,7 @@ extension WebViewController: WKScriptMessageHandler {
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
-              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
+              let defaults = SharedStore.defaults else { return }
         // Reconcile edits made directly in the interactive weekly widget.
         if let pendingData = defaults.data(forKey: "routinePendingWeekChecks"),
            let pending = try? JSONDecoder().decode([String: [String: Bool]].self, from: pendingData),
@@ -526,10 +556,16 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         // на предыдущей загрузке deep-link просто не увидит новое значение.
         guard var comps = URLComponents(url: appURL, resolvingAgainstBaseURL: false) else { return }
         comps.queryItems = [URLQueryItem(name: "open", value: target)]
-        if target == "tab:tasks", let day = day, day.range(of: #"^\\d{4}-\\d{2}-\\d{2}$"#, options: .regularExpression) != nil {
+        if target == "tab:tasks", let day = day, day.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
             comps.queryItems?.append(URLQueryItem(name: "day", value: day))
         }
         guard let url = comps.url else { return }
+        // При холодном старте iOS отдаёт ссылку дважды (launchOptions и open url) —
+        // вторая загрузка обрывала первую. Одну и ту же ссылку подряд не грузим.
+        let now = Date()
+        if url == lastDeepLink, now.timeIntervalSince(lastDeepLinkAt) < 2 { return }
+        lastDeepLink = url
+        lastDeepLinkAt = now
         skipNextActiveReload = true
         webView.load(URLRequest(url: url))
     }

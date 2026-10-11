@@ -4,6 +4,32 @@ import AppIntents
 
 private let widgetEndpoint = "https://trener-aliny-widget.alina-3500-2.workers.dev/widget/aline"
 
+// Общее хранилище с приложением (App Group). SideStore переименовывает группу
+// при установке (добавляет ID команды), поэтому берём реальное имя из профиля
+// внутри расширения. Копия кода из WebViewController.swift — менять синхронно.
+enum SharedStore {
+    static let baseGroup = "group.com.aline456.treneraliny"
+    static let groupID: String = resolveGroupID()
+    static let defaults: UserDefaults? = UserDefaults(suiteName: groupID)
+
+    private static func resolveGroupID() -> String {
+        let candidates = (Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? [])
+            + provisionedGroups()
+        return candidates.first { $0 == baseGroup || $0.hasPrefix(baseGroup + ".") } ?? baseGroup
+    }
+
+    private static func provisionedGroups() -> [String] {
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url),
+              let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: data.subdata(in: start.lowerBound..<end.upperBound), format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any] else { return [] }
+        return entitlements["com.apple.security.application-groups"] as? [String] ?? []
+    }
+}
+
 private struct CalorieDay: Codable, Identifiable {
     let date: String
     let label: String
@@ -34,29 +60,41 @@ private struct WorkoutProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WorkoutEntry) -> Void) {
-        completion(WorkoutEntry(date: .now, payload: loadFromCache() ?? samplePayload))
+        let payload = loadLocal() ?? loadFromCache()
+        completion(WorkoutEntry(date: .now, payload: payload ?? (context.isPreview ? samplePayload : nil)))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WorkoutEntry>) -> Void) {
-        // Сначала пытаемся получить свежие данные с Worker'а
+        let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: .now) ?? Date().addingTimeInterval(3600)
+        // Главный источник — данные, которые приложение само положило в общее
+        // хранилище (там есть и следующая тренировка, и калории).
+        if let local = loadLocal() {
+            completion(Timeline(entries: [WorkoutEntry(date: .now, payload: local)], policy: .after(nextUpdate)))
+            return
+        }
+        // Запасной путь, если общее хранилище недоступно: копия на Worker'е.
+        // Выдуманные цифры (samplePayload) на рабочем столе не показываем.
         fetchFromWorker { payload in
-            // Если получили, сохраняем в кэш
             if let payload = payload {
                 cachePayload(payload)
             }
-
-            // Показываем полученные данные или кэш
-            let entry = WorkoutEntry(date: .now, payload: payload ?? loadFromCache() ?? samplePayload)
-
-            // Обновляем каждый час
-            let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: .now) ?? Date().addingTimeInterval(3600)
+            let entry = WorkoutEntry(date: .now, payload: payload ?? loadFromCache())
             completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
         }
     }
 
+    private func loadLocal() -> WidgetPayload? {
+        guard let raw = SharedStore.defaults?.string(forKey: "widgetPayload"),
+              let data = raw.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(WidgetPayload.self, from: data)
+    }
+
     private func fetchFromWorker(completion: @escaping (WidgetPayload?) -> Void) {
-        URLSession.shared.dataTask(with: URL(string: widgetEndpoint)!) { data, _, _ in
-            guard let data = data else {
+        var request = URLRequest(url: URL(string: widgetEndpoint)!)
+        request.timeoutInterval = 10 // у виджета мало времени на обновление
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            guard let data = data, (response as? HTTPURLResponse)?.statusCode == 200 else {
                 completion(nil)
                 return
             }
@@ -66,7 +104,7 @@ private struct WorkoutProvider: TimelineProvider {
     }
 
     private func loadFromCache() -> WidgetPayload? {
-        guard let raw = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "widgetPayloadCache"),
+        guard let raw = SharedStore.defaults?.string(forKey: "widgetPayloadCache"),
               let data = raw.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(WidgetPayload.self, from: data)
     }
@@ -95,7 +133,7 @@ private struct WorkoutProvider: TimelineProvider {
 private func cachePayload(_ payload: WidgetPayload) {
     guard let data = try? JSONEncoder().encode(payload),
           let json = String(data: data, encoding: .utf8) else { return }
-    UserDefaults(suiteName: "group.com.aline456.treneraliny")?.set(json, forKey: "widgetPayloadCache")
+    SharedStore.defaults?.set(json, forKey: "widgetPayloadCache")
 }
 
 private struct WeekDay: Identifiable {
@@ -373,13 +411,10 @@ struct ToggleRoutineHabitIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let valid = ["wake", "affirm", "read", "food", "gym", "motivation", "ai"]
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.dateFormat = "yyyy-MM-dd"
-        let today = fmt.string(from: Date())
+        let today = RoutineWeek.key(Date())
         guard valid.contains(habitId), dateKey >= "2026-10-09",
               dateKey <= "2026-11-08", dateKey <= today,
-              let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return .result() }
+              let defaults = SharedStore.defaults else { return .result() }
 
         var payload = defaults.string(forKey: "routineWidgetPayload")
             .flatMap { $0.data(using: .utf8) }
@@ -532,7 +567,7 @@ private struct RoutineProvider: TimelineProvider {
     }
 
     private func load() -> RoutinePayload? {
-        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?
+        guard let json = SharedStore.defaults?
             .string(forKey: "routineWidgetPayload"),
               let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(RoutinePayload.self, from: data)
@@ -552,12 +587,7 @@ private struct RoutineWidgetView: View {
     ]
     private let days = ["Пн","Вт","Ср","Чт","Пт","Сб","♡"]
 
-    private var today: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: entry.date)
-    }
+    private var today: String { RoutineWeek.key(entry.date) }
     private var week: [RoutineWeekDay] { RoutineWeek.merged(entry.payload, date: entry.date) }
     private var pct: Int { weekPlanned.isEmpty ? 0 : Int((Double(weekDone) * 100 / Double(weekPlanned.count)).rounded()) }
     private var todayPct: Int { let h = week.first(where: { $0.date == today })?.habits.filter { $0.planned } ?? []; return h.isEmpty ? 0 : Int((Double(h.filter { $0.done }.count) * 100 / Double(h.count)).rounded()) }
@@ -764,7 +794,7 @@ private struct DailyTasksEntry: TimelineEntry {
 }
 private struct DailyTasksProvider: TimelineProvider {
     private func load() -> DailyTaskPayload? {
-        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "dailyTasksWidgetPayload"),
+        guard let json = SharedStore.defaults?.string(forKey: "dailyTasksWidgetPayload"),
               let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(DailyTaskPayload.self, from: data)
     }
@@ -872,45 +902,60 @@ struct TrenerAlinyDailyTasksWidget: Widget {
 }
 
 
+// Список аффирмаций и выбранная сейчас — одна логика и для виджета, и для стрелок.
+private enum AffirmationStore {
+    static let fallback = ["Я смелая и уверенная, всегда добиваюсь своих целей."]
+
+    static func read() -> [String] {
+        guard let raw = SharedStore.defaults?.string(forKey: "routineWidgetPayload"),
+              let data = raw.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let arr = json["affirmations"] as? [String] else { return fallback }
+        let list = arr.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return list.isEmpty ? fallback : list
+    }
+
+    // Пока стрелки не трогали — аффирмация дня; после — та, что выбрана.
+    static func index(count: Int, date: Date) -> Int {
+        guard count > 0 else { return 0 }
+        let saved = SharedStore.defaults?.object(forKey: "affirmationSelectedIndex") as? Int
+            ?? (Calendar.current.ordinality(of: .day, in: .era, for: date) ?? 0)
+        return ((saved % count) + count) % count
+    }
+}
+
 private struct AffirmationEntry: TimelineEntry {
     let date: Date
     let affirmations: [String]
+    let index: Int
 }
 private struct AffirmationProvider: TimelineProvider {
+    private func entry(_ date: Date) -> AffirmationEntry {
+        let list = AffirmationStore.read()
+        return AffirmationEntry(date: date, affirmations: list, index: AffirmationStore.index(count: list.count, date: date))
+    }
     func placeholder(in context: Context) -> AffirmationEntry {
-        AffirmationEntry(date: .now, affirmations: ["Я смелая и уверенная, всегда добиваюсь своих целей."])
+        AffirmationEntry(date: .now, affirmations: AffirmationStore.fallback, index: 0)
     }
     func getSnapshot(in context: Context, completion: @escaping (AffirmationEntry) -> Void) {
-        completion(AffirmationEntry(date: .now, affirmations: readAffirmations()))
+        completion(entry(.now))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<AffirmationEntry>) -> Void) {
         let now = Date()
         let next = Calendar.current.date(byAdding: .hour, value: 6, to: now) ?? now.addingTimeInterval(21600)
-        completion(Timeline(entries: [AffirmationEntry(date: now, affirmations: readAffirmations())], policy: .after(next)))
-    }
-    private func readAffirmations() -> [String] {
-        guard let raw = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "routineWidgetPayload"),
-              let data = raw.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let arr = json["affirmations"] as? [String] else {
-            return ["Я смелая и уверенная, всегда добиваюсь своих целей."]
-        }
-        return arr.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        completion(Timeline(entries: [entry(now)], policy: .after(next)))
     }
 }
-private struct ChangeAffirmationIntent: AppIntent {
+struct ChangeAffirmationIntent: AppIntent {
     static var title: LocalizedStringResource = "Листать аффирмации"
     static var openAppWhenRun: Bool = false
     @Parameter(title: "Направление") var direction: Int
     init() {}
     init(direction: Int) { self.direction = direction }
     func perform() async throws -> some IntentResult {
-        guard let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return .result() }
-        let raw = defaults.string(forKey: "routineWidgetPayload") ?? ""
-        let json = (raw.data(using: .utf8)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-        let count = max(1, (json?["affirmations"] as? [String])?.count ?? 1)
-        let current = defaults.object(forKey: "affirmationSelectedIndex") as? Int
-            ?? (Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 0) % count
+        guard let defaults = SharedStore.defaults else { return .result() }
+        let count = AffirmationStore.read().count
+        let current = AffirmationStore.index(count: count, date: Date())
         defaults.set((current + direction + count) % count, forKey: "affirmationSelectedIndex")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyAffirmationWidget")
         return .result()
@@ -919,12 +964,8 @@ private struct ChangeAffirmationIntent: AppIntent {
 private struct AffirmationWidgetView: View {
     let entry: AffirmationEntry
     @Environment(\.widgetFamily) private var family
-    private var selectedIndex: Int { let fallback = Calendar.current.ordinality(of: .day, in: .era, for: entry.date) ?? 0; let saved = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.integer(forKey: "affirmationSelectedIndex") ?? fallback; return entry.affirmations.isEmpty ? 0 : ((saved % entry.affirmations.count) + entry.affirmations.count) % entry.affirmations.count }
-    private var quote: String {
-        guard !entry.affirmations.isEmpty else { return "Сегодня я выбираю действовать." }
-        return entry.affirmations[selectedIndex]
-    }
-    private var quoteNumber: Int { guard !entry.affirmations.isEmpty else { return 0 }; return selectedIndex + 1 }
+    private var quote: String { entry.affirmations.indices.contains(entry.index) ? entry.affirmations[entry.index] : "Сегодня я выбираю действовать." }
+    private var quoteNumber: Int { entry.affirmations.isEmpty ? 0 : entry.index + 1 }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -989,7 +1030,7 @@ private struct ProjectsEntry: TimelineEntry {
 }
 private struct ProjectsProvider: TimelineProvider {
     func read() -> [ProjectRow] {
-        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "projectsWidgetPayload"),
+        guard let json = SharedStore.defaults?.string(forKey: "projectsWidgetPayload"),
               let data = json.data(using: .utf8),
               let parsed = try? JSONDecoder().decode(ProjectPayload.self, from: data) else { return [] }
         return parsed.projects
@@ -1063,7 +1104,7 @@ private struct GoalsEntry: TimelineEntry {
 }
 private struct GoalsProvider: TimelineProvider {
     func read() -> [GoalRow] {
-        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "projectsWidgetPayload"),
+        guard let json = SharedStore.defaults?.string(forKey: "projectsWidgetPayload"),
               let data = json.data(using: .utf8),
               let parsed = try? JSONDecoder().decode(GoalsPayload.self, from: data) else { return [] }
         return parsed.goals

@@ -77,6 +77,23 @@ jobs:
           echo "App=$APP"
           mkdir -p "$RUNNER_TEMP/Payload"
           cp -R "$APP" "$RUNNER_TEMP/Payload/"
+
+          # Вшиваем entitlements (App Group) ad-hoc подписью. Без этого SideStore
+          # не видит, что приложению и виджету нужна общая группа, не создаёт её —
+          # и виджеты не получают данных из приложения. SideStore потом всё равно
+          # переподписывает своим сертификатом, но entitlements берёт отсюда.
+          PAYLOAD_APP="$RUNNER_TEMP/Payload/$(basename "$APP")"
+          APPEX="$PAYLOAD_APP/PlugIns/TrenerAlinyWidget.appex"
+          codesign --force --sign - --timestamp=none \
+            --entitlements ios-native/TrenerAlinyWidget/TrenerAlinyWidget.entitlements "$APPEX"
+          codesign --force --sign - --timestamp=none \
+            --entitlements ios-native/TrenerAliny/TrenerAliny.entitlements "$PAYLOAD_APP"
+          for b in "$APPEX" "$PAYLOAD_APP"; do
+            echo "== $b"
+            codesign -d --entitlements - "$b" 2>/dev/null | tee /dev/stderr | grep -q "group.com.aline456.treneraliny" \
+              || { echo "Нет App Group в entitlements: $b"; exit 1; }
+          done
+
           cd "$RUNNER_TEMP"
           zip -qr TrenerAliny-unsigned.ipa Payload
           ls -lh TrenerAliny-unsigned.ipa
