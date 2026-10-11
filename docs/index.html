@@ -100,6 +100,17 @@ body,html,#app{background:#fbf7f7!important;color:#342c33!important;color-scheme
 #app [style*="background:#171"],#app [style*="background:#211"],#app [style*="background:#0b"],#app [style*="background:#0B"],#app [style*="background:#1A"],#app [style*="background:#202"]{background:#fff!important;color:#342c33!important}
 #app [style*="color:#fff"],#app [style*="color:#FFF"],#app [style*="color:white"]{color:#342c33!important}
 #tasks-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#fbf7f7}
+
+/* October sprint: readable light cards and safe area for iPhone */
+#app.screen-today .body-pad,#app.screen-workout .body-pad{padding-top:max(22px,calc(env(safe-area-inset-top) + 18px))!important}
+#app.screen-today [style*="background:linear-gradient(145deg,rgba(42,29,73"],#app.screen-today [style*="background:linear-gradient(145deg,rgba(27,23,43"]{background:#f8e9ef!important;border-color:#eacdd9!important}
+#app.screen-today [style*="background:linear-gradient(145deg,#"],#app.screen-workout [style*="background:linear-gradient(145deg,#"]{color:#342c33!important}
+#app.screen-today [style*="background:rgba(255,255,255,.0"],#app.screen-today [style*="background:rgba(255,255,255,.1"],#app.screen-today [style*="background:rgba(255,255,255,.06"]{background:#fff!important;border:1px solid #eddfe4!important}
+#app.screen-today [style*="background:#171"],#app.screen-today [style*="background:#211"],#app.screen-today [style*="background:#1A"],#app.screen-today [style*="background:#202"]{background:#fff!important}
+#app.screen-today [style*="color:rgba(255,255,255"],#app.screen-workout [style*="color:rgba(255,255,255"]{color:#756570!important}
+#app.screen-today [style*="color:#fff"],#app.screen-workout [style*="color:#fff"]{color:#342c33!important}
+#app.screen-today .btn:not(.ghost):not(.soft):not(.gray):not(.danger){color:#fff!important}
+#app.screen-today .gridCard,#app.screen-today .card{background:#fff!important;color:#342c33!important}
 </style>
 <div id="app"></div>
 <div id="tabbar"></div>
