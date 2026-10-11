@@ -111,7 +111,7 @@ body,html,#app{background:#fbf7f7!important;color:#342c33!important;color-scheme
 #app.screen-today [style*="color:#fff"],#app.screen-workout [style*="color:#fff"]{color:#342c33!important}
 #app.screen-today .btn:not(.ghost):not(.soft):not(.gray):not(.danger){color:#fff!important}
 #app.screen-today .gridCard,#app.screen-today .card{background:#fff!important;color:#342c33!important}
-</style>
+#app.screen-today button[onclick^="openMealSheet"]{background:linear-gradient(145deg,#fff,#f8e9ef)!important;border:1px solid #ead9e0!important;color:#4d3b45!important;box-shadow:0 2px 8px #b9779010}#app.screen-today button[onclick^="openMealSheet"] div{color:#5c4550!important}#app.screen-today button[onclick^="openMealSheet"] svg{color:#b97790!important;stroke:#b97790!important}#app.screen-workout .card{background:#fff!important;color:#3b3036!important}</style>
 <div id="app"></div>
 <div id="tabbar"></div>
 <div id="modals"></div>
@@ -893,8 +893,8 @@ function renderToday(){
     var items=meals.filter(function(x){return x.type===m.key;});
     var sum=items.reduce(function(a,x){return a+(x.kcal||0);},0);
     var goal=Math.round(baseTarget*m.frac);
-    h+='<button style="display:flex;align-items:center;width:100%;background:linear-gradient(145deg,rgba(32,28,45,.96),rgba(24,24,31,.96));border:1px solid rgba(155,125,255,.13);border-radius:16px;padding:7px 10px;margin-bottom:6px;text-align:left;gap:9px" onclick="openMealSheet(\''+m.key+'\')">'+
-      '<div style="width:34px;height:34px;min-width:34px;border-radius:11px;background:rgba(155,125,255,.14);border:1px solid rgba(155,125,255,.22);display:flex;align-items:center;justify-content:center;font-size:16px">'+mealIconSVG(m.key)+'</div>'+
+    h+='<button style="display:flex;align-items:center;width:100%;background:linear-gradient(145deg,#fff,#f9edf2);border:1px solid #ead9e0;border-radius:16px;padding:7px 10px;margin-bottom:6px;text-align:left;gap:9px" onclick="openMealSheet(\''+m.key+'\')">'+
+      '<div style="width:34px;height:34px;min-width:34px;border-radius:11px;background:#f5e5eb;border:1px solid #e8d3dc;display:flex;align-items:center;justify-content:center;font-size:16px">'+mealIconSVG(m.key)+'</div>'+
       '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.label+'</div>'+
       '<div style="font-size:10px;color:var(--textDim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+Math.round(sum)+' из '+goal+' ккал</div></div>'+
       (items.length>0?'<div style="color:var(--primary);font-size:10.5px;font-weight:800;white-space:nowrap">'+(items[items.length-1].time||m.time)+'</div>'
@@ -912,7 +912,7 @@ function renderToday(){
   if(!isToday){
     // no coach card for past/future days
   } else if(over){
-    h+='<div style="flex:.75;min-width:0;border:1px solid rgba(255,107,107,.45);background:linear-gradient(155deg,rgba(75,31,42,.88),rgba(37,24,34,.96));border-radius:16px;padding:10px;text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 22px rgba(30,8,16,.18)">'+
+    h+='<div style="flex:.75;min-width:0;border:1px solid rgba(255,107,107,.45);background:linear-gradient(155deg,#fff5f6,#fae6eb);border-radius:16px;padding:10px;text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 22px rgba(30,8,16,.18)">'+
       '<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px"><span style="width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,107,107,.13);color:#ff8b96"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg></span><span style="color:#ff9ca5;font-size:11px;font-weight:900">Выше нормы</span></div>'+
       '<div style="color:#fff;font-size:12px;line-height:15px;font-weight:800">Сегодня на '+overTarget+' ккал больше</div>'+
       '<div style="color:rgba(255,255,255,.62);font-size:10px;line-height:13px;margin-top:4px">Ничего страшного. Завтра просто возвращаемся к обычному плану.</div></div>';
@@ -2216,13 +2216,13 @@ function workoutSetup(){
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">Дней в неделю</div><div class="chips">'+W_DAYS_OPTS.map(function(d){return '<button class="chip'+(wl.days===d?' on':'')+'" onclick="workoutLocal.days='+d+';render()">'+d+'</button>';}).join('')+'</div>'+
     '<div style="font-size:15px;font-weight:700;margin:12px 0 8px">Где занимаешься</div><div class="chips">'+W_PLACES.map(function(p){return '<button class="chip'+(wl.place===p.key?' on':'')+'" onclick="workoutLocal.place=\''+p.key+'\';render()">'+p.label+'</button>';}).join('')+'</div>'+
     (wl.loading?'<div style="text-align:center;margin-top:16px"><div class="spin"></div><p class="muted">Тренер придумывает программы…</p></div>':'<button class="btn mt16" onclick="workoutGenerate()" '+(wl.focus.length?'':'disabled')+'>🌸 Подобрать программы</button>')+
-    '<button class="btn ghost mt8" onclick="workoutStartOwn()">✍️ Составить свою</button></div>';
+    '<button class="btn ghost mt8" onclick="workoutStartOwn()">✍️ Внести мою готовую программу</button></div>';
   return h;
 }
 function workoutToggleFocus(k){ var f=workoutLocal.focus; workoutLocal.focus=f.includes(k)?f.filter(function(x){return x!==k;}):f.concat([k]); render(); }
 function workoutGenerate(){ var wl=workoutLocal; wl.loading=true; render();
   generateWorkoutPlans({goalText:wl.goal,focus:wl.focus,days:wl.days,place:wl.place,level:'начальный'}).then(function(vs){ wl.variants=vs; wl.phase='choose'; wl.loading=false; render(); })
-  .catch(function(e){ wl.loading=false; render(); alert('Тренер не смог составить программу: '+String(e.message||e)); }); }
+  .catch(function(e){ wl.loading=false; wl.phase='setup'; render(); alert('Автоподбор сейчас недоступен. Можно сразу составить и сохранить свою программу — нажми «Составить свою».'); }); }
 function workoutChoose(){
   var wl=workoutLocal;
   var h='<p class="muted">Выбери программу — потом сможешь поправить под себя.</p>';
