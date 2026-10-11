@@ -588,7 +588,6 @@ var TABS=[
   {key:'tasks',label:'Дела',ico:'🗓️'},
   {key:'goals',label:'Цели',ico:'🎯'},
   {key:'projects',label:'Проекты',ico:'📁'},
-  {key:'result',label:'Результат',ico:'🎯'},
   {key:'today',label:'Питание',ico:'🍽️'},
   {key:'workout',label:'Тренировки',ico:'💪'},
   
@@ -598,7 +597,7 @@ function setTab(t,keepDeepLink){
   if(!keepDeepLink&&location.search.indexOf('open=')>=0){
     try{ history.replaceState(null,'',location.pathname); }catch(e){}
   }
-  ui.tab=t; window.scrollTo(0,0); render();
+  ui.tab=t==='result'?'goals':t; window.scrollTo(0,0); render();
 }
 function tabIcon(key){
   var paths={
