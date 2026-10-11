@@ -866,6 +866,81 @@ struct TrenerAlinyDailyTasksWidget: Widget {
     }
 }
 
+
+private struct AffirmationEntry: TimelineEntry {
+    let date: Date
+    let affirmations: [String]
+}
+private struct AffirmationProvider: TimelineProvider {
+    func placeholder(in context: Context) -> AffirmationEntry {
+        AffirmationEntry(date: .now, affirmations: ["Я смелая и уверенная, всегда добиваюсь своих целей."])
+    }
+    func getSnapshot(in context: Context, completion: @escaping (AffirmationEntry) -> Void) {
+        completion(AffirmationEntry(date: .now, affirmations: readAffirmations()))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<AffirmationEntry>) -> Void) {
+        let now = Date()
+        let next = Calendar.current.date(byAdding: .hour, value: 6, to: now) ?? now.addingTimeInterval(21600)
+        completion(Timeline(entries: [AffirmationEntry(date: now, affirmations: readAffirmations())], policy: .after(next)))
+    }
+    private func readAffirmations() -> [String] {
+        guard let raw = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "routineWidgetPayload"),
+              let data = raw.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let arr = json["affirmations"] as? [String] else {
+            return ["Я смелая и уверенная, всегда добиваюсь своих целей."]
+        }
+        return arr.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+}
+private struct AffirmationWidgetView: View {
+    let entry: AffirmationEntry
+    @Environment(\.widgetFamily) private var family
+    private var quote: String {
+        guard !entry.affirmations.isEmpty else { return "Сегодня я выбираю действовать." }
+        let day = Calendar.current.ordinality(of: .day, in: .era, for: entry.date) ?? 0
+        return entry.affirmations[day % entry.affirmations.count]
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("✿ МОИ АФФИРМАЦИИ")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .tracking(1.1)
+                    .foregroundStyle(Color(red: 0.68, green: 0.40, blue: 0.53))
+                Spacer()
+                Text("♡").foregroundStyle(Color(red: 0.73, green: 0.44, blue: 0.56))
+            }
+            Spacer(minLength: 0)
+            Text(quote)
+                .font(.system(size: family == .systemLarge ? 23 : 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(red: 0.26, green: 0.19, blue: 0.24))
+                .lineLimit(family == .systemLarge ? 9 : 4)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 0)
+            Text("Мой режим · каждый день")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Color(red: 0.61, green: 0.48, blue: 0.55))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetURL(URL(string: "treneraliny://open?tab=routine"))
+        .containerBackground(for: .widget) { Color(red: 0.988, green: 0.947, blue: 0.958) }
+    }
+}
+struct TrenerAlinyAffirmationWidget: Widget {
+    let kind = "TrenerAlinyAffirmationWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: AffirmationProvider()) { entry in
+            AffirmationWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Мои аффирмации ✿")
+        .description("Твои собственные аффирмации, новая каждый день.")
+        .supportedFamilies([.systemMedium, .systemLarge])
+        .contentMarginsDisabled()
+    }
+}
 @main
 struct TrenerAlinyWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -873,5 +948,6 @@ struct TrenerAlinyWidgetBundle: WidgetBundle {
         TrenerAlinyCaloriesWidget()
         TrenerAlinyRoutineWidget()
         TrenerAlinyDailyTasksWidget()
+        TrenerAlinyAffirmationWidget()
     }
 }
