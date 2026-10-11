@@ -166,6 +166,7 @@ extension WebViewController: WKScriptMessageHandler {
         guard JSONSerialization.isValidJSONObject(payload), let data = try? JSONSerialization.data(withJSONObject: payload), let json = String(data: data, encoding: .utf8), let defaults = UserDefaults(suiteName: "group.com.aline456.treneraliny") else { return }
         defaults.set(json, forKey: "projectsWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyProjectsWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyGoalsWidget")
     }
     private func updateTasks(_ payload: [String: Any]) {
         guard JSONSerialization.isValidJSONObject(payload),
