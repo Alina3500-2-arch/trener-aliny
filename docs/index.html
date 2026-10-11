@@ -671,7 +671,7 @@ function render(){
     if(!state.onboarded){ app.innerHTML=renderOnboarding(); renderTabBar(); renderModals(); return; }
     var html='';
     if(ui.tab==='today') html=renderToday();
-    else if(ui.tab==='workout') html=renderWorkout();
+    else if(ui.tab==='workout') html='<iframe title="Тренировочный дневник" src="workout-diary.html" id="workout-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#fbf7f7"></iframe>';
     else if(ui.tab==='activity') html=renderActivity();
     else if(ui.tab==='progress') html=renderProgress();
     else if(ui.tab==='settings') html=renderSettings();
@@ -683,7 +683,7 @@ function render(){
     renderModals();
     if(ui.tab==='routine'){syncPlannerFood();var rf=document.getElementById('routine-frame');if(rf)rf.addEventListener('load',syncPlannerFood)}
     if(ui.tab==='today') afterTodayRender();
-    if(ui.tab==='workout') afterWorkoutRender();
+    if(ui.tab==='workout') {/* Дневник сам управляет таймером и подтверждением фото. */}
     setTimeout(checkMealDecisionPrompt,80);
   }catch(e){
     document.getElementById('app').innerHTML='<div id="app-error"><h2 class="h2">Ой, что-то сломалось</h2><p class="muted">'+esc(e&&e.message||e)+'</p><button class="btn mt16" onclick="location.reload()">Обновить</button></div>';
@@ -2433,6 +2433,17 @@ function afterWorkoutRender(){
   var todayDow=dowOf(new Date()); var didToday=(state.workouts||[]).some(function(w){return w.date===todayStr();});
   if(plan&&wDays.includes(todayDow)&&!didToday){ wl.nagged=true; setTimeout(function(){ alert('💪 Сегодня тренировка! По плану у тебя сегодня тренировка. Не пропускай — я в тебя верю 🌸'); },300); }
 }
+window.addEventListener('message',function(e){
+  if(e.origin!==location.origin||e.source!==document.getElementById('workout-frame')?.contentWindow||!e.data||e.data.type!=='alina-workout-journal-v1')return;
+  var logs=e.data.logs||{}; var old=state.workouts||[],changed=false;
+  Object.keys(logs).forEach(function(date){
+    var l=logs[date];if(!l||!l.photo)return;
+    var id='photo-diary-'+date;
+    if(old.some(function(w){return w.id===id}))return;
+    old.push({id:id,date:date,title:['Ягодицы база','Ягодицы шлифовка','Кардио'][l.day]||'Тренировка',minutes:Math.max(1,Math.round((l.seconds||0)/60)),sets:(l.sets||[]).flatMap(function(arr,i){return arr.filter(function(x){return x.done}).map(function(x){return {exercise:'Упражнение '+(i+1),reps:Number(x.reps)||0,weight:Number(x.kg)||0}})}),photoVerified:true});changed=true;
+  });
+  if(changed){state.workouts=old;commitNoRender()}
+});
 /* ===== DEEP LINK (открыть конкретный экран по тапу на уведомление) ===== */
 // Используем query-параметр (?open=...), а не #hash: переход, отличающийся
 // только якорем, браузер (в т.ч. WKWebView) может обработать как навигацию
