@@ -585,7 +585,9 @@ function commitNoRender(){ saveState();syncPlannerFood(); scheduleReminders(buil
 
 var TABS=[
   {key:'routine',label:'Планер',ico:'🌸'},
-  {key:'tasks',label:'Мои дела',ico:'🗓️'},
+  {key:'tasks',label:'Дела',ico:'🗓️'},
+  {key:'goals',label:'Цели',ico:'🎯'},
+  {key:'projects',label:'Проекты',ico:'📁'},
   {key:'result',label:'Результат',ico:'🎯'},
   {key:'today',label:'Питание',ico:'🍽️'},
   {key:'workout',label:'Тренировки',ico:'💪'},
@@ -607,6 +609,8 @@ function tabIcon(key){
     settings:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10M4 12h4M12 12h8"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/><circle cx="10" cy="12" r="2"/>',
     routine:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 3v3M16 3v3M7 14l3 3 6-6"/>',
     tasks:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 3v3M16 3v3M8 15l2 2 4-4"/>',
+    goals:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    projects:'<rect x="2" y="6" width="20" height="15" rx="3"/><path d="M2 9V5a2 2 0 0 1 2-2h5l3 3"/>',
     result:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true">'+paths[key]+'</svg>';
@@ -676,6 +680,8 @@ function render(){
     else if(ui.tab==='progress') html=renderProgress();
     else if(ui.tab==='settings') html=renderSettings();
     else if(ui.tab==='routine') html='<iframe title="Мой режим — трекер привычек" src="routine.html" id="routine-frame" loading="eager"></iframe>';
+    else if(ui.tab==='goals') html='<iframe title="Цели" src="goals-projects.html?view=goals" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#fbf7f8"></iframe>';
+    else if(ui.tab==='projects') html='<iframe title="Проекты" src="goals-projects.html?view=projects" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#fbf7f8"></iframe>';
     else if(ui.tab==='tasks') html='<iframe title="Мои дела на день" src="tasks.html" id="tasks-frame" loading="eager"></iframe>';
     else if(ui.tab==='result') html='<iframe title="Режим результата" src="result.html" id="result-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#fbf7f7"></iframe>';
     app.innerHTML=html;
