@@ -2,6 +2,7 @@ import UIKit
 import WebKit
 import UserNotifications
 import WidgetKit
+import EventKit
 
 // WKWebView на весь экран, грузит веб-приложение с GitHub Pages.
 // Единственный настоящий нативный мост — планирование локальных уведомлений
@@ -18,6 +19,7 @@ final class WebViewController: UIViewController {
     private let appURL = URL(string: "https://alina3500-2-arch.github.io/trener-aliny/")!
 
     private var webView: WKWebView!
+    private let reminderStore = EKEventStore()
     private var skipNextActiveReload = false
 
     static func registerNotificationCategories() {
@@ -55,6 +57,7 @@ final class WebViewController: UIViewController {
         controller.add(self, name: "routine")
         controller.add(self, name: "tasks")
         controller.add(self, name: "projects")
+        controller.add(self, name: "reminders")
         config.userContentController = controller
 
         // Разрешить inline-воспроизведение и не требовать жеста пользователя для
@@ -140,6 +143,10 @@ extension WebViewController: WKScriptMessageHandler {
             return
         }
 
+        if message.name == "reminders" {
+            importAppleReminders()
+            return
+        }
         if message.name == "projects" {
             updateProjects(payload)
             return
@@ -159,6 +166,44 @@ extension WebViewController: WKScriptMessageHandler {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return } // тихо ничего не планируем, если запрещено
             self.scheduleNotifications(reminders: reminders, workout: workout, snooze: snooze)
+        }
+    }
+
+
+    private func importAppleReminders() {
+        let load: () -> Void = { [weak self] in
+            guard let self = self else { return }
+            let predicate = self.reminderStore.predicateForReminders(in: nil)
+            self.reminderStore.fetchReminders(matching: predicate) { reminders in
+                let cal = Calendar.current
+                let start = cal.startOfDay(for: Date())
+                let weekday = (cal.component(.weekday, from: start) + 5) % 7
+                guard let monday = cal.date(byAdding: .day, value: -weekday, to: start),
+                      let end = cal.date(byAdding: .day, value: 6, to: monday) else { return }
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                let items: [[String: Any]] = (reminders ?? []).compactMap { reminder in
+                    guard let due = reminder.dueDateComponents?.date,
+                          due >= monday, due < end,
+                          !reminder.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+                    return ["id": reminder.calendarItemIdentifier,
+                            "title": reminder.title,
+                            "date": formatter.string(from: due),
+                            "done": reminder.isCompleted]
+                }
+                guard JSONSerialization.isValidJSONObject(items),
+                      let data = try? JSONSerialization.data(withJSONObject: items),
+                      let json = String(data: data, encoding: .utf8) else { return }
+                DispatchQueue.main.async {
+                    self.webView.evaluateJavaScript("window.importAppleReminders && window.importAppleReminders(\\(json))", completionHandler: nil)
+                }
+            }
+        }
+        if #available(iOS 17.0, *) {
+            reminderStore.requestFullAccessToReminders { granted, _ in if granted { load() } }
+        } else {
+            reminderStore.requestAccess(to: .reminder) { granted, _ in if granted { load() } }
         }
     }
 
