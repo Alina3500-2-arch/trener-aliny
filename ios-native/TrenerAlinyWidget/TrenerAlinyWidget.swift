@@ -942,6 +942,81 @@ struct TrenerAlinyAffirmationWidget: Widget {
         .contentMarginsDisabled()
     }
 }
+
+private struct ProjectRow: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let icon: String
+    let total: Int
+    let done: Int
+    let top: [String]
+}
+private struct ProjectPayload: Decodable { let projects: [ProjectRow] }
+private struct ProjectsEntry: TimelineEntry {
+    let date: Date
+    let projects: [ProjectRow]
+}
+private struct ProjectsProvider: TimelineProvider {
+    func read() -> [ProjectRow] {
+        guard let json = UserDefaults(suiteName: "group.com.aline456.treneraliny")?.string(forKey: "projectsWidgetPayload"),
+              let data = json.data(using: .utf8),
+              let parsed = try? JSONDecoder().decode(ProjectPayload.self, from: data) else { return [] }
+        return parsed.projects
+    }
+    func placeholder(in context: Context) -> ProjectsEntry { ProjectsEntry(date: .now, projects: []) }
+    func getSnapshot(in context: Context, completion: @escaping (ProjectsEntry) -> Void) {
+        completion(ProjectsEntry(date: .now, projects: read()))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<ProjectsEntry>) -> Void) {
+        completion(Timeline(entries: [ProjectsEntry(date: .now, projects: read())], policy: .after(Date().addingTimeInterval(1800))))
+    }
+}
+private struct ProjectsWidgetView: View {
+    let entry: ProjectsEntry
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("📁 МОИ ПРОЕКТЫ").font(.system(size: 13, weight: .bold))
+                Spacer()
+                Text("20/80").font(.system(size: 12, weight: .bold)).foregroundStyle(.pink)
+            }
+            ForEach(Array(entry.projects.prefix(family == .systemLarge ? 4 : 3))) { p in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 5) {
+                        Text(p.icon)
+                        Text(p.name).lineLimit(1)
+                        Spacer(minLength: 2)
+                        Text(String(p.done) + "/" + String(p.total)).foregroundStyle(.pink)
+                    }.font(.system(size: 11, weight: .semibold))
+                    ProgressView(value: Double(p.done), total: Double(max(1,p.total))).tint(.pink)
+                    if family == .systemLarge, let task = p.top.first {
+                        Text("→ " + task).font(.system(size: 10)).lineLimit(1).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if entry.projects.isEmpty {
+                Text("Открой раздел «Проекты»").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Text("Результат важнее идеала").font(.system(size: 10)).foregroundStyle(.pink)
+        }
+        .padding(13)
+        .widgetURL(URL(string: "treneraliny://open?tab=projects"))
+        .containerBackground(for: .widget) { Color(red: 0.99, green: 0.96, blue: 0.97) }
+    }
+}
+struct TrenerAlinyProjectsWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "TrenerAlinyProjectsWidget", provider: ProjectsProvider()) { entry in
+            ProjectsWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Мои проекты · 20/80")
+        .description("Проекты, задачи и прогресс")
+        .supportedFamilies([.systemMedium, .systemLarge])
+        .contentMarginsDisabled()
+    }
+}
 @main
 struct TrenerAlinyWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -950,5 +1025,6 @@ struct TrenerAlinyWidgetBundle: WidgetBundle {
         TrenerAlinyRoutineWidget()
         TrenerAlinyDailyTasksWidget()
         TrenerAlinyAffirmationWidget()
+        TrenerAlinyProjectsWidget()
     }
 }
