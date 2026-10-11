@@ -803,54 +803,55 @@ private struct DailyTasksWidgetView: View {
     private var doneCount: Int { all.filter { $0.done }.count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 7) {
             HStack {
-                Text("🌸 Мои дела")
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                Text("✿ Дневник недели")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(ink)
                 Spacer()
                 Text("\(doneCount)/\(all.count)")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(rose)
             }
-            HStack(alignment: .top, spacing: 5) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
                 ForEach(days) { day in
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(day.label)
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(rose)
-                        Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(faded)
-                        ForEach(Array(day.tasks.prefix(family == .systemLarge ? 4 : 2))) { task in
-                            HStack(alignment: .top, spacing: 2) {
-                                Image(systemName: task.done ? "checkmark.square.fill" : "square")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(rose)
-                                Text(task.title)
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(task.done ? faded : ink)
-                                    .lineLimit(family == .systemLarge ? 2 : 1)
-                                    .minimumScaleFactor(0.8)
-                            }
-                        }
-                        if day.tasks.isEmpty {
-                            Text("—")
-                                .font(.system(size: 12))
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(day.label)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(rose)
+                            Spacer()
+                            Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
+                                .font(.system(size: 9))
                                 .foregroundStyle(faded)
                         }
+                        Rectangle().fill(rose.opacity(0.2)).frame(height: 1)
+                        ForEach(Array(day.tasks.prefix(family == .systemLarge ? 3 : 1))) { task in
+                            Text((task.done ? "✓ " : "□ ") + task.title)
+                                .font(.system(size: 10))
+                                .foregroundStyle(task.done ? faded : ink)
+                                .lineLimit(1)
+                        }
+                        if day.tasks.isEmpty {
+                            Text("＋ Запланировать")
+                                .font(.system(size: 9))
+                                .foregroundStyle(faded)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, minHeight: family == .systemLarge ? 76 : 38, alignment: .topLeading)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(rose.opacity(0.25), lineWidth: 1))
                 }
             }
             Spacer(minLength: 0)
-            Text("Понедельник — суббота · Нажми, чтобы открыть дела")
-                .font(.system(size: 10))
-                .foregroundStyle(faded)
         }
-        .padding(14)
+        .padding(12)
         .widgetURL(URL(string: "treneraliny://open?tab=tasks"))
-        .containerBackground(for: .widget) { Color(red: 1, green: 0.981, blue: 0.985) }
+        .containerBackground(for: .widget) { Color(red: 0.988, green: 0.955, blue: 0.966) }
     }
 }
 struct TrenerAlinyDailyTasksWidget: Widget {
