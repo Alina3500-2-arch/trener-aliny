@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import WidgetKit
 
 // Минимальная нативная обёртка: одно окно, один WebViewController.
 // Никакого Storyboard и SceneDelegate — старый AppDelegate-only lifecycle,
@@ -40,8 +41,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
         guard url.scheme == "treneraliny" else { return false }
-        (window?.rootViewController as? WebViewController)?.openTabFromWidget(Self.widgetTab(from: url))
+        (window?.rootViewController as? WebViewController)?.openTabFromWidget(Self.widgetTab(from: url), day: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "day" })?.value)
         return true
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyAffirmationWidget")
     }
 
     private static func widgetTab(from url: URL) -> String {
