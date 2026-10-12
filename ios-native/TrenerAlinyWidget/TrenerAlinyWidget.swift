@@ -582,22 +582,37 @@ private struct RoutineWidgetView: View {
     private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
     private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
     private let dot = Color(red: 0.93, green: 0.93, blue: 0.94)
-    private let labels: [(String, String)] = [
-        ("wake","Подъём 06:30"), ("affirm","Аффирмации и цели"),
-        ("read","20 страниц"), ("food","Учёт питания"),
-        ("gym","Спортзал"), ("motivation","Мотивация"), ("ai","Обучение ИИ")
+    // Same order, times and icons as the tracker matrix in docs/routine.html.
+    private let allRows: [(id: String, time: String, icon: String, title: String)] = [
+        ("wake", "06:00", "🌅", "Подъём"),
+        ("affirm", "06:10", "🌷", "Аффирмации"),
+        ("gym", "08:00", "💪", "Спортзал"),
+        ("ai", "17:00", "💻", "Обучение ИИ"),
+        ("motivation", "18:00", "🎧", "Подкаст"),
+        ("read", "20:00", "📖", "Книга 20 стр"),
+        ("food", "21:00", "📝", "Питание")
     ]
+    private let dailyIds = ["wake", "affirm", "read", "food"]
+    private var labels: [(id: String, time: String, icon: String, title: String)] {
+        isLarge ? allRows : allRows.filter { dailyIds.contains($0.id) }
+    }
     private let days = ["п","в","с","ч","п","с","в"]
 
     private var today: String { RoutineWeek.key(entry.date) }
     private var week: [RoutineWeekDay] { RoutineWeek.merged(entry.payload, date: entry.date) }
 
+    private var weekPlanned: [RoutineWeekHabit] { week.flatMap { $0.habits }.filter { $0.planned } }
+    private var pct: Int {
+        let total = weekPlanned.count
+        return total == 0 ? 0 : Int((Double(weekPlanned.filter { $0.done }.count) * 100 / Double(total)).rounded())
+    }
+
     private var isLarge: Bool { family == .systemLarge }
-    private var rows: Int { isLarge ? 7 : 4 }
-    private var dotSize: CGFloat { isLarge ? 17 : 15 }
-    private var colWidth: CGFloat { isLarge ? 20 : 19 }
-    private var rowHeight: CGFloat { isLarge ? 36 : 24 }
-    private var labelSize: CGFloat { isLarge ? 17 : 14 }
+    private var rows: Int { labels.count }
+    private var dotSize: CGFloat { isLarge ? 16 : 14 }
+    private var colWidth: CGFloat { isLarge ? 19 : 18 }
+    private var rowHeight: CGFloat { isLarge ? 37 : 24 }
+    private var labelSize: CGFloat { isLarge ? 13 : 12 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -619,18 +634,18 @@ private struct RoutineWidgetView: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.counterclockwise.circle.fill")
-                .font(.system(size: isLarge ? 26 : 21, weight: .semibold))
+                .font(.system(size: isLarge ? 21 : 18, weight: .semibold))
                 .foregroundStyle(rose)
             Text("Моя неделя")
-                .font(.system(size: isLarge ? 21 : 17, weight: .medium))
+                .font(.system(size: isLarge ? 16 : 14, weight: .medium))
                 .foregroundStyle(ink)
                 .lineLimit(1)
             Spacer(minLength: 4)
-            Image(systemName: "plus")
-                .font(.system(size: isLarge ? 22 : 18, weight: .regular))
+            Text("\(pct)%")
+                .font(.system(size: isLarge ? 15 : 13, weight: .medium))
                 .foregroundStyle(rose)
         }
-        .padding(.bottom, isLarge ? 14 : 6)
+        .padding(.bottom, isLarge ? 12 : 5)
     }
 
     private var weekTable: some View {
@@ -641,22 +656,17 @@ private struct RoutineWidgetView: View {
                     Text(days[i]).frame(width: colWidth)
                 }
             }
-            .font(.system(size: isLarge ? 12 : 10))
+            .font(.system(size: isLarge ? 11 : 9))
             .foregroundStyle(faded)
             .padding(.bottom, isLarge ? 4 : 2)
 
             ForEach(0..<rows, id: \.self) { row in
                 HStack(spacing: 0) {
-                    Text(labels[row].1)
-                        .font(.system(size: labelSize))
-                        .foregroundStyle(ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    rowLabel(labels[row], size: labelSize)
                     ForEach(0..<7, id: \.self) { col in
                         let day = week[col]
-                        let habit = day.habits.first(where: { $0.id == labels[row].0 })
-                        cell(id: labels[row].0, date: day.date,
+                        let habit = day.habits.first(where: { $0.id == labels[row].id })
+                        cell(id: labels[row].id, date: day.date,
                              planned: habit?.planned ?? false,
                              done: habit?.done ?? false)
                             .frame(width: colWidth, height: rowHeight)
@@ -669,16 +679,11 @@ private struct RoutineWidgetView: View {
 
     private var todayList: some View {
         VStack(spacing: 0) {
-            ForEach(0..<4, id: \.self) { idx in
-                let id = labels[idx].0
+            ForEach(0..<labels.count, id: \.self) { idx in
+                let id = labels[idx].id
                 let habit = week.first(where: { $0.date == today })?.habits.first(where: { $0.id == id })
                 HStack(spacing: 6) {
-                    Text(labels[idx].1)
-                        .font(.system(size: 13))
-                        .foregroundStyle(ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    rowLabel(labels[idx], size: 12)
                     cell(id: id, date: today, planned: habit?.planned ?? false, done: habit?.done ?? false)
                         .frame(width: 24, height: 26)
                 }
@@ -686,6 +691,23 @@ private struct RoutineWidgetView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    private func rowLabel(_ row: (id: String, time: String, icon: String, title: String), size: CGFloat) -> some View {
+        HStack(spacing: 5) {
+            Text(row.time)
+                .font(.system(size: size - 3, weight: .regular).monospacedDigit())
+                .foregroundStyle(faded)
+                .frame(width: size * 2.4, alignment: .leading)
+            Text(row.icon)
+                .font(.system(size: size - 1))
+            Text(row.title)
+                .font(.system(size: size))
+                .foregroundStyle(ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func dotView(done: Bool, planned: Bool) -> some View {
