@@ -577,184 +577,140 @@ private struct RoutineProvider: TimelineProvider {
 private struct RoutineWidgetView: View {
     let entry: RoutineEntry
     @Environment(\.widgetFamily) private var family
-    private let rose = Color(red: 0.94, green: 0.27, blue: 0.52)
-    private let ink = Color(red: 0.23, green: 0.17, blue: 0.22)
-    private let faded = Color(red: 0.55, green: 0.51, blue: 0.54)
+    // Planwoo-style palette: white card, soft grey dots, rose accent.
+    private let rose = Color(red: 0.94, green: 0.36, blue: 0.58)
+    private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
+    private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
+    private let dot = Color(red: 0.93, green: 0.93, blue: 0.94)
     private let labels: [(String, String)] = [
-        ("wake","Подъём 06:30"), ("affirm","Аффирмации + цели"),
+        ("wake","Подъём 06:30"), ("affirm","Аффирмации и цели"),
         ("read","20 страниц"), ("food","Учёт питания"),
         ("gym","Спортзал"), ("motivation","Мотивация"), ("ai","Обучение ИИ")
     ]
-    private let days = ["Пн","Вт","Ср","Чт","Пт","Сб","♡"]
+    private let days = ["п","в","с","ч","п","с","в"]
 
     private var today: String { RoutineWeek.key(entry.date) }
     private var week: [RoutineWeekDay] { RoutineWeek.merged(entry.payload, date: entry.date) }
-    private var pct: Int { weekPlanned.isEmpty ? 0 : Int((Double(weekDone) * 100 / Double(weekPlanned.count)).rounded()) }
-    private var todayPct: Int { let h = week.first(where: { $0.date == today })?.habits.filter { $0.planned } ?? []; return h.isEmpty ? 0 : Int((Double(h.filter { $0.done }.count) * 100 / Double(h.count)).rounded()) }
-    private var weekStart: String { week.first?.date ?? today }
-    private var weekPlanned: [RoutineWeekHabit] { week.flatMap { $0.habits }.filter { $0.planned } }
-    private var weekDone: Int { weekPlanned.filter { $0.done }.count }
+
+    private var isLarge: Bool { family == .systemLarge }
+    private var rows: Int { isLarge ? 7 : 4 }
+    private var dotSize: CGFloat { isLarge ? 17 : 15 }
+    private var colWidth: CGFloat { isLarge ? 20 : 19 }
+    private var rowHeight: CGFloat { isLarge ? 36 : 24 }
+    private var labelSize: CGFloat { isLarge ? 17 : 14 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: family == .systemLarge ? 9 : 5) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Моя неделя")
-                        .font(.system(size: family == .systemLarge ? 21 : 17, weight: .semibold, design: .rounded))
-                        .foregroundStyle(ink)
-                    if family == .systemLarge {
-                        Text("Отмечай выполненное")
-                            .font(.system(size: 11))
-                            .foregroundStyle(faded)
-                    }
-                }
-                Spacer()
-                Text("\(pct)%")
-                    .font(.system(size: family == .systemLarge ? 22 : 19, weight: .semibold, design: .rounded))
-                    .foregroundStyle(ink)
-            }
-            GeometryReader { g in
-                Capsule().fill(rose.opacity(0.14))
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(rose)
-                            .frame(width: g.size.width * CGFloat(pct) / 100)
-                    }
-            }
-            .frame(height: 4)
-
-            if family == .systemLarge {
-                weeklyTable
-            } else if family == .systemMedium {
-                mediumTable
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            if family == .systemSmall {
+                todayList
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(0..<4, id: \.self) { idx in
-                        let id = labels[idx].0
-                        let selected = week.first(where: { $0.date == today })?.habits.first(where: { $0.id == id })
-                        HStack(spacing: 9) {
-                            cell(id: id, date: today, planned: selected?.planned ?? false, done: selected?.done ?? false, size: 18)
-                            Text(labels[idx].1)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(ink)
-                                .lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                    }
-                }
-                Spacer(minLength: 0)
-                if family == .systemMedium {
-                    Text("Сегодня · \(entry.payload?.date == today ? (entry.payload?.done ?? 0) : 0) отметок")
-                        .font(.system(size: 10))
-                        .foregroundStyle(faded)
-                }
+                weekTable
             }
+            Spacer(minLength: 0)
         }
-        .padding(family == .systemLarge ? 17 : 14)
-        .containerBackground(for: .widget) {
-            Color(red: 1, green: 0.981, blue: 0.985)
-        }
+        .padding(.horizontal, isLarge ? 18 : 16)
+        .padding(.top, isLarge ? 18 : 14)
+        .padding(.bottom, 12)
+        .containerBackground(for: .widget) { Color.white }
         .widgetURL(URL(string: "treneraliny://open?tab=routine"))
     }
 
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.counterclockwise.circle.fill")
+                .font(.system(size: isLarge ? 26 : 21, weight: .semibold))
+                .foregroundStyle(rose)
+            Text("Моя неделя")
+                .font(.system(size: isLarge ? 21 : 17, weight: .medium))
+                .foregroundStyle(ink)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Image(systemName: "plus")
+                .font(.system(size: isLarge ? 22 : 18, weight: .regular))
+                .foregroundStyle(rose)
+        }
+        .padding(.bottom, isLarge ? 14 : 6)
+    }
 
-    private var mediumTable: some View {
+    private var weekTable: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                Text("Привычка").frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
                 ForEach(0..<7, id: \.self) { i in
-                    Text(days[i]).frame(width: 28)
+                    Text(days[i]).frame(width: colWidth)
                 }
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.system(size: isLarge ? 12 : 10))
             .foregroundStyle(faded)
-            .padding(.bottom, 3)
-            ForEach(0..<4, id: \.self) { row in
+            .padding(.bottom, isLarge ? 4 : 2)
+
+            ForEach(0..<rows, id: \.self) { row in
                 HStack(spacing: 0) {
                     Text(labels[row].1)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: labelSize))
                         .foregroundStyle(ink)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.78)
+                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     ForEach(0..<7, id: \.self) { col in
                         let day = week[col]
                         let habit = day.habits.first(where: { $0.id == labels[row].0 })
                         cell(id: labels[row].0, date: day.date,
                              planned: habit?.planned ?? false,
-                             done: habit?.done ?? false, size: 19)
-                            .frame(width: 28, height: 27)
+                             done: habit?.done ?? false)
+                            .frame(width: colWidth, height: rowHeight)
                     }
                 }
+                .frame(height: rowHeight)
             }
         }
     }
 
-    private var weeklyTable: some View {
+    private var todayList: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Text("Привычка")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(0..<7, id: \.self) { i in
-                    Text(days[i])
-                        .frame(width: 28)
-                }
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(faded)
-            .padding(.bottom, 5)
-
-            ForEach(0..<7, id: \.self) { row in
-                Rectangle().fill(rose.opacity(0.12)).frame(height: 0.5)
-                HStack(spacing: 0) {
-                    Text(labels[row].1)
-                        .font(.system(size: 13, weight: .semibold))
+            ForEach(0..<4, id: \.self) { idx in
+                let id = labels[idx].0
+                let habit = week.first(where: { $0.date == today })?.habits.first(where: { $0.id == id })
+                HStack(spacing: 6) {
+                    Text(labels[idx].1)
+                        .font(.system(size: 13))
                         .foregroundStyle(ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    ForEach(0..<7, id: \.self) { col in
-                        let day = week[col]
-                        let habit = day.habits.first(where: { $0.id == labels[row].0 })
-                        cell(id: labels[row].0, date: day.date,
-                             planned: habit?.planned ?? false,
-                             done: habit?.done ?? false, size: 21)
-                            .frame(width: 28, height: 34)
-                    }
+                    cell(id: id, date: today, planned: habit?.planned ?? false, done: habit?.done ?? false)
+                        .frame(width: 24, height: 26)
                 }
-                .frame(height: 34)
+                .frame(height: 26)
             }
-            Spacer(minLength: 0)
-            HStack {
-                Text("\(weekDone) из \(weekPlanned.count) отметок")
-                Spacer()
-                Text("♡ Воскресенье — для себя")
-            }
-            .font(.system(size: 11))
-            .foregroundStyle(faded)
         }
+        .padding(.top, 4)
+    }
+
+    private func dotView(done: Bool, planned: Bool) -> some View {
+        ZStack {
+            Circle().fill(done ? rose : dot.opacity(planned ? 1 : 0.45))
+            if done {
+                Image(systemName: "checkmark")
+                    .font(.system(size: dotSize * 0.5, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .frame(width: dotSize, height: dotSize)
     }
 
     @ViewBuilder
-    private func cell(id: String, date: String, planned: Bool, done: Bool, size: CGFloat) -> some View {
+    private func cell(id: String, date: String, planned: Bool, done: Bool) -> some View {
         if planned && date <= today {
             Button(intent: ToggleRoutineHabitIntent(habitId: id, dateKey: date)) {
-                Image(systemName: done ? "checkmark.circle.fill" : (date < today ? "xmark.circle.fill" : "circle"))
-                    .font(.system(size: size, weight: .medium))
-                    .foregroundStyle(done ? rose : (date < today ? Color(red: 0.80, green: 0.30, blue: 0.36) : faded.opacity(0.85)))
-                    .frame(width: 29, height: 34)
+                dotView(done: done, planned: true)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-        } else if planned {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: size, weight: .medium))
-                .foregroundStyle(done ? rose : faded.opacity(0.75))
-                .frame(width: 29, height: 34)
         } else {
-            Text("–")
-                .font(.system(size: 14))
-                .foregroundStyle(faded.opacity(0.45))
-                .frame(width: 29, height: 34)
+            dotView(done: done && planned, planned: planned)
         }
     }
 }
