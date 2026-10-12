@@ -789,81 +789,150 @@ private struct DailyTasksProvider: TimelineProvider {
 private struct DailyTasksWidgetView: View {
     let entry: DailyTasksEntry
     @Environment(\.widgetFamily) private var family
-    private let rose = Color(red: 0.72, green: 0.45, blue: 0.57)
-    private let ink = Color(red: 0.23, green: 0.17, blue: 0.22)
-    private let faded = Color(red: 0.55, green: 0.49, blue: 0.53)
+    // Same iPhone-style palette as "Моя неделя".
+    private let rose = Color(red: 0.94, green: 0.36, blue: 0.58)
+    private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
+    private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
+    private let dot = Color(red: 0.93, green: 0.93, blue: 0.94)
+    private let tile = Color(red: 0.975, green: 0.965, blue: 0.97)
     private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
+    private var isLarge: Bool { family == .systemLarge }
+
+    private static func key(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f.string(from: date)
+    }
 
     private var days: [DailyTaskDay] {
         let cal = Calendar.current
         let weekday = cal.component(.weekday, from: entry.date)
         let monday = cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: cal.startOfDay(for: entry.date)) ?? entry.date
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
         return (0..<6).map { i in
             let date = cal.date(byAdding: .day, value: i, to: monday) ?? monday
-            let key = formatter.string(from: date)
+            let key = Self.key(date)
             return entry.payload?.days.first(where: { $0.date == key })
                 ?? DailyTaskDay(date: key, label: names[i], tasks: [])
         }
     }
+
+    // Medium: today and the next working day, big enough to read at a glance.
+    private var nearDays: [(title: String, day: DailyTaskDay)] {
+        let cal = Calendar.current
+        var result: [(title: String, day: DailyTaskDay)] = []
+        var date = cal.startOfDay(for: entry.date)
+        var step = 0
+        while result.count < 2 && step < 4 {
+            let weekday = cal.component(.weekday, from: date)
+            if weekday != 1 {
+                let key = Self.key(date)
+                let label = step == 0 ? "Сегодня" : (step == 1 ? "Завтра" : names[(weekday + 5) % 7])
+                let day = entry.payload?.days.first(where: { $0.date == key })
+                    ?? DailyTaskDay(date: key, label: label, tasks: [])
+                result.append((title: label, day: day))
+            }
+            date = cal.date(byAdding: .day, value: 1, to: date) ?? date
+            step += 1
+        }
+        return result
+    }
+
     private var all: [DailyTaskItem] { days.flatMap { $0.tasks } }
     private var doneCount: Int { all.filter { $0.done }.count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack {
-                Text("✿ Планировщик")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+        VStack(alignment: .leading, spacing: isLarge ? 10 : 8) {
+            HStack(spacing: 9) {
+                Image(systemName: "checklist")
+                    .font(.system(size: isLarge ? 18 : 16, weight: .semibold))
+                    .foregroundStyle(rose)
+                Text("Планировщик")
+                    .font(.system(size: isLarge ? 17 : 15, weight: .medium))
                     .foregroundStyle(ink)
                 Spacer()
                 Text("\(doneCount)/\(all.count)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: isLarge ? 15 : 13, weight: .medium))
                     .foregroundStyle(rose)
             }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                ForEach(days) { day in
-                    Link(destination: URL(string: "treneraliny://open?tab=tasks&day=\(day.date)")!) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Text(day.label)
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(rose)
-                            Spacer()
-                            Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
-                                .font(.system(size: 9))
-                                .foregroundStyle(faded)
-                        }
-                        Rectangle().fill(rose.opacity(0.2)).frame(height: 1)
-                        ForEach(Array(day.tasks.prefix(family == .systemLarge ? 3 : 1))) { task in
-                            Text((task.done ? "✓ " : (task.overdue == true ? "🔴 " : "◯ ")) + task.title)
-                                .font(.system(size: 10))
-                                .foregroundStyle(task.done ? faded : (task.overdue == true ? Color.red : ink))
-                                .lineLimit(1)
-                        }
-                        if day.tasks.isEmpty {
-                            Text("＋ Запланировать")
-                                .font(.system(size: 9))
-                                .foregroundStyle(faded)
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
+            if isLarge {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    ForEach(days) { day in
+                        dayTile(title: day.label, day: day, limit: 3, height: 98)
                     }
-                    .padding(8)
-                    .frame(maxWidth: .infinity, minHeight: family == .systemLarge ? 76 : 38, alignment: .topLeading)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(rose.opacity(0.30), lineWidth: 1))
+                }
+            } else {
+                HStack(spacing: 8) {
+                    ForEach(nearDays, id: \.day.date) { item in
+                        dayTile(title: item.title, day: item.day, limit: 3, height: 104)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(isLarge ? 16 : 14)
         .widgetURL(URL(string: "treneraliny://open?tab=tasks"))
-        .containerBackground(for: .widget) { Color(red: 1.0, green: 0.94, blue: 0.97) }
+        .containerBackground(for: .widget) {
+            LinearGradient(colors: [.white, Color(red: 1.0, green: 0.965, blue: 0.978)], startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    private func dayTile(title: String, day: DailyTaskDay, limit: Int, height: CGFloat) -> some View {
+        Link(destination: URL(string: "treneraliny://open?tab=tasks&day=\(day.date)")!) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(ink)
+                    Spacer()
+                    if !day.tasks.isEmpty {
+                        Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(faded)
+                    }
+                }
+                ForEach(Array(day.tasks.prefix(limit))) { task in
+                    HStack(spacing: 6) {
+                        taskDot(task)
+                        Text(task.title)
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(task.done ? faded : ink)
+                            .strikethrough(task.done, color: faded)
+                            .lineLimit(1)
+                    }
+                }
+                if day.tasks.count > limit {
+                    Text("ещё \(day.tasks.count - limit)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(faded)
+                }
+                if day.tasks.isEmpty {
+                    Text("Свободно")
+                        .font(.system(size: 12))
+                        .foregroundStyle(faded)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
+            .background(tile)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func taskDot(_ task: DailyTaskItem) -> some View {
+        ZStack {
+            if task.done {
+                Circle().fill(rose)
+                Image(systemName: "checkmark").font(.system(size: 6.5, weight: .bold)).foregroundStyle(.white)
+            } else if task.overdue == true {
+                Circle().stroke(rose, lineWidth: 1.5)
+            } else {
+                Circle().fill(dot)
+            }
+        }
+        .frame(width: 13, height: 13)
     }
 }
 struct TrenerAlinyDailyTasksWidget: Widget {
@@ -942,44 +1011,60 @@ struct ChangeAffirmationIntent: AppIntent {
 private struct AffirmationWidgetView: View {
     let entry: AffirmationEntry
     @Environment(\.widgetFamily) private var family
+    private let rose = Color(red: 0.94, green: 0.36, blue: 0.58)
+    private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
+    private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
+    private let dot = Color(red: 0.95, green: 0.94, blue: 0.95)
+    private var isLarge: Bool { family == .systemLarge }
     private var quote: String { entry.affirmations.indices.contains(entry.index) ? entry.affirmations[entry.index] : "Сегодня я выбираю действовать." }
     private var quoteNumber: Int { entry.affirmations.isEmpty ? 0 : entry.index + 1 }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("✿ МОИ АФФИРМАЦИИ")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .tracking(1.1)
-                    .foregroundStyle(Color(red: 0.68, green: 0.40, blue: 0.53))
-                Spacer()
-                Text("\(quoteNumber)/\(max(1,entry.affirmations.count))").font(.system(size: 12, weight: .bold)).foregroundStyle(Color(red: 0.83, green: 0.28, blue: 0.49))
-            }
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                Button(intent: ChangeAffirmationIntent(direction: -1)) {
-                    Image(systemName: "chevron.left.circle.fill").font(.system(size: 28)).foregroundStyle(Color(red: 0.87, green: 0.31, blue: 0.53))
-                }.buttonStyle(.plain)
-                Text(quote)
-                .font(.system(size: family == .systemLarge ? 23 : 17, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(red: 0.26, green: 0.19, blue: 0.24))
-                .lineLimit(family == .systemLarge ? 9 : 4)
-                .minimumScaleFactor(0.72)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Button(intent: ChangeAffirmationIntent(direction: 1)) {
-                    Image(systemName: "chevron.right.circle.fill").font(.system(size: 28)).foregroundStyle(Color(red: 0.87, green: 0.31, blue: 0.53))
-                }.buttonStyle(.plain)
+                Image(systemName: "sparkles")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(rose)
+                Text("Аффирмации")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(ink)
+                Spacer(minLength: 4)
+                Text("\(quoteNumber)/\(max(1, entry.affirmations.count))")
+                    .font(.system(size: 12).monospacedDigit())
+                    .foregroundStyle(faded)
+                arrow("chevron.left", direction: -1)
+                arrow("chevron.right", direction: 1)
             }
+            Spacer(minLength: 8)
+            Text(quote)
+                .font(.system(size: isLarge ? 24 : 18, weight: .regular))
+                .foregroundStyle(ink)
+                .lineSpacing(2)
+                .lineLimit(isLarge ? 9 : 4)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
-            Text("Мой режим · каждый день")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Color(red: 0.61, green: 0.48, blue: 0.55))
         }
-        .padding(18)
+        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .widgetURL(URL(string: "treneraliny://open?tab=routine"))
-        .containerBackground(for: .widget) { Color(red: 1.0, green: 0.93, blue: 0.96) }
+        .containerBackground(for: .widget) {
+            LinearGradient(colors: [.white, Color(red: 1.0, green: 0.955, blue: 0.972)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+    }
+
+    private func arrow(_ symbol: String, direction: Int) -> some View {
+        Button(intent: ChangeAffirmationIntent(direction: direction)) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(ink.opacity(0.7))
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(dot))
+        }
+        .buttonStyle(.plain)
     }
 }
+
 struct TrenerAlinyAffirmationWidget: Widget {
     let kind = "TrenerAlinyAffirmationWidget"
     var body: some WidgetConfiguration {
