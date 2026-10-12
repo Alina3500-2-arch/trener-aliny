@@ -1,7 +1,7 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ffffff"><title>Мои дела</title><style>
 :root{color-scheme:light;--bg:#ffffff;--ink:#1c1c1e;--muted:#8e8e93;--rose:#f05c94;--line:#ececf0;--tile:#f7f6f8;--ring:#c2c2cc}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;height:100%;overflow:hidden}
-body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;background:linear-gradient(#fff,#fff6f9);color:var(--ink);padding:calc(env(safe-area-inset-top) + 65px) 14px 10px;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+
 header{flex:none;padding:2px 2px 12px}
 .hrow{display:flex;align-items:center;gap:9px}
 .hicon{width:22px;height:22px;color:var(--rose);flex:none}
@@ -9,25 +9,25 @@ h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.2px}
 .hcount{margin-left:auto;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
 .hplus{width:32px;height:32px;border-radius:50%;border:0;background:var(--rose);color:#fff;font-size:21px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0 0 2px;box-shadow:0 3px 10px rgba(240,92,148,.28)}
 .siri{border:0;background:transparent;color:var(--muted);font-size:12px;padding:6px 0 0}
-.diary{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:9px}
-.day{min-height:0;overflow:hidden;background:var(--tile);border-radius:18px;padding:11px 11px 9px;display:flex;flex-direction:column;border:1.4px solid transparent}
-.day.today{border-color:rgba(240,92,148,.55)}
-.day-head{display:flex;align-items:baseline;gap:6px;flex:none;padding-bottom:6px}
-.dname{font-size:15px;font-weight:600}.day.today .dname{color:var(--rose)}
-.dnum{font-size:12px;color:var(--muted)}
-.dcount{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.lines{min-height:0;overflow:auto;flex:1}
-.line{display:flex;align-items:center;gap:7px;min-height:30px;padding:2px 0}
-.dot{flex:none;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--ring);background:#fff;padding:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
-.line.done .dot{background:var(--rose);border-color:var(--rose)}
-.line.overdue .dot{border-color:var(--rose)}
-.txt{flex:1;min-width:0;font-size:13.5px;line-height:1.25;overflow-wrap:break-word;hyphens:auto}
-.line.done .txt{color:var(--muted);text-decoration:line-through}
-.tm{font-weight:600;color:var(--rose);font-variant-numeric:tabular-nums;margin-right:3px}
-.line.done .tm{color:var(--muted)}
-.del{flex:none;border:0;background:transparent;color:#c7c7cc;font-size:17px;padding:0 2px}
-.add-empty{flex:1;width:100%;border:1px dashed #d9d9df;border-radius:12px;background:transparent;color:var(--muted);font-size:13.5px}
-.add-mini{flex:none;align-self:flex-end;border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;padding:2px 2px 0}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 .dialog-shade{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:30;display:flex;align-items:flex-end;justify-content:center}
 .dialog{background:#fff;border-radius:22px 22px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));width:100%;max-width:520px;box-shadow:0 -8px 30px rgba(0,0,0,.08)}
 .dialog h2{font-size:18px;font-weight:600;margin:0 0 12px}
@@ -36,6 +36,29 @@ h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.2px}
 .dialog .actions{display:flex;gap:10px;margin-top:6px}
 .dialog button{flex:1;border:0;border-radius:14px;padding:14px;font-size:16px;font-weight:600;font-family:inherit;background:var(--rose);color:#fff}
 .dialog .cancel{background:#f2f2f7;color:var(--ink)}
+
+body{font:15px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;background:linear-gradient(#fff,#fff6f9);color:var(--ink);padding:14px 16px 0;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.diary{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:10px;padding-bottom:18px}
+.day{flex:none;background:var(--tile);border-radius:18px;padding:12px 14px 8px;border:1.4px solid transparent}
+.day.empty{padding:9px 14px}
+.day.today{border-color:rgba(240,92,148,.55)}
+.day-head{display:flex;align-items:center;gap:6px;min-height:26px}
+.dname{font-size:16px;font-weight:600}.day.today .dname{color:var(--rose)}
+.dnum{font-size:13px;color:var(--muted)}
+.dcount{margin-left:auto;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.day-add{border:0;background:transparent;color:var(--muted);font-size:24px;line-height:1;padding:0 2px 2px 10px}
+.day.empty .day-add{margin-left:auto;font-size:14px;padding:6px 2px}
+.lines{padding-top:4px}
+.line{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid #ececf0}
+.line:first-child{border-top:0}
+.dot{flex:none;margin-top:1px;width:21px;height:21px;border-radius:50%;border:1.5px solid var(--ring);background:#fff;padding:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700}
+.line.done .dot{background:var(--rose);border-color:var(--rose)}
+.line.overdue .dot{border-color:var(--rose)}
+.txt{flex:1;min-width:0;font-size:15px;line-height:1.35;overflow-wrap:break-word;hyphens:none}
+.line.done .txt{color:var(--muted);text-decoration:line-through}
+.tm{font-weight:600;color:var(--rose);font-variant-numeric:tabular-nums;margin-right:5px}
+.line.done .tm{color:var(--muted)}
+.del{flex:none;border:0;background:transparent;color:#c7c7cc;font-size:19px;line-height:1;padding:0 2px}
 </style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button></header><div class="diary" id="diary"></div><div id="dialog-root"></div><script>
 "use strict";
 const KEY="alina-daily-tasks-v1", $=id=>document.getElementById(id),dateKey=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
@@ -49,11 +72,12 @@ function carryOver(){let changed=false;for(let i=0;i<days.length;i++){const d=da
 carryOver();
 function sync(){let payload={days:days.map(d=>({date:d.date,label:d.name,tasks:byTime(db[d.date]||[]).map(t=>Object.assign({id:t.id,title:t.title,done:!!t.done,overdue:!!t.overdue},t.time?{time:t.time}:{}))}))};try{window.webkit?.messageHandlers?.tasks?.postMessage(payload)}catch(e){}try{window.parent.postMessage({type:"dailyTasks",payload},"*")}catch(e){}}
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));sync()}
-function render(){const root=$("diary"),todayKey=dateKey(new Date());let all=0,allDone=0;root.innerHTML=days.map(d=>{let arr=db[d.date]||[],done=arr.filter(t=>t.done).length;all+=arr.length;allDone+=done;return '<section class="day'+(d.date===todayKey?' today':'')+'" data-date="'+d.date+'"><div class="day-head"><span class="dname">'+d.name+'</span><span class="dnum">'+d.num+'</span>'+(arr.length?'<span class="dcount">'+done+'/'+arr.length+'</span>':'')+'</div>'+(arr.length?'<div class="lines">'+byTime(arr).map(t=>'<div class="line'+(t.done?' done':'')+(t.overdue&&!t.done?' overdue':'')+'" data-toggle="'+esc(t.id)+'"><button class="dot" aria-label="Отметить">'+(t.done?'✓':'')+'</button><span class="txt">'+(t.time?'<span class="tm">'+esc(t.time)+'</span>':'')+esc(t.title)+'</span><button class="del" data-del="'+esc(t.id)+'" aria-label="Удалить">×</button></div>').join("")+'</div><button class="add-mini" data-add="'+d.date+'" aria-label="Добавить дело">+</button>':'<button class="add-empty" data-add="'+d.date+'">＋ Добавить</button>')+'</section>'}).join("");
+function render(){const root=$("diary"),todayKey=dateKey(new Date());let all=0,allDone=0;root.innerHTML=days.map(d=>{let arr=db[d.date]||[],done=arr.filter(t=>t.done).length;all+=arr.length;allDone+=done;const cls='day'+(d.date===todayKey?' today':'')+(arr.length?'':' empty');return '<section class="'+cls+'" data-date="'+d.date+'"><div class="day-head"><span class="dname">'+d.name+'</span><span class="dnum">'+d.num+'</span>'+(arr.length?'<span class="dcount">'+done+'/'+arr.length+'</span><button class="day-add" data-add="'+d.date+'" aria-label="Добавить дело">+</button>':'<button class="day-add" data-add="'+d.date+'">＋ Добавить</button>')+'</div>'+(arr.length?'<div class="lines">'+byTime(arr).map(t=>'<div class="line'+(t.done?' done':'')+(t.overdue&&!t.done?' overdue':'')+'" data-toggle="'+esc(t.id)+'"><button class="dot" aria-label="Отметить">'+(t.done?'✓':'')+'</button><span class="txt">'+(t.time?'<span class="tm">'+esc(t.time)+'</span>':'')+esc(t.title)+'</span><button class="del" data-del="'+esc(t.id)+'" aria-label="Удалить">×</button></div>').join("")+'</div>':'')+'</section>'}).join("");
 $("hcount").textContent=allDone+"/"+all;
 root.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openDialog(b.dataset.add));
 root.querySelectorAll("[data-toggle]").forEach(row=>row.onclick=e=>{if(e.target.closest(".del"))return;let day=row.closest(".day").dataset.date;let t=(db[day]||[]).find(t=>t.id===row.dataset.toggle);if(t){t.done=!t.done;persist();render()}});
 root.querySelectorAll("[data-del]").forEach(b=>b.onclick=e=>{e.stopPropagation();let day=b.closest(".day").dataset.date;db[day]=(db[day]||[]).filter(t=>t.id!==b.dataset.del);persist();render()});
+if(!render.scrolled){render.scrolled=true;const t=root.querySelector(".day.today");if(t&&t.offsetTop>root.clientHeight*.6)root.scrollTop=t.offsetTop-root.offsetTop-8}
 }
 $("add-today").onclick=()=>{let k=dateKey(new Date());openDialog(days.some(d=>d.date===k)?k:days[0].date)};
 function openDialog(date){selected=date;let d=days.find(x=>x.date===date),goalData={goals:[],projects:[]};try{goalData=JSON.parse(localStorage.getItem("alina-goals-projects-v1")||"{}")}catch(e){}let opts=[...((goalData.projects||[]).map(x=>({id:"project:"+x.id,label:"📁 "+x.name}))),...((goalData.goals||[]).map(x=>({id:"goal:"+x.id,label:"🎯 "+x.name})))];$("dialog-root").innerHTML='<div class="dialog-shade"><form class="dialog" id="task-dialog"><h2>Новое дело · '+d.name+', '+d.num+'</h2><input id="new-title" maxlength="160" placeholder="Что нужно сделать?" required autofocus><div class="tlabel">Время, если нужно</div><input id="new-time" type="time" aria-label="Время, если нужно"><select id="new-link"><option value="">Без проекта и цели</option>'+opts.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join("")+'</select><div class="actions"><button type="button" class="cancel" id="close-dialog">Отмена</button><button type="submit">Добавить</button></div></form></div>';$("close-dialog").onclick=()=>{$("dialog-root").innerHTML="";selected=null;render()};$("task-dialog").onsubmit=e=>{e.preventDefault();let title=$("new-title").value.trim(),link=$("new-link").value,time=/^\d{2}:\d{2}$/.test($("new-time").value)?$("new-time").value:"";if(!title)return;db[date]=db[date]||[];db[date].push(Object.assign({id:String(Date.now())+Math.random().toString(36).slice(2),title,done:false,link},time?{time}:{}));persist();$("dialog-root").innerHTML="";selected=null;render()};setTimeout(()=>$("new-title")?.focus(),50)}

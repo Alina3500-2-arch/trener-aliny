@@ -850,9 +850,22 @@ private struct DailyTasksWidgetView: View {
     private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
     private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
     private let ring = Color(red: 0.76, green: 0.76, blue: 0.80)
-    private let tile = Color(red: 0.97, green: 0.965, blue: 0.972)
     private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
     private var isLarge: Bool { family == .systemLarge }
+
+    // One full-width line each, so titles get the whole widget width.
+    private enum Row: Identifiable {
+        case head(DailyTaskDay, String, Bool)
+        case task(DailyTaskDay, DailyTaskItem)
+        case more(DailyTaskDay, Int)
+        var id: String {
+            switch self {
+            case .head(let d, _, _): return "h" + d.date
+            case .task(let d, let t): return "t" + d.date + t.id
+            case .more(let d, _): return "m" + d.date
+            }
+        }
+    }
 
     private static func key(_ date: Date) -> String {
         let f = DateFormatter()
@@ -875,15 +888,22 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    // Medium: today and tomorrow inside the current Mon–Sat week.
-    private var nearDays: [(title: String, day: DailyTaskDay)] {
-        let list = days
-        guard let start = list.firstIndex(where: { $0.date == todayKey }) else {
-            return list.prefix(2).map { (title: $0.label, day: $0) }
+    // From today to Saturday; empty days shrink to a single "+ добавить" line.
+    private var rows: [Row] {
+        var budget = isLarge ? 13 : 4
+        var result: [Row] = []
+        let upcoming = days.filter { $0.date >= todayKey }
+        for (offset, day) in (upcoming.isEmpty ? days : upcoming).enumerated() {
+            guard budget > 0 else { break }
+            let title = day.date == todayKey ? "Сегодня" : (offset == 1 && day.date > todayKey ? "Завтра" : day.label)
+            result.append(.head(day, title, day.date == todayKey)); budget -= 1
+            let tasks = day.tasks
+            let fit = min(tasks.count, max(0, budget - (tasks.count > budget ? 1 : 0)))
+            for task in tasks.prefix(fit) { result.append(.task(day, task)) }
+            budget -= fit
+            if fit < tasks.count && budget > 0 { result.append(.more(day, tasks.count - fit)); budget -= 1 }
         }
-        return list[start...].prefix(2).enumerated().map { offset, day in
-            (title: offset == 0 ? "Сегодня" : "Завтра", day: day)
-        }
+        return result
     }
 
     private var all: [DailyTaskItem] { days.flatMap { $0.tasks } }
@@ -894,7 +914,7 @@ private struct DailyTasksWidgetView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: isLarge ? 10 : 8) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "checklist")
                     .font(.system(size: isLarge ? 17 : 15, weight: .semibold))
@@ -914,119 +934,83 @@ private struct DailyTasksWidgetView: View {
                         .background(Circle().fill(rose))
                 }
             }
-            if isLarge {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(days) { day in
-                        dayTile(title: day.label, day: day, limit: 3, height: 94)
+            .padding(.bottom, 6)
+            ForEach(rows) { row in
+                switch row {
+                case .head(let day, let title, let isToday):
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(isToday ? rose : ink)
+                        if day.tasks.isEmpty {
+                            Text("свободно").font(.system(size: 12)).foregroundStyle(faded)
+                        }
+                        Spacer(minLength: 0)
+                        Link(destination: addURL(day.date)) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(faded)
+                                .frame(width: 30, height: 22, alignment: .trailing)
+                        }
                     }
-                }
-            } else {
-                HStack(spacing: 8) {
-                    ForEach(nearDays, id: \.day.date) { item in
-                        dayTile(title: item.title, day: item.day, limit: 3, height: 100)
+                    .frame(height: 22)
+                    .padding(.top, 2)
+                case .task(let day, let task):
+                    Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
+                        HStack(spacing: 7) {
+                            taskDot(task)
+                            if let time = task.time, !time.isEmpty {
+                                Text(time)
+                                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(task.done ? faded : rose)
+                            }
+                            Text(task.title)
+                                .font(.system(size: 13))
+                                .foregroundStyle(task.done ? faded : ink)
+                                .strikethrough(task.done, color: faded)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(height: 22)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                case .more(let day, let count):
+                    Link(destination: addURL(day.date)) {
+                        Text("ещё \(count)")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(faded)
+                            .padding(.leading, 23)
+                            .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
                     }
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
-        .padding(.top, isLarge ? 18 : 15)
-        .padding(.bottom, 12)
+        .padding(.top, isLarge ? 16 : 13)
+        .padding(.bottom, 10)
         .widgetURL(addURL(nil))
         .containerBackground(for: .widget) {
             LinearGradient(colors: [.white, Color(red: 1.0, green: 0.968, blue: 0.98)], startPoint: .top, endPoint: .bottom)
         }
     }
 
-    private func dayTile(title: String, day: DailyTaskDay, limit: Int, height: CGFloat) -> some View {
-        let isToday = day.date == todayKey
-        return VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(isToday ? rose : ink)
-                Spacer()
-                if !day.tasks.isEmpty {
-                    Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
-                        .font(.system(size: 11).monospacedDigit())
-                        .foregroundStyle(faded)
-                }
-            }
-            .padding(.bottom, 2)
-            if day.tasks.isEmpty {
-                Link(destination: addURL(day.date)) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
-                        Text("Добавить").font(.system(size: 12.5))
-                    }
-                    .foregroundStyle(faded)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(Color(red: 0.85, green: 0.85, blue: 0.88), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    )
-                }
-            } else {
-                ForEach(Array(day.tasks.prefix(limit))) { task in
-                    Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
-                        HStack(spacing: 6) {
-                            taskDot(task)
-                            if let time = task.time, !time.isEmpty {
-                                Text(time)
-                                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                                    .foregroundStyle(task.done ? faded : rose)
-                            }
-                            Text(task.title)
-                                .font(.system(size: 12.5))
-                                .foregroundStyle(task.done ? faded : ink)
-                                .strikethrough(task.done, color: faded)
-                                .lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .frame(height: 20)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer(minLength: 0)
-                Link(destination: addURL(day.date)) {
-                    HStack(spacing: 4) {
-                        if day.tasks.count > limit {
-                            Text("ещё \(day.tasks.count - limit)")
-                                .font(.system(size: 10.5))
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
-                    }
-                    .foregroundStyle(faded)
-                    .frame(height: 14)
-                    .contentShape(Rectangle())
-                }
-            }
-        }
-        .padding(9)
-        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
-        .background(tile)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(isToday ? rose.opacity(0.55) : Color.clear, lineWidth: 1.2)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
     private func taskDot(_ task: DailyTaskItem) -> some View {
         ZStack {
             if task.done {
                 Circle().fill(rose)
-                Image(systemName: "checkmark").font(.system(size: 7, weight: .bold)).foregroundStyle(.white)
+                Image(systemName: "checkmark").font(.system(size: 7.5, weight: .bold)).foregroundStyle(.white)
             } else {
                 Circle().fill(Color.white)
                 Circle().strokeBorder(task.overdue == true ? rose : ring, lineWidth: 1.4)
             }
         }
-        .frame(width: 15, height: 15)
+        .frame(width: 16, height: 16)
     }
 }
+
 struct TrenerAlinyDailyTasksWidget: Widget {
     let kind = "TrenerAlinyDailyTasksWidget"
     var body: some WidgetConfiguration {
