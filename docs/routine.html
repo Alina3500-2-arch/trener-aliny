@@ -142,6 +142,8 @@ h1,h2,h3,.statnum,.wtitle,strong{font-family:-apple-system,BlinkMacSystemFont,"S
 .wk-dot.is-future{background:#ededf0}
 .wk-dot.is-off{background:#ededf0;opacity:.5}
 @media (max-width:360px){.wk-col{width:23px}.wk-dot{width:18px;height:18px}.wk-time{width:30px}}
+#schedule-editor{position:fixed!important;left:12px;right:12px;bottom:calc(74px + env(safe-area-inset-bottom));height:46vh!important;min-height:0!important;margin:0!important;z-index:60;border-radius:18px;border:1px solid #ececf0;box-shadow:0 -8px 30px rgba(0,0,0,.12);background:#fff;font-size:16px;padding:14px}
+#schedule-save{position:fixed!important;left:12px;right:12px;width:auto!important;bottom:calc(16px + env(safe-area-inset-bottom));margin:0!important;z-index:60}
 </style></head>
 <body>
 <div class="shell">
@@ -330,5 +332,11 @@ document.getElementById('import-file').addEventListener('change',async e=>{const
 const fineCard=document.createElement('section');fineCard.className='whitecard';fineCard.style.cssText='margin:16px 12px;padding:17px;border-radius:20px;background:#fff';fineCard.id='sprint-fines';document.querySelector('#stats')?.append(fineCard);render();switchTab('tracker');syncNativeRoutine();window.addEventListener('focus',()=>{closeFineDays();renderFineLedger()});document.addEventListener('visibilitychange',()=>{if(!document.hidden){closeFineDays();renderFineLedger()}});if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 })();
 </script>
-</body>
+<script>
+/* The schedule editor opens below the fold inside the app frame: scroll to it. */
+document.addEventListener('click',function(e){
+ if(!e.target.closest('#schedule-edit,[data-schedule-day]'))return;
+ setTimeout(function(){var ed=document.getElementById('schedule-editor');if(ed&&ed.style.display!=='none'){try{ed.focus({preventScroll:true})}catch(err){}}},80);
+});
+</script></body>
 </html>

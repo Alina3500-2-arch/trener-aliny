@@ -267,33 +267,15 @@ extension WebViewController: WKScriptMessageHandler {
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
               let defaults = SharedStore.defaults else { return }
-        // Ticks made on the widget: push them into the planner's storage before
-        // accepting the app's (possibly stale) copy.
-        // Tasks dictated to Siri and ticks made on the widget: push them into the
-        // planner's storage before accepting the app's (possibly stale) copy.
-        let days = payload["days"] as? [[String: Any]] ?? []
-        let allIds = Set(days.flatMap { ($0["tasks"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String } })
+        // Tasks dictated to Siri and ticks made on the widget: write them into the
+        // planner's storage once, then drop them from the queue. The planner re-syncs
+        // right after, so this (possibly stale) payload is not stored.
         let toggles = defaults.data(forKey: "tasksPendingToggles")
             .flatMap { try? JSONDecoder().decode([String: [String: Bool]].self, from: $0) } ?? [:]
         let adds = defaults.array(forKey: "tasksPendingAdds") as? [[String: Any]] ?? []
         if !toggles.isEmpty || !adds.isEmpty {
-            let togglesMatch = toggles.allSatisfy { date, values in
-                let tasks = days.first(where: { $0["date"] as? String == date })?["tasks"] as? [[String: Any]] ?? []
-                return values.allSatisfy { id, value in
-                    // A task deleted in the app no longer needs syncing.
-                    guard let task = tasks.first(where: { $0["id"] as? String == id }) else { return true }
-                    return task["done"] as? Bool == value
-                }
-            }
-            // The app's payload covers only this week; adds for other weeks are applied once.
-            let addsMatch = adds.allSatisfy { item in
-                guard let id = item["id"] as? String, let date = item["date"] as? String else { return true }
-                return allIds.contains(id) || !days.contains(where: { $0["date"] as? String == date })
-            }
-            let addsApplied = defaults.bool(forKey: "tasksPendingAddsApplied")
-            if !togglesMatch || (!addsMatch || (!adds.isEmpty && !addsApplied)) {
-                if let commands = try? JSONSerialization.data(withJSONObject: ["toggles": toggles, "adds": adds]),
-                   let commandString = String(data: commands, encoding: .utf8) {
+            guard let commands = try? JSONSerialization.data(withJSONObject: ["toggles": toggles, "adds": adds]),
+                  let commandString = String(data: commands, encoding: .utf8) else { return }
                     let javascript = """
                     (function(p){
                         var key='alina-daily-tasks-v1', db={};
@@ -318,27 +300,34 @@ extension WebViewController: WKScriptMessageHandler {
                         return true;
                     })(\(commandString));
                     """
-                    DispatchQueue.main.async {
-                        self.webView.evaluateJavaScript(javascript) { result, _ in
-                            if (result as? Bool) == true, !adds.isEmpty {
-                                defaults.set(true, forKey: "tasksPendingAddsApplied")
-                            }
+            DispatchQueue.main.async {
+                self.webView.evaluateJavaScript(javascript) { result, _ in
+                    guard (result as? Bool) == true else { return }
+                    // Remove only what was applied; taps made meanwhile stay queued.
+                    var currentToggles = defaults.data(forKey: "tasksPendingToggles")
+                        .flatMap { try? JSONDecoder().decode([String: [String: Bool]].self, from: $0) } ?? [:]
+                    for (date, values) in toggles {
+                        for (id, value) in values where currentToggles[date]?[id] == value {
+                            currentToggles[date]?.removeValue(forKey: id)
                         }
+                        if currentToggles[date]?.isEmpty == true { currentToggles.removeValue(forKey: date) }
+                    }
+                    if currentToggles.isEmpty {
+                        defaults.removeObject(forKey: "tasksPendingToggles")
+                    } else {
+                        defaults.set(try? JSONEncoder().encode(currentToggles), forKey: "tasksPendingToggles")
+                    }
+                    let applied = Set(adds.compactMap { $0["id"] as? String })
+                    let rest = (defaults.array(forKey: "tasksPendingAdds") as? [[String: Any]] ?? [])
+                        .filter { !applied.contains($0["id"] as? String ?? "") }
+                    if rest.isEmpty {
+                        defaults.removeObject(forKey: "tasksPendingAdds")
+                    } else {
+                        defaults.set(rest, forKey: "tasksPendingAdds")
                     }
                 }
-                return
             }
-            defaults.removeObject(forKey: "tasksPendingToggles")
-            // Keep adds that arrived after this payload was built.
-            let current = defaults.array(forKey: "tasksPendingAdds") as? [[String: Any]] ?? []
-            let applied = Set(adds.compactMap { $0["id"] as? String })
-            let rest = current.filter { !applied.contains($0["id"] as? String ?? "") }
-            if rest.isEmpty {
-                defaults.removeObject(forKey: "tasksPendingAdds")
-            } else {
-                defaults.set(rest, forKey: "tasksPendingAdds")
-            }
-            defaults.set(false, forKey: "tasksPendingAddsApplied")
+            return
         }
         defaults.set(json, forKey: "dailyTasksWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")

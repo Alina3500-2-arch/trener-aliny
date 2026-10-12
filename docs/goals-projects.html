@@ -74,4 +74,10 @@ function toggleTask(id){let t=item().tasks.find(x=>x.id===id);t.done=!t.done;if(
 function timerTask(id){let t=item().tasks.find(x=>x.id===id);if(t.running){t.spent=(t.spent||0)+Math.floor((Date.now()-t.started)/1000);t.running=false}else{t.running=true;t.started=Date.now()}save();render()}
 function clock(t){let secs=(t.spent||0)+(t.running?Math.max(0,Math.floor((Date.now()-t.started)/1000)):0);return String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0')+' / '+t.limit+' мин'}
 setInterval(()=>{if(!current)return;let o=item();if(!o)return;for(let t of o.tasks){let el=$('clock-'+t.id);if(el&&t.running)el.textContent=clock(t)}},1000);render();
+</script><script>
+/* Edit forms render below the fold inside the app frame: bring them into view. */
+(function(){
+ var show=function(){setTimeout(function(){var f=document.getElementById('edit-name')||document.getElementById('task-title');if(f){f.scrollIntoView({block:'center'});try{f.focus({preventScroll:true})}catch(e){}}},60)};
+ ['editItem','editTask'].forEach(function(n){var o=window[n];if(typeof o==='function')window[n]=function(){var r=o.apply(this,arguments);show();return r}});
+})();
 </script></body></html>
