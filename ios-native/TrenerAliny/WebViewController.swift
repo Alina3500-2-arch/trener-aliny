@@ -248,6 +248,44 @@ extension WebViewController: WKScriptMessageHandler {
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
               let defaults = SharedStore.defaults else { return }
+        // Ticks made on the widget: push them into the planner's storage before
+        // accepting the app's (possibly stale) copy.
+        if let pendingData = defaults.data(forKey: "tasksPendingToggles"),
+           let pending = try? JSONDecoder().decode([String: [String: Bool]].self, from: pendingData),
+           !pending.isEmpty {
+            let days = payload["days"] as? [[String: Any]] ?? []
+            let matches = pending.allSatisfy { date, toggles in
+                let tasks = days.first(where: { $0["date"] as? String == date })?["tasks"] as? [[String: Any]] ?? []
+                return toggles.allSatisfy { id, value in
+                    // A task deleted in the app no longer needs syncing.
+                    guard let task = tasks.first(where: { $0["id"] as? String == id }) else { return true }
+                    return task["done"] as? Bool == value
+                }
+            }
+            if !matches {
+                if let commands = try? JSONSerialization.data(withJSONObject: pending),
+                   let commandString = String(data: commands, encoding: .utf8) {
+                    let javascript = """
+                    (function(p){
+                        var key='alina-daily-tasks-v1', db={};
+                        try{db=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
+                        Object.keys(p).forEach(function(d){
+                            (db[d]||[]).forEach(function(t){
+                                if(Object.prototype.hasOwnProperty.call(p[d],String(t.id)))t.done=!!p[d][String(t.id)];
+                            });
+                        });
+                        localStorage.setItem(key,JSON.stringify(db));
+                        var f=document.getElementById('tasks-frame');
+                        if(f&&f.contentWindow)f.contentWindow.location.reload();
+                        if(typeof syncSavedTasksToWidget==='function')syncSavedTasksToWidget();
+                    })(\(commandString));
+                    """
+                    DispatchQueue.main.async { self.webView.evaluateJavaScript(javascript, completionHandler: nil) }
+                }
+                return
+            }
+            defaults.removeObject(forKey: "tasksPendingToggles")
+        }
         defaults.set(json, forKey: "dailyTasksWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
     }
@@ -268,6 +306,11 @@ extension WebViewController: WKScriptMessageHandler {
               let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8),
               let defaults = SharedStore.defaults else { return }
+        // Keep the affirmation list even when the habit sync below returns early.
+        if let affirmations = payload["affirmations"] as? [String], !affirmations.isEmpty {
+            defaults.set(affirmations, forKey: "affirmationsList")
+            WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyAffirmationWidget")
+        }
         // Reconcile edits made directly in the interactive weekly widget.
         if let pendingData = defaults.data(forKey: "routinePendingWeekChecks"),
            let pending = try? JSONDecoder().decode([String: [String: Bool]].self, from: pendingData),

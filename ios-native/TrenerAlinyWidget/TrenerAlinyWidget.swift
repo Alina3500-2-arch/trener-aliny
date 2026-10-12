@@ -653,11 +653,13 @@ private struct RoutineWidgetView: View {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
                 ForEach(0..<7, id: \.self) { i in
-                    Text(days[i]).frame(width: colWidth)
+                    let isToday = week[i].date == today
+                    Text(days[i])
+                        .font(.system(size: isLarge ? 11 : 9, weight: isToday ? .bold : .regular))
+                        .foregroundStyle(isToday ? rose : faded)
+                        .frame(width: colWidth)
                 }
             }
-            .font(.system(size: isLarge ? 11 : 9))
-            .foregroundStyle(faded)
             .padding(.bottom, isLarge ? 4 : 2)
 
             ForEach(0..<rows, id: \.self) { row in
@@ -710,13 +712,25 @@ private struct RoutineWidgetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func dotView(done: Bool, planned: Bool) -> some View {
+    // Three looks: tappable = white ring, done = rose with check,
+    // anything not actionable (future or not scheduled) = solid grey.
+    private enum DotState { case tappable, done, future, off }
+
+    private func dotView(_ state: DotState) -> some View {
         ZStack {
-            Circle().fill(done ? rose : dot.opacity(planned ? 1 : 0.45))
-            if done {
+            switch state {
+            case .done:
+                Circle().fill(rose)
                 Image(systemName: "checkmark")
                     .font(.system(size: dotSize * 0.5, weight: .bold))
                     .foregroundStyle(.white)
+            case .tappable:
+                Circle().fill(Color.white)
+                Circle().strokeBorder(Color(red: 0.76, green: 0.76, blue: 0.80), lineWidth: 1.5)
+            case .future:
+                Circle().fill(dot)
+            case .off:
+                Circle().fill(dot.opacity(0.5))
             }
         }
         .frame(width: dotSize, height: dotSize)
@@ -726,13 +740,13 @@ private struct RoutineWidgetView: View {
     private func cell(id: String, date: String, planned: Bool, done: Bool) -> some View {
         if planned && date <= today {
             Button(intent: ToggleRoutineHabitIntent(habitId: id, dateKey: date)) {
-                dotView(done: done, planned: true)
+                dotView(done ? .done : .tappable)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         } else {
-            dotView(done: done && planned, planned: planned)
+            dotView(planned ? (done ? .done : .future) : .off)
         }
     }
 }
@@ -754,17 +768,17 @@ struct TrenerAlinyRoutineWidget: Widget {
 private struct DailyTaskItem: Codable, Identifiable {
     let id: String
     let title: String
-    let done: Bool
+    var done: Bool
     let overdue: Bool?
 }
 private struct DailyTaskDay: Codable, Identifiable {
     let date: String
     let label: String
-    let tasks: [DailyTaskItem]
+    var tasks: [DailyTaskItem]
     var id: String { date }
 }
 private struct DailyTaskPayload: Codable {
-    let days: [DailyTaskDay]
+    var days: [DailyTaskDay]
 }
 private struct DailyTasksEntry: TimelineEntry {
     let date: Date
@@ -786,6 +800,47 @@ private struct DailyTasksProvider: TimelineProvider {
         completion(Timeline(entries: [DailyTasksEntry(date: now, payload: load())], policy: .after(next)))
     }
 }
+
+// Ticks a planner task right on the widget; the app applies it to its own storage on next open.
+struct ToggleDailyTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Отметить дело"
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Дело") var taskId: String
+    @Parameter(title: "Дата") var dateKey: String
+
+    init() {}
+    init(taskId: String, dateKey: String) {
+        self.taskId = taskId
+        self.dateKey = dateKey
+    }
+
+    func perform() async throws -> some IntentResult {
+        guard let defaults = SharedStore.defaults,
+              let json = defaults.string(forKey: "dailyTasksWidgetPayload"),
+              let data = json.data(using: .utf8),
+              var payload = try? JSONDecoder().decode(DailyTaskPayload.self, from: data),
+              let dayIndex = payload.days.firstIndex(where: { $0.date == dateKey }),
+              let taskIndex = payload.days[dayIndex].tasks.firstIndex(where: { $0.id == taskId }) else { return .result() }
+
+        let newValue = !payload.days[dayIndex].tasks[taskIndex].done
+        payload.days[dayIndex].tasks[taskIndex].done = newValue
+        if let encoded = try? JSONEncoder().encode(payload),
+           let string = String(data: encoded, encoding: .utf8) {
+            defaults.set(string, forKey: "dailyTasksWidgetPayload")
+        }
+        var pending: [String: [String: Bool]] = [:]
+        if let stored = defaults.data(forKey: "tasksPendingToggles"),
+           let parsed = try? JSONDecoder().decode([String: [String: Bool]].self, from: stored) {
+            pending = parsed
+        }
+        pending[dateKey, default: [:]][taskId] = newValue
+        defaults.set(try? JSONEncoder().encode(pending), forKey: "tasksPendingToggles")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
+        return .result()
+    }
+}
+
 private struct DailyTasksWidgetView: View {
     let entry: DailyTasksEntry
     @Environment(\.widgetFamily) private var family
@@ -793,8 +848,8 @@ private struct DailyTasksWidgetView: View {
     private let rose = Color(red: 0.94, green: 0.36, blue: 0.58)
     private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
     private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
-    private let dot = Color(red: 0.93, green: 0.93, blue: 0.94)
-    private let tile = Color(red: 0.975, green: 0.965, blue: 0.97)
+    private let ring = Color(red: 0.76, green: 0.76, blue: 0.80)
+    private let tile = Color(red: 0.97, green: 0.965, blue: 0.972)
     private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
     private var isLarge: Bool { family == .systemLarge }
 
@@ -804,6 +859,8 @@ private struct DailyTasksWidgetView: View {
         f.locale = Locale(identifier: "en_US_POSIX")
         return f.string(from: date)
     }
+    private var todayKey: String { Self.key(entry.date) }
+    private var isSunday: Bool { Calendar.current.component(.weekday, from: entry.date) == 1 }
 
     private var days: [DailyTaskDay] {
         let cal = Calendar.current
@@ -817,122 +874,151 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    // Medium: today and the next working day, big enough to read at a glance.
+    // Medium: today and tomorrow inside the current Mon–Sat week.
     private var nearDays: [(title: String, day: DailyTaskDay)] {
-        let cal = Calendar.current
-        var result: [(title: String, day: DailyTaskDay)] = []
-        var date = cal.startOfDay(for: entry.date)
-        var step = 0
-        while result.count < 2 && step < 4 {
-            let weekday = cal.component(.weekday, from: date)
-            if weekday != 1 {
-                let key = Self.key(date)
-                let label = step == 0 ? "Сегодня" : (step == 1 ? "Завтра" : names[(weekday + 5) % 7])
-                let day = entry.payload?.days.first(where: { $0.date == key })
-                    ?? DailyTaskDay(date: key, label: label, tasks: [])
-                result.append((title: label, day: day))
-            }
-            date = cal.date(byAdding: .day, value: 1, to: date) ?? date
-            step += 1
+        let list = days
+        guard let start = list.firstIndex(where: { $0.date == todayKey }) else {
+            return list.prefix(2).map { (title: $0.label, day: $0) }
         }
-        return result
+        return list[start...].prefix(2).enumerated().map { offset, day in
+            (title: offset == 0 ? "Сегодня" : "Завтра", day: day)
+        }
     }
 
     private var all: [DailyTaskItem] { days.flatMap { $0.tasks } }
     private var doneCount: Int { all.filter { $0.done }.count }
 
+    private func addURL(_ date: String?) -> URL {
+        URL(string: date.map { "treneraliny://open?tab=tasks&day=\($0)" } ?? "treneraliny://open?tab=tasks")!
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: isLarge ? 10 : 8) {
-            HStack(spacing: 9) {
+            HStack(spacing: 8) {
                 Image(systemName: "checklist")
-                    .font(.system(size: isLarge ? 18 : 16, weight: .semibold))
+                    .font(.system(size: isLarge ? 17 : 15, weight: .semibold))
                     .foregroundStyle(rose)
                 Text("Планировщик")
-                    .font(.system(size: isLarge ? 17 : 15, weight: .medium))
+                    .font(.system(size: isLarge ? 16 : 15, weight: .medium))
                     .foregroundStyle(ink)
-                Spacer()
+                Spacer(minLength: 4)
                 Text("\(doneCount)/\(all.count)")
-                    .font(.system(size: isLarge ? 15 : 13, weight: .medium))
-                    .foregroundStyle(rose)
+                    .font(.system(size: 13).monospacedDigit())
+                    .foregroundStyle(faded)
+                Link(destination: addURL(isSunday ? nil : todayKey)) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(rose))
+                }
             }
             if isLarge {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                     ForEach(days) { day in
-                        dayTile(title: day.label, day: day, limit: 3, height: 98)
+                        dayTile(title: day.label, day: day, limit: 3, height: 94)
                     }
                 }
             } else {
                 HStack(spacing: 8) {
                     ForEach(nearDays, id: \.day.date) { item in
-                        dayTile(title: item.title, day: item.day, limit: 3, height: 104)
+                        dayTile(title: item.title, day: item.day, limit: 3, height: 100)
                     }
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(isLarge ? 16 : 14)
-        .widgetURL(URL(string: "treneraliny://open?tab=tasks"))
+        .padding(.horizontal, 16)
+        .padding(.top, isLarge ? 18 : 15)
+        .padding(.bottom, 12)
+        .widgetURL(addURL(nil))
         .containerBackground(for: .widget) {
-            LinearGradient(colors: [.white, Color(red: 1.0, green: 0.965, blue: 0.978)], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [.white, Color(red: 1.0, green: 0.968, blue: 0.98)], startPoint: .top, endPoint: .bottom)
         }
     }
 
     private func dayTile(title: String, day: DailyTaskDay, limit: Int, height: CGFloat) -> some View {
-        Link(destination: URL(string: "treneraliny://open?tab=tasks&day=\(day.date)")!) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(ink)
-                    Spacer()
-                    if !day.tasks.isEmpty {
-                        Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(faded)
-                    }
+        let isToday = day.date == todayKey
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isToday ? rose : ink)
+                Spacer()
+                if !day.tasks.isEmpty {
+                    Text("\(day.tasks.filter { $0.done }.count)/\(day.tasks.count)")
+                        .font(.system(size: 11).monospacedDigit())
+                        .foregroundStyle(faded)
                 }
+            }
+            .padding(.bottom, 2)
+            if day.tasks.isEmpty {
+                Link(destination: addURL(day.date)) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
+                        Text("Добавить").font(.system(size: 12.5))
+                    }
+                    .foregroundStyle(faded)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Color(red: 0.85, green: 0.85, blue: 0.88), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    )
+                }
+            } else {
                 ForEach(Array(day.tasks.prefix(limit))) { task in
-                    HStack(spacing: 6) {
-                        taskDot(task)
-                        Text(task.title)
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(task.done ? faded : ink)
-                            .strikethrough(task.done, color: faded)
-                            .lineLimit(1)
+                    Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
+                        HStack(spacing: 6) {
+                            taskDot(task)
+                            Text(task.title)
+                                .font(.system(size: 12.5))
+                                .foregroundStyle(task.done ? faded : ink)
+                                .strikethrough(task.done, color: faded)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(height: 20)
+                        .contentShape(Rectangle())
                     }
-                }
-                if day.tasks.count > limit {
-                    Text("ещё \(day.tasks.count - limit)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(faded)
-                }
-                if day.tasks.isEmpty {
-                    Text("Свободно")
-                        .font(.system(size: 12))
-                        .foregroundStyle(faded)
+                    .buttonStyle(.plain)
                 }
                 Spacer(minLength: 0)
+                Link(destination: addURL(day.date)) {
+                    HStack(spacing: 4) {
+                        if day.tasks.count > limit {
+                            Text("ещё \(day.tasks.count - limit)")
+                                .font(.system(size: 10.5))
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(faded)
+                    .frame(height: 14)
+                    .contentShape(Rectangle())
+                }
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
-            .background(tile)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .padding(9)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
+        .background(tile)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(isToday ? rose.opacity(0.55) : Color.clear, lineWidth: 1.2)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func taskDot(_ task: DailyTaskItem) -> some View {
         ZStack {
             if task.done {
                 Circle().fill(rose)
-                Image(systemName: "checkmark").font(.system(size: 6.5, weight: .bold)).foregroundStyle(.white)
-            } else if task.overdue == true {
-                Circle().stroke(rose, lineWidth: 1.5)
+                Image(systemName: "checkmark").font(.system(size: 7, weight: .bold)).foregroundStyle(.white)
             } else {
-                Circle().fill(dot)
+                Circle().fill(Color.white)
+                Circle().strokeBorder(task.overdue == true ? rose : ring, lineWidth: 1.4)
             }
         }
-        .frame(width: 13, height: 13)
+        .frame(width: 15, height: 15)
     }
 }
 struct TrenerAlinyDailyTasksWidget: Widget {
@@ -951,14 +1037,31 @@ struct TrenerAlinyDailyTasksWidget: Widget {
 
 // Список аффирмаций и выбранная сейчас — одна логика и для виджета, и для стрелок.
 private enum AffirmationStore {
-    static let fallback = ["Я смелая и уверенная, всегда добиваюсь своих целей."]
+    // Same defaults as docs/routine.html, so the widget is never stuck on one line.
+    static let fallback = [
+        "Я очень красивая, ценю свою особенную красоту, люблю и поддерживаю себя в любом ракурсе и любой ситуации!",
+        "Я с лёгкостью зарабатываю миллионы рублей.",
+        "Я смелая и уверенная, всегда добиваюсь своих целей.",
+        "Я всегда управляю своими эмоциями, я осознанна в любой ситуации.",
+        "Я открыта ко всему новому, активная и позитивная, легко меняюсь, вижу только лучшее в себе и в других.",
+        "У меня красивый коммерческий вокал и крутые треки, которые занимают первые места в чарте ВК.",
+        "Я легко нахожу способы заработка, деньги сами идут ко мне.",
+        "Я всегда притягиваю всё прекрасное, мне всегда везёт.",
+        "Я благодарна за то, что деньги приходят ко мне из множества источников в больших количествах и на постоянной основе.",
+        "В этом году я покупаю себе Mercedes CLA."
+    ]
 
     static func read() -> [String] {
-        guard let raw = SharedStore.defaults?.string(forKey: "routineWidgetPayload"),
-              let data = raw.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let arr = json["affirmations"] as? [String] else { return fallback }
-        let list = arr.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let defaults = SharedStore.defaults
+        // The app stores the list on its own key first, so it survives skipped routine syncs.
+        var arr = defaults?.stringArray(forKey: "affirmationsList")
+        if arr == nil,
+           let raw = defaults?.string(forKey: "routineWidgetPayload"),
+           let data = raw.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            arr = json["affirmations"] as? [String]
+        }
+        let list = (arr ?? []).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         return list.isEmpty ? fallback : list
     }
 
@@ -1012,44 +1115,67 @@ private struct AffirmationWidgetView: View {
     let entry: AffirmationEntry
     @Environment(\.widgetFamily) private var family
     private let rose = Color(red: 0.94, green: 0.36, blue: 0.58)
-    private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
-    private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
-    private let dot = Color(red: 0.95, green: 0.94, blue: 0.95)
+    private let ink = Color(red: 0.13, green: 0.11, blue: 0.14)
+    private let faded = Color(red: 0.60, green: 0.58, blue: 0.63)
     private var isLarge: Bool { family == .systemLarge }
+    private var count: Int { max(1, entry.affirmations.count) }
     private var quote: String { entry.affirmations.indices.contains(entry.index) ? entry.affirmations[entry.index] : "Сегодня я выбираю действовать." }
-    private var quoteNumber: Int { entry.affirmations.isEmpty ? 0 : entry.index + 1 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(rose)
-                Text("Аффирмации")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(ink)
+            HStack(spacing: 6) {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 10, weight: .bold))
+                Text("АФФИРМАЦИЯ ДНЯ")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .tracking(1.2)
                 Spacer(minLength: 4)
-                Text("\(quoteNumber)/\(max(1, entry.affirmations.count))")
-                    .font(.system(size: 12).monospacedDigit())
-                    .foregroundStyle(faded)
                 arrow("chevron.left", direction: -1)
                 arrow("chevron.right", direction: 1)
             }
-            Spacer(minLength: 8)
-            Text(quote)
-                .font(.system(size: isLarge ? 24 : 18, weight: .regular))
-                .foregroundStyle(ink)
-                .lineSpacing(2)
-                .lineLimit(isLarge ? 9 : 4)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer(minLength: 0)
+            .foregroundStyle(rose)
+
+            Spacer(minLength: 6)
+            ZStack(alignment: .topLeading) {
+                Text("“")
+                    .font(.system(size: isLarge ? 74 : 54, weight: .bold, design: .serif))
+                    .foregroundStyle(rose.opacity(0.18))
+                    .offset(x: -4, y: isLarge ? -26 : -20)
+                Text(quote)
+                    .font(.system(size: isLarge ? 24 : 18, weight: .regular, design: .serif))
+                    .foregroundStyle(ink)
+                    .lineSpacing(2)
+                    .lineLimit(isLarge ? 9 : 4)
+                    .minimumScaleFactor(0.62)
+                    .padding(.leading, isLarge ? 16 : 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Spacer(minLength: 6)
+
+            HStack(spacing: 4) {
+                ForEach(0..<min(count, 12), id: \.self) { i in
+                    Capsule()
+                        .fill(i == entry.index % 12 ? rose : Color(red: 0.88, green: 0.86, blue: 0.89))
+                        .frame(width: i == entry.index % 12 ? 14 : 5, height: 5)
+                }
+                Spacer(minLength: 4)
+                Text("\(entry.index + 1) из \(count)")
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(faded)
+            }
         }
-        .padding(16)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .widgetURL(URL(string: "treneraliny://open?tab=routine"))
         .containerBackground(for: .widget) {
-            LinearGradient(colors: [.white, Color(red: 1.0, green: 0.955, blue: 0.972)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            ZStack {
+                Color.white
+                RadialGradient(colors: [Color(red: 1.0, green: 0.86, blue: 0.91).opacity(0.75), .clear],
+                               center: .bottomTrailing, startRadius: 0, endRadius: 230)
+                RadialGradient(colors: [Color(red: 0.93, green: 0.90, blue: 1.0).opacity(0.7), .clear],
+                               center: .topLeading, startRadius: 0, endRadius: 190)
+            }
         }
     }
 
@@ -1057,9 +1183,10 @@ private struct AffirmationWidgetView: View {
         Button(intent: ChangeAffirmationIntent(direction: direction)) {
             Image(systemName: symbol)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(ink.opacity(0.7))
+                .foregroundStyle(ink.opacity(0.65))
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(dot))
+                .background(Circle().fill(Color.white.opacity(0.85)))
+                .overlay(Circle().strokeBorder(Color(red: 0.90, green: 0.88, blue: 0.91), lineWidth: 0.8))
         }
         .buttonStyle(.plain)
     }
@@ -1183,38 +1310,87 @@ private struct GoalsProvider: TimelineProvider {
 private struct GoalsWidgetView: View {
     let entry: GoalsEntry
     @Environment(\.widgetFamily) private var family
+    private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
+    private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
+    private let track = Color(red: 0.94, green: 0.93, blue: 0.95)
+    private let palette = [
+        Color(red: 0.94, green: 0.36, blue: 0.58),
+        Color(red: 1.0, green: 0.62, blue: 0.48),
+        Color(red: 0.66, green: 0.55, blue: 1.0),
+        Color(red: 0.36, green: 0.74, blue: 0.67),
+        Color(red: 0.98, green: 0.76, blue: 0.30),
+        Color(red: 0.45, green: 0.62, blue: 0.95)
+    ]
+    private var isLarge: Bool { family == .systemLarge }
+    private var shown: [GoalRow] { Array(entry.goals.prefix(isLarge ? 6 : 3)) }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                Text("🎯 МОИ ЦЕЛИ").font(.system(size: 13, weight: .bold))
+        VStack(alignment: .leading, spacing: isLarge ? 16 : 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "target")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(palette[0])
+                Text("Мои цели")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(ink)
                 Spacer()
-                Text("✿").foregroundStyle(.pink)
-            }
-            ForEach(Array(entry.goals.prefix(family == .systemLarge ? 5 : 3))) { goal in
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Text(goal.name).lineLimit(1)
-                        Spacer(minLength: 3)
-                        Text("\(goal.done)/\(goal.total)").foregroundStyle(.pink)
-                    }.font(.system(size: 12, weight: .semibold))
-                    HStack {
-                        Text(goal.period).font(.system(size: 10)).foregroundStyle(.secondary)
-                        Spacer()
-                        ProgressView(value: Double(goal.done), total: Double(max(goal.total, 1)))
-                            .frame(width: 65).tint(.pink)
-                    }
+                if let period = entry.goals.first?.period {
+                    Text(period)
+                        .font(.system(size: 12))
+                        .foregroundStyle(faded)
                 }
             }
             if entry.goals.isEmpty {
                 Spacer(minLength: 0)
                 Text("Добавь первую цель в Планировщике")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                    .font(.system(size: 13))
+                    .foregroundStyle(faded)
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
+                          alignment: .center, spacing: isLarge ? 18 : 0) {
+                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, goal in
+                        goalCell(goal, color: palette[index % palette.count])
+                    }
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
         .widgetURL(URL(string: "treneraliny://open?tab=goals"))
-        .containerBackground(for: .widget) { Color(red: 0.99, green: 0.96, blue: 0.97) }
+        .containerBackground(for: .widget) {
+            LinearGradient(colors: [.white, Color(red: 1.0, green: 0.968, blue: 0.98)], startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    private func goalCell(_ goal: GoalRow, color: Color) -> some View {
+        let progress = goal.total > 0 ? Double(goal.done) / Double(goal.total) : 0
+        return VStack(spacing: 6) {
+            ZStack {
+                Circle().stroke(track, lineWidth: 6)
+                Circle()
+                    .trim(from: 0, to: max(0.001, progress))
+                    .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .opacity(goal.total > 0 ? 1 : 0)
+                Text(goal.total > 0 ? "\(goal.done)/\(goal.total)" : "0%")
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(ink)
+                    .minimumScaleFactor(0.7)
+                    .padding(6)
+            }
+            .frame(width: 50, height: 50)
+            Text(goal.name)
+                .font(.system(size: 11))
+                .foregroundStyle(ink)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity)
+        }
     }
 }
 struct TrenerAlinyGoalsWidget: Widget {
