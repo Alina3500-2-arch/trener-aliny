@@ -770,6 +770,7 @@ private struct DailyTaskItem: Codable, Identifiable {
     let title: String
     var done: Bool
     let overdue: Bool?
+    let time: String?
 }
 private struct DailyTaskDay: Codable, Identifiable {
     let date: String
@@ -970,6 +971,11 @@ private struct DailyTasksWidgetView: View {
                     Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
                         HStack(spacing: 6) {
                             taskDot(task)
+                            if let time = task.time, !time.isEmpty {
+                                Text(time)
+                                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(task.done ? faded : rose)
+                            }
                             Text(task.title)
                                 .font(.system(size: 12.5))
                                 .foregroundStyle(task.done ? faded : ink)

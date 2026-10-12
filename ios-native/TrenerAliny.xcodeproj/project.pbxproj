@@ -168,9 +168,10 @@
 			};
 			buildConfigurationList = 1A2B3C4D5E6F70809A0B0C07 /* Build configuration list for PBXProject "TrenerAliny" */;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = ru;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				ru,
 				en,
 				Base,
 			);

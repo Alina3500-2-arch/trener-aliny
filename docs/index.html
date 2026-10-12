@@ -230,7 +230,9 @@ function syncSavedTasksToWidget(){
   for(var i=0;i<6;i++){
    var d=new Date(monday);d.setDate(monday.getDate()+i);
    var date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-   days.push({date:date,label:names[i],tasks:(db[date]||[]).map(function(t){return {id:String(t.id),title:String(t.title),done:!!t.done,overdue:!!t.overdue}})});
+   var dayTasks=(db[date]||[]).map(function(t,n){return {id:String(t.id),title:String(t.title),done:!!t.done,overdue:!!t.overdue,time:t.time||'',n:n}});
+   dayTasks.sort(function(a,b){return (a.time?0:1)-(b.time?0:1)||(a.time<b.time?-1:a.time>b.time?1:0)||a.n-b.n});
+   days.push({date:date,label:names[i],tasks:dayTasks.map(function(t){var o={id:t.id,title:t.title,done:t.done,overdue:t.overdue};if(t.time)o.time=t.time;return o})});
   }
   var payload={days:days};
   localStorage.setItem('alina-daily-tasks-widget-v1',JSON.stringify(payload));
@@ -238,6 +240,38 @@ function syncSavedTasksToWidget(){
    window.webkit.messageHandlers.tasks.postMessage(payload);
  }catch(e){console.log('Planner widget refresh skipped',e)}
 }
+/* Siri / Apple Reminders → planner. Native code sends this week's dated reminders here. */
+window.applyAppleReminders=function(items,silent){
+ try{
+  if(!Array.isArray(items))return;
+  var key='alina-daily-tasks-v1', db=JSON.parse(localStorage.getItem(key)||'{}')||{};
+  var added=0, changed=false;
+  items.forEach(function(r){
+   if(!r||!r.date||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return;
+   var id='siri:'+r.id, list=db[r.date]=db[r.date]||[];
+   var time=/^\d{2}:\d{2}$/.test(r.time||'')?r.time:'';
+   var old=list.filter(function(t){return t.id===id})[0];
+   if(old){
+    if(old.title!==r.title||!!old.done!==!!r.done||(old.time||'')!==time){old.title=String(r.title);old.done=!!r.done;old.time=time;changed=true}
+   }else{
+    list.push({id:id,title:String(r.title),done:!!r.done,time:time,source:'reminders'});added++;changed=true;
+   }
+  });
+  if(changed){
+   localStorage.setItem(key,JSON.stringify(db));
+   var f=document.getElementById('tasks-frame');
+   if(f&&f.contentWindow)f.contentWindow.location.reload();
+   syncSavedTasksToWidget();
+  }
+  if(!silent)alert(added?'Добавлено дел из Напоминаний: '+added:'Новых дел на эту неделю нет. У напоминания должна быть дата.');
+ }catch(e){console.log('Reminders import skipped',e)}
+};
+function autoImportReminders(){
+ try{if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.reminders)window.webkit.messageHandlers.reminders.postMessage({silent:true})}catch(e){}
+}
+setTimeout(autoImportReminders,900);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)autoImportReminders()});
+
 window.addEventListener('pageshow',syncSavedTasksToWidget);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)syncSavedTasksToWidget()});
 setTimeout(syncSavedTasksToWidget,600);

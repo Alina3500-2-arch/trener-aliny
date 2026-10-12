@@ -174,7 +174,7 @@ extension WebViewController: WKScriptMessageHandler {
         }
 
         if message.name == "reminders" {
-            importAppleReminders()
+            importAppleReminders(silent: payload["silent"] as? Bool ?? false)
             return
         }
         if message.name == "projects" {
@@ -200,7 +200,9 @@ extension WebViewController: WKScriptMessageHandler {
     }
 
 
-    private func importAppleReminders() {
+    // Siri reminders dated this week (Mon–Sat) go into the planner, with the time when one is set.
+    // silent: the automatic import on app open — no alerts, no prompt after a refusal.
+    private func importAppleReminders(silent: Bool) {
         let load: () -> Void = { [weak self] in
             guard let self = self else { return }
             let predicate = self.reminderStore.predicateForReminders(in: nil)
@@ -214,21 +216,38 @@ extension WebViewController: WKScriptMessageHandler {
                 formatter.dateFormat = "yyyy-MM-dd"
                 formatter.locale = Locale(identifier: "en_US_POSIX")
                 let items: [[String: Any]] = (reminders ?? []).compactMap { reminder in
-                    guard let due = reminder.dueDateComponents?.date,
+                    // Siri often leaves the calendar empty, so DateComponents.date would be nil.
+                    guard let comps = reminder.dueDateComponents,
+                          let due = cal.date(from: comps),
                           due >= monday, due < end,
                           !reminder.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-                    return ["id": reminder.calendarItemIdentifier,
-                            "title": reminder.title,
-                            "date": formatter.string(from: due),
-                            "done": reminder.isCompleted]
+                    var item: [String: Any] = ["id": reminder.calendarItemIdentifier,
+                                               "title": reminder.title,
+                                               "date": formatter.string(from: due),
+                                               "done": reminder.isCompleted]
+                    if let hour = comps.hour {
+                        item["time"] = String(format: "%02d:%02d", hour, comps.minute ?? 0)
+                    }
+                    return item
                 }
                 guard JSONSerialization.isValidJSONObject(items),
                       let data = try? JSONSerialization.data(withJSONObject: items),
                       let json = String(data: data, encoding: .utf8) else { return }
+                let javascript = """
+                if(typeof window.applyAppleReminders==='function'){window.applyAppleReminders(\(json),\(silent))}
+                else{var f=document.getElementById('tasks-frame');if(f&&f.contentWindow)f.contentWindow.postMessage({type:'apple-reminders',items:\(json)},'*')}
+                """
                 DispatchQueue.main.async {
-                    self.webView.evaluateJavaScript("document.getElementById(\"tasks-frame\")?.contentWindow?.postMessage({type:\"apple-reminders\",items:\(json)},\"*\")", completionHandler: nil)
+                    self.webView.evaluateJavaScript(javascript, completionHandler: nil)
                 }
             }
+        }
+        let status = EKEventStore.authorizationStatus(for: .reminder)
+        if silent && status != .notDetermined {
+            let allowed: Bool
+            if #available(iOS 17.0, *) { allowed = status == .fullAccess } else { allowed = status == .authorized }
+            if allowed { load() }
+            return
         }
         if #available(iOS 17.0, *) {
             reminderStore.requestFullAccessToReminders { granted, _ in if granted { load() } }
@@ -250,41 +269,76 @@ extension WebViewController: WKScriptMessageHandler {
               let defaults = SharedStore.defaults else { return }
         // Ticks made on the widget: push them into the planner's storage before
         // accepting the app's (possibly stale) copy.
-        if let pendingData = defaults.data(forKey: "tasksPendingToggles"),
-           let pending = try? JSONDecoder().decode([String: [String: Bool]].self, from: pendingData),
-           !pending.isEmpty {
-            let days = payload["days"] as? [[String: Any]] ?? []
-            let matches = pending.allSatisfy { date, toggles in
+        // Tasks dictated to Siri and ticks made on the widget: push them into the
+        // planner's storage before accepting the app's (possibly stale) copy.
+        let days = payload["days"] as? [[String: Any]] ?? []
+        let allIds = Set(days.flatMap { ($0["tasks"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String } })
+        let toggles = defaults.data(forKey: "tasksPendingToggles")
+            .flatMap { try? JSONDecoder().decode([String: [String: Bool]].self, from: $0) } ?? [:]
+        let adds = defaults.array(forKey: "tasksPendingAdds") as? [[String: Any]] ?? []
+        if !toggles.isEmpty || !adds.isEmpty {
+            let togglesMatch = toggles.allSatisfy { date, values in
                 let tasks = days.first(where: { $0["date"] as? String == date })?["tasks"] as? [[String: Any]] ?? []
-                return toggles.allSatisfy { id, value in
+                return values.allSatisfy { id, value in
                     // A task deleted in the app no longer needs syncing.
                     guard let task = tasks.first(where: { $0["id"] as? String == id }) else { return true }
                     return task["done"] as? Bool == value
                 }
             }
-            if !matches {
-                if let commands = try? JSONSerialization.data(withJSONObject: pending),
+            // The app's payload covers only this week; adds for other weeks are applied once.
+            let addsMatch = adds.allSatisfy { item in
+                guard let id = item["id"] as? String, let date = item["date"] as? String else { return true }
+                return allIds.contains(id) || !days.contains(where: { $0["date"] as? String == date })
+            }
+            let addsApplied = defaults.bool(forKey: "tasksPendingAddsApplied")
+            if !togglesMatch || (!addsMatch || (!adds.isEmpty && !addsApplied)) {
+                if let commands = try? JSONSerialization.data(withJSONObject: ["toggles": toggles, "adds": adds]),
                    let commandString = String(data: commands, encoding: .utf8) {
                     let javascript = """
                     (function(p){
                         var key='alina-daily-tasks-v1', db={};
                         try{db=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
-                        Object.keys(p).forEach(function(d){
+                        (p.adds||[]).forEach(function(a){
+                            if(!a||!a.date||!a.id)return;
+                            var list=db[a.date]=db[a.date]||[];
+                            if(list.some(function(t){return String(t.id)===a.id}))return;
+                            var t={id:a.id,title:String(a.title||''),done:!!a.done,source:'siri'};
+                            if(a.time)t.time=a.time;
+                            list.push(t);
+                        });
+                        Object.keys(p.toggles||{}).forEach(function(d){
                             (db[d]||[]).forEach(function(t){
-                                if(Object.prototype.hasOwnProperty.call(p[d],String(t.id)))t.done=!!p[d][String(t.id)];
+                                if(Object.prototype.hasOwnProperty.call(p.toggles[d],String(t.id)))t.done=!!p.toggles[d][String(t.id)];
                             });
                         });
                         localStorage.setItem(key,JSON.stringify(db));
                         var f=document.getElementById('tasks-frame');
                         if(f&&f.contentWindow)f.contentWindow.location.reload();
                         if(typeof syncSavedTasksToWidget==='function')syncSavedTasksToWidget();
+                        return true;
                     })(\(commandString));
                     """
-                    DispatchQueue.main.async { self.webView.evaluateJavaScript(javascript, completionHandler: nil) }
+                    DispatchQueue.main.async {
+                        self.webView.evaluateJavaScript(javascript) { result, _ in
+                            if (result as? Bool) == true, !adds.isEmpty {
+                                defaults.set(true, forKey: "tasksPendingAddsApplied")
+                            }
+                        }
+                    }
                 }
                 return
             }
             defaults.removeObject(forKey: "tasksPendingToggles")
+            // Keep adds that arrived after this payload was built.
+            let current = defaults.array(forKey: "tasksPendingAdds") as? [[String: Any]] ?? []
+            let applied = Set(adds.compactMap { $0["id"] as? String })
+            let rest = current.filter { !applied.contains($0["id"] as? String ?? "") }
+            if rest.isEmpty {
+                defaults.removeObject(forKey: "tasksPendingAdds")
+            } else {
+                defaults.set(rest, forKey: "tasksPendingAdds")
+            }
+            defaults.set(false, forKey: "tasksPendingAddsApplied")
         }
         defaults.set(json, forKey: "dailyTasksWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
