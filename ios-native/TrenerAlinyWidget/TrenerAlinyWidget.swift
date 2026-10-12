@@ -1127,53 +1127,68 @@ private struct AffirmationWidgetView: View {
     private var count: Int { max(1, entry.affirmations.count) }
     private var quote: String { entry.affirmations.indices.contains(entry.index) ? entry.affirmations[entry.index] : "Сегодня я выбираю действовать." }
 
+    // The whole card flips to the next affirmation; only the small back arrow goes back.
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Image(systemName: "sparkle")
-                    .font(.system(size: 10, weight: .bold))
-                Text("АФФИРМАЦИЯ ДНЯ")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .tracking(1.2)
-                Spacer(minLength: 4)
+                Button(intent: ChangeAffirmationIntent(direction: 1)) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("АФФИРМАЦИЯ ДНЯ")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .tracking(1.2)
+                        Spacer(minLength: 4)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 arrow("chevron.left", direction: -1)
                 arrow("chevron.right", direction: 1)
             }
             .foregroundStyle(rose)
+            .padding(.horizontal, 18)
+            .padding(.top, 12)
 
-            Spacer(minLength: 6)
-            ZStack(alignment: .topLeading) {
-                Text("“")
-                    .font(.system(size: isLarge ? 74 : 54, weight: .bold, design: .serif))
-                    .foregroundStyle(rose.opacity(0.18))
-                    .offset(x: -4, y: isLarge ? -26 : -20)
-                Text(quote)
-                    .font(.system(size: isLarge ? 24 : 18, weight: .regular, design: .serif))
-                    .foregroundStyle(ink)
-                    .lineSpacing(2)
-                    .lineLimit(isLarge ? 9 : 4)
-                    .minimumScaleFactor(0.62)
-                    .padding(.leading, isLarge ? 16 : 12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            Spacer(minLength: 6)
-
-            HStack(spacing: 4) {
-                ForEach(0..<min(count, 12), id: \.self) { i in
-                    Capsule()
-                        .fill(i == entry.index % 12 ? rose : Color(red: 0.88, green: 0.86, blue: 0.89))
-                        .frame(width: i == entry.index % 12 ? 14 : 5, height: 5)
+            Button(intent: ChangeAffirmationIntent(direction: 1)) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer(minLength: 6)
+                    ZStack(alignment: .topLeading) {
+                        Text("“")
+                            .font(.system(size: isLarge ? 74 : 54, weight: .bold, design: .serif))
+                            .foregroundStyle(rose.opacity(0.18))
+                            .offset(x: -4, y: isLarge ? -26 : -20)
+                        Text(quote)
+                            .font(.system(size: isLarge ? 24 : 18, weight: .regular, design: .serif))
+                            .foregroundStyle(ink)
+                            .lineSpacing(2)
+                            .lineLimit(isLarge ? 9 : 4)
+                            .minimumScaleFactor(0.62)
+                            .padding(.leading, isLarge ? 16 : 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Spacer(minLength: 6)
+                    HStack(spacing: 4) {
+                        ForEach(0..<min(count, 12), id: \.self) { i in
+                            Capsule()
+                                .fill(i == entry.index % 12 ? rose : Color(red: 0.88, green: 0.86, blue: 0.89))
+                                .frame(width: i == entry.index % 12 ? 14 : 5, height: 5)
+                        }
+                        Spacer(minLength: 4)
+                        Text("\(entry.index + 1) из \(count)")
+                            .font(.system(size: 11).monospacedDigit())
+                            .foregroundStyle(faded)
+                    }
                 }
-                Spacer(minLength: 4)
-                Text("\(entry.index + 1) из \(count)")
-                    .font(.system(size: 11).monospacedDigit())
-                    .foregroundStyle(faded)
+                .padding(.horizontal, 18)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .widgetURL(URL(string: "treneraliny://open?tab=routine"))
         .containerBackground(for: .widget) {
             ZStack {
                 Color.white

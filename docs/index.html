@@ -1,21 +1,21 @@
 <!-- Тренер Алины — единственный файл приложения (без сборки). Правится и пушится напрямую; GitHub Pages раздаёт папку docs/. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#FBF7F7">
+<meta name="theme-color" content="#ffffff">
 <title>Планировщик</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%239B7DFF'/%3E%3Ctext x='50' y='72' font-size='60' text-anchor='middle'%3E%F0%9F%92%AA%3C/text%3E%3C/svg%3E">
 <style>
 :root{
-  --bg:#fbf7f7; --card:#ffffff; --cardAlt:#f8eff2; --primary:#b97790; --primaryDim:#f1dfe6;
-  --accent:#b97790; --danger:#c9707b; --warn:#d3a268; --text:#322c32; --textDim:#857781; --line:#eddfe4;
+  --bg:#ffffff; --card:#ffffff; --cardAlt:#f7f6f8; --primary:#f05c94; --primaryDim:#fde3ee;
+  --accent:#f05c94; --danger:#c9707b; --warn:#d3a268; --text:#1c1c1e; --textDim:#8e8e93; --line:#ececf0;
   --tint:#f8eff2; --successBg:#e8f3ed; --dangerBg:#fbe8e9; --warnBg:#fbf2e7;
   --good:#57E39B; --alert:#FF6B6B; --low:#FFCE5A;
-  --grad:linear-gradient(135deg,#c990a4,#ad7188);
+  --grad:linear-gradient(135deg,#f47aa8,#e04f86);
   --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
-  font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
 input,textarea{font-family:inherit;font-size:16px!important;}
@@ -45,8 +45,8 @@ input:focus,textarea:focus{outline:none;}
 #tabbar{position:fixed;left:0;right:0;bottom:0;height:calc(62px + var(--sab));padding-bottom:var(--sab);
   display:flex;background:var(--card);border-top:1px solid var(--line);z-index:50;}
 /* Embedded habit tracker, separate from food/weight data */
-#app.screen-routine{padding:0;min-height:0;height:100dvh;background:#fbf8f6}
-#routine-frame{display:block;position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#fbf8f6}
+#app.screen-routine{padding:0;min-height:0;height:100dvh;background:#ffffff}
+#routine-frame{display:block;position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#ffffff}
 .screen-routine ~ #tabbar{background:#fffafb;border-top-color:#f0e2e8}
 #tabbar .tab{min-width:0;font-size:10px;letter-spacing:-.15px}
 #tabbar .tab .ico{width:21px;height:21px}
@@ -90,28 +90,34 @@ input:focus,textarea:focus{outline:none;}
 @keyframes eq{0%,100%{transform:scaleY(.3);}50%{transform:scaleY(1);}}
 
 /* Unified light planner theme; preserve existing trainer records and logic */
-html,body{color-scheme:light!important;background:#fbf7f7!important;color:#322c32!important}#tabbar{background:#fff!important;border-top:1px solid #eddfe4!important}#tabbar .tab{color:#877a83!important}#tabbar .tab.on{color:#b97790!important}.card{background:#fff!important;color:#322c32!important;border-color:#eddfe4!important}.field,input,textarea{color:#322c32;background:#fff;border-color:#eadfe4}#app iframe{border:0;width:100%}
+html,body{color-scheme:light!important;background:#ffffff!important;color:#1c1c1e!important}#tabbar{background:#fff!important;border-top:1px solid #ececf0!important}#tabbar .tab{color:#877a83!important}#tabbar .tab.on{color:#f05c94!important}.card{background:#fff!important;color:#1c1c1e!important;border-color:#ececf0!important}.field,input,textarea{color:#1c1c1e;background:#fff;border-color:#eadfe4}#app iframe{border:0;width:100%}
 
-#tabbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}#tabbar::-webkit-scrollbar{display:none}#tabbar .tab{flex:0 0 20%;min-width:67px;font-size:10px}#app.screen-result{padding:0;min-height:0;height:100dvh;background:#fbf7f7}#result-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab))!important;border:0;background:#fbf7f7}
+#tabbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}#tabbar::-webkit-scrollbar{display:none}#tabbar .tab{flex:0 0 20%;min-width:67px;font-size:10px}#app.screen-result{padding:0;min-height:0;height:100dvh;background:#ffffff}#result-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab))!important;border:0;background:#ffffff}
 
 /* Unified light appearance for nutrition, workouts and coach advice */
-body,html,#app{background:#fbf7f7!important;color:#342c33!important;color-scheme:light!important}
-#app .card,#app .panel,#app .meal-card,#app .coach-card,#app .workout-card{background:#fff!important;color:#342c33!important;border-color:#efdee5!important}
-#app [style*="background:#171"],#app [style*="background:#211"],#app [style*="background:#0b"],#app [style*="background:#0B"],#app [style*="background:#1A"],#app [style*="background:#202"]{background:#fff!important;color:#342c33!important}
-#app [style*="color:#fff"],#app [style*="color:#FFF"],#app [style*="color:white"]{color:#342c33!important}
-#tasks-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#fbf7f7}
+body,html,#app{background:#ffffff!important;color:#1c1c1e!important;color-scheme:light!important}
+#app .card,#app .panel,#app .meal-card,#app .coach-card,#app .workout-card{background:#fff!important;color:#1c1c1e!important;border-color:#efdee5!important}
+#app [style*="background:#171"],#app [style*="background:#211"],#app [style*="background:#0b"],#app [style*="background:#0B"],#app [style*="background:#1A"],#app [style*="background:#202"]{background:#fff!important;color:#1c1c1e!important}
+#app [style*="color:#fff"],#app [style*="color:#FFF"],#app [style*="color:white"]{color:#1c1c1e!important}
+#tasks-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#ffffff}
 
 /* October sprint: readable light cards and safe area for iPhone */
 #app.screen-today .body-pad,#app.screen-workout .body-pad{padding-top:max(22px,calc(env(safe-area-inset-top) + 18px))!important}
 #app.screen-today [style*="background:linear-gradient(145deg,rgba(42,29,73"],#app.screen-today [style*="background:linear-gradient(145deg,rgba(27,23,43"]{background:#f8e9ef!important;border-color:#eacdd9!important}
-#app.screen-today [style*="background:linear-gradient(145deg,#"],#app.screen-workout [style*="background:linear-gradient(145deg,#"]{color:#342c33!important}
-#app.screen-today [style*="background:rgba(255,255,255,.0"],#app.screen-today [style*="background:rgba(255,255,255,.1"],#app.screen-today [style*="background:rgba(255,255,255,.06"]{background:#fff!important;border:1px solid #eddfe4!important}
+#app.screen-today [style*="background:linear-gradient(145deg,#"],#app.screen-workout [style*="background:linear-gradient(145deg,#"]{color:#1c1c1e!important}
+#app.screen-today [style*="background:rgba(255,255,255,.0"],#app.screen-today [style*="background:rgba(255,255,255,.1"],#app.screen-today [style*="background:rgba(255,255,255,.06"]{background:#fff!important;border:1px solid #ececf0!important}
 #app.screen-today [style*="background:#171"],#app.screen-today [style*="background:#211"],#app.screen-today [style*="background:#1A"],#app.screen-today [style*="background:#202"]{background:#fff!important}
 #app.screen-today [style*="color:rgba(255,255,255"],#app.screen-workout [style*="color:rgba(255,255,255"]{color:#756570!important}
-#app.screen-today [style*="color:#fff"],#app.screen-workout [style*="color:#fff"]{color:#342c33!important}
+#app.screen-today [style*="color:#fff"],#app.screen-workout [style*="color:#fff"]{color:#1c1c1e!important}
 #app.screen-today .btn:not(.ghost):not(.soft):not(.gray):not(.danger){color:#fff!important}
-#app.screen-today .gridCard,#app.screen-today .card{background:#fff!important;color:#342c33!important}
-#app.screen-today button[onclick^="openMealSheet"]{background:linear-gradient(145deg,#fff,#f8e9ef)!important;border:1px solid #ead9e0!important;color:#4d3b45!important;box-shadow:0 2px 8px #b9779010}#app.screen-today button[onclick^="openMealSheet"] div{color:#5c4550!important}#app.screen-today button[onclick^="openMealSheet"] svg{color:#b97790!important;stroke:#b97790!important}#app.screen-workout .card{background:#fff!important;color:#3b3036!important}</style>
+#app.screen-today .gridCard,#app.screen-today .card{background:#fff!important;color:#1c1c1e!important}
+#app.screen-today button[onclick^="openMealSheet"]{background:linear-gradient(145deg,#fff,#f8e9ef)!important;border:1px solid #ead9e0!important;color:#4d3b45!important;box-shadow:0 2px 8px #f05c9410}#app.screen-today button[onclick^="openMealSheet"] div{color:#5c4550!important}#app.screen-today button[onclick^="openMealSheet"] svg{color:#f05c94!important;stroke:#f05c94!important}#app.screen-workout .card{background:#fff!important;color:#3b3036!important}
+/* Light iPhone style shared with the home-screen widgets */
+html,body{background:linear-gradient(#fff,#fff6f9) fixed}
+.card{border-radius:20px;border-color:#f0f0f3}
+.btn{border-radius:14px}
+.field{border-radius:12px;background:#f2f2f7;border-color:transparent}
+</style>
 <div id="app"></div>
 <div id="tabbar"></div>
 <div id="modals"></div>
@@ -744,15 +750,15 @@ function render(){
     if(!state.onboarded){ app.innerHTML=renderOnboarding(); renderTabBar(); renderModals(); return; }
     var html='';
     if(ui.tab==='today') html=renderToday();
-    else if(ui.tab==='workout') html='<iframe title="Тренировочный дневник" src="workout-diary.html" id="workout-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#fbf7f7"></iframe>';
+    else if(ui.tab==='workout') html='<iframe title="Тренировочный дневник" src="workout-diary.html" id="workout-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#ffffff"></iframe>';
     else if(ui.tab==='activity') html=renderActivity();
     else if(ui.tab==='progress') html='<div style="padding:calc(var(--sat) + 18px) 12px 0"><button onclick="setTab(\'today\')" style="background:#f2dce5;color:#915c77;border:0;border-radius:12px;padding:10px 15px;font-weight:700">‹ Питание</button></div>'+renderProgress();
     else if(ui.tab==='settings') html=renderSettings();
     else if(ui.tab==='routine') html='<iframe title="Мой режим — трекер привычек" src="routine.html" id="routine-frame" loading="eager"></iframe>';
-    else if(ui.tab==='goals') html='<iframe title="Цели" src="goals-projects.html?view=goals" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#fbf7f8"></iframe>';
-    else if(ui.tab==='projects') html='<iframe title="Проекты" src="goals-projects.html?view=projects" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#fbf7f8"></iframe>';
+    else if(ui.tab==='goals') html='<iframe title="Цели" src="goals-projects.html?view=goals" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#ffffff"></iframe>';
+    else if(ui.tab==='projects') html='<iframe title="Проекты" src="goals-projects.html?view=projects" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#ffffff"></iframe>';
     else if(ui.tab==='tasks') html='<iframe title="Мои дела на день" src="tasks.html'+(new URLSearchParams(location.search).get("day")?"?day="+encodeURIComponent(new URLSearchParams(location.search).get("day")):"")+'" id="tasks-frame" loading="eager"></iframe>';
-    else if(ui.tab==='result') html='<iframe title="Режим результата" src="result.html" id="result-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#fbf7f7"></iframe>';
+    else if(ui.tab==='result') html='<iframe title="Режим результата" src="result.html" id="result-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#ffffff"></iframe>';
     app.innerHTML=html;
     renderTabBar();
     renderModals();
@@ -1818,7 +1824,7 @@ function renderActivity(){
   var actBurn=todayActs.reduce(function(s,a){return s+(a.kcal||0);},0);
   var wkBurn=todayWks.reduce(function(s,w){return s+workoutKcal(w,weightKg);},0);
   var totalBurn=Math.round(actBurn+wkBurn);
-  var h='<div style="background:#FBF7F7;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+  var h='<div style="background:#ffffff;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="font-size:17px;font-weight:800;text-align:center">Нагрузка</div>'+
     '<div style="font-size:13px;color:#C88CA3;font-weight:700;text-align:center;margin-top:2px">за сегодня</div>'+
     (totalBurn>0?
@@ -1877,7 +1883,7 @@ function renderProgress(){
   var weights=state.weights||[]; var current=latestWeight(state);
   var goal=state.goal; var startW=goal&&goal.startWeight!=null?goal.startWeight:(weights[0]?weights[0].kg:null);
   var changed=current!=null&&startW!=null?current-startW:null;
-  var h='<div style="background:#FBF7F7;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+  var h='<div style="background:#ffffff;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="font-size:17px;font-weight:800;text-align:center">Прогресс</div>'+
     '<div style="display:flex;justify-content:space-around;margin-top:10px">'+
     '<div style="text-align:center"><div style="font-size:30px;font-weight:900">'+(current!=null?current:'—')+'</div><div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700">кг сейчас</div></div>'+
@@ -1962,7 +1968,7 @@ function progressWeightSave(){ var kg=parseFloat(String(progressLocal.val).repla
 /* ===== SETTINGS SCREEN ===== */
 function renderSettings(){
   var p=state.profile||{}; var goal=state.goal;
-  var h='<div style="background:#FBF7F7;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
+  var h='<div style="background:#ffffff;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
     '<div style="font-size:17px;font-weight:800;text-align:center">Настройки</div>'+
     (p.name?'<div style="font-size:13px;color:#C88CA3;font-weight:700;text-align:center;margin-top:2px">'+esc(p.name)+'</div>':'')+
   '</div>';
@@ -2126,7 +2132,7 @@ function workoutWeekWidget(plan,wDays){
     daysHtml+='<button style="flex:1;text-align:center;min-width:0;padding:0;border:0;background:transparent;color:inherit" onclick="workoutWeekDaySelect(\''+ds+'\')">'+
       '<div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">'+labels[i]+'</div>'+
       '<div style="width:27px;height:27px;margin:4px auto 5px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+(isNext?'#8B2FFF':'transparent')+';color:#fff">'+d.getDate()+'</div>'+
-      '<div style="width:16px;height:3px;border-radius:3px;margin:auto;background:'+(hasWorkout?'#B97790':'rgba(255,255,255,.10)')+'"></div>'+
+      '<div style="width:16px;height:3px;border-radius:3px;margin:auto;background:'+(hasWorkout?'#f05c94':'rgba(255,255,255,.10)')+'"></div>'+
     '</button>';
   }
   var nextLabel=nextDate?nextDate.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric'}):'не запланирована';
@@ -2136,7 +2142,7 @@ function workoutWeekWidget(plan,wDays){
     '<div style="font-size:11px;letter-spacing:1.2px;color:#bbb0d0;font-weight:800;margin-bottom:14px">ТРЕНЕР АЛИНЫ</div>'+
     '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">'+
       '<div style="flex:1;min-width:0"><div style="font-size:11px;color:#bbb0d0;font-weight:600">Следующая тренировка</div><div style="font-size:19px;font-weight:900;color:#fff;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(nextLabel)+'</div></div>'+
-      '<div style="max-width:50%;text-align:right"><div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div><div style="font-size:12px;color:#B97790;font-weight:800">'+duration+'</div></div>'+
+      '<div style="max-width:50%;text-align:right"><div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div><div style="font-size:12px;color:#f05c94;font-weight:800">'+duration+'</div></div>'+
     '</div>'+
     '<div style="display:flex;gap:0">'+daysHtml+'</div>'+
   '</div>';
