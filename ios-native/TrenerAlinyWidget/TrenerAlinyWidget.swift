@@ -410,9 +410,8 @@ struct ToggleRoutineHabitIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        let valid = ["wake", "affirm", "read", "food", "gym", "motivation", "ai"]
         let today = RoutineWeek.key(Date())
-        guard valid.contains(habitId), dateKey >= "2026-10-09",
+        guard dateKey >= "2026-10-09",
               dateKey <= "2026-11-08", dateKey == today, // finished days are frozen
               let defaults = SharedStore.defaults else { return .result() }
 
@@ -422,6 +421,7 @@ struct ToggleRoutineHabitIntent: AppIntent {
             ?? RoutinePayload(date: today, active: true, habits: [], done: 0, total: 0,
                               percent: 0, weekPercent: 0, weekDone: 0, weekTotal: 0, weekDays: nil)
 
+        guard RoutineWeek.defs(payload).contains(where: { $0.id == habitId }) else { return .result() }
         var week = RoutineWeek.merged(payload, date: Date())
         let weekIndex = week.firstIndex(where: { $0.date == dateKey })
         guard let index = weekIndex,
@@ -443,7 +443,7 @@ struct ToggleRoutineHabitIntent: AppIntent {
             payload.total = todayHabits.count
             payload.done = todayHabits.filter { $0.done }.count
             payload.percent = payload.total > 0 ? Int((Double(payload.done) * 100 / Double(payload.total)).rounded()) : 0
-            payload.habits = ["wake", "affirm", "read", "food"].map { id in
+            payload.habits = RoutineWeek.dailyIds(RoutineWeek.defs(payload)).map { id in
                 RoutineHabit(id: id, done: week[index].habits.first(where: { $0.id == id })?.done ?? false)
             }
         }
@@ -479,6 +479,7 @@ private struct RoutinePayload: Codable {
     var weekDone: Int
     var weekTotal: Int
     var weekDays: [RoutineWeekDay]? = nil
+    var habitDefs: [HabitDef]? = nil
 }
 
 private struct RoutineWeekHabit: Codable {
@@ -492,9 +493,40 @@ private struct RoutineWeekDay: Codable {
 }
 
 
+// A habit as edited in the app («✎ Привычки»). days use JS weekdays: 0 = Sunday … 6 = Saturday.
+private struct HabitDef: Codable {
+    let id: String
+    let title: String
+    let time: String
+    let icon: String
+    let days: [Int]
+}
+
 // Shared schedule: renders checkboxes even before the web tracker has ever synced.
 private enum RoutineWeek {
-    static let ids = ["wake", "affirm", "read", "food", "gym", "motivation", "ai"]
+    // Mirrors DEFAULT_HABITS in docs/routine.html.
+    static let defaultDefs: [HabitDef] = [
+        HabitDef(id: "wake", title: "Подъём", time: "06:00", icon: "🌅", days: [1, 2, 3, 4, 5, 6]),
+        HabitDef(id: "affirm", title: "Аффирмации", time: "06:10", icon: "🌷", days: [1, 2, 3, 4, 5, 6]),
+        HabitDef(id: "gym", title: "Спортзал", time: "08:00", icon: "💪", days: [1, 3, 6]),
+        HabitDef(id: "ai", title: "Обучение ИИ", time: "17:00", icon: "💻", days: [2, 4, 6]),
+        HabitDef(id: "motivation", title: "Подкаст", time: "18:00", icon: "🎧", days: [1, 3, 5]),
+        HabitDef(id: "money", title: "Шаг к доходу", time: "", icon: "💰", days: [2, 4, 6]),
+        HabitDef(id: "read", title: "Книга 20 стр", time: "20:00", icon: "📖", days: [1, 2, 3, 4, 5, 6]),
+        HabitDef(id: "food", title: "Питание", time: "21:00", icon: "📝", days: [1, 2, 3, 4, 5, 6])
+    ]
+
+    static func defs(_ payload: RoutinePayload?) -> [HabitDef] {
+        let list = payload?.habitDefs ?? []
+        return list.isEmpty ? defaultDefs : list
+    }
+
+    // Habits done every working day — shown in the medium and small widgets.
+    static func dailyIds(_ defs: [HabitDef]) -> [String] {
+        let daily = defs.filter { $0.days.count >= 6 }.map { $0.id }
+        return Array((daily.isEmpty ? defs.map { $0.id } : daily).prefix(4))
+    }
+
     static func key(_ date: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -503,35 +535,31 @@ private enum RoutineWeek {
         f.dateFormat = "yyyy-MM-dd"
         return f.string(from: date)
     }
-    static func days(around date: Date) -> [RoutineWeekDay] {
+
+    static func days(around date: Date, defs: [HabitDef]) -> [RoutineWeekDay] {
         let cal = Calendar.current
         let weekday = cal.component(.weekday, from: date)
         let monday = cal.startOfDay(for: cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: date) ?? date)
         return (0..<7).map { offset in
             let day = cal.date(byAdding: .day, value: offset, to: monday) ?? monday
             let key = self.key(day)
-            let dow = cal.component(.weekday, from: day)
-            let active = key >= "2026-10-09" && key <= "2026-11-08" && dow != 1
-            return RoutineWeekDay(date: key, habits: ids.map { id in
-                let scheduled: Bool
-                switch id {
-                case "gym": scheduled = [2,4,7].contains(dow)
-                case "motivation": scheduled = [2,4,6].contains(dow)
-                case "ai": scheduled = [3,5,7].contains(dow)
-                default: scheduled = true
-                }
-                return RoutineWeekHabit(id: id, planned: active && scheduled, done: false)
+            let jsDay = cal.component(.weekday, from: day) - 1
+            let active = key >= "2026-10-09" && key <= "2026-11-08" && jsDay != 0
+            return RoutineWeekDay(date: key, habits: defs.map { def in
+                RoutineWeekHabit(id: def.id, planned: active && def.days.contains(jsDay), done: false)
             })
         }
     }
+
+    // The app's own week (with pauses) wins; the schedule fills days it has not sent.
     static func merged(_ payload: RoutinePayload?, date: Date) -> [RoutineWeekDay] {
-        var base = days(around: date)
+        var base = days(around: date, defs: defs(payload))
         let old = payload?.weekDays ?? []
         for index in base.indices {
             if let source = old.first(where: { $0.date == base[index].date }) {
                 for j in base[index].habits.indices {
                     if let habit = source.habits.first(where: { $0.id == base[index].habits[j].id }) {
-                        base[index].habits[j].done = habit.done
+                        base[index].habits[j] = RoutineWeekHabit(id: habit.id, planned: habit.planned, done: habit.done)
                     }
                 }
             } else if base[index].date == payload?.date {
@@ -582,19 +610,14 @@ private struct RoutineWidgetView: View {
     private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
     private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
     private let dot = Color(red: 0.93, green: 0.93, blue: 0.94)
-    // Same order, times and icons as the tracker matrix in docs/routine.html.
-    private let allRows: [(id: String, time: String, icon: String, title: String)] = [
-        ("wake", "06:00", "🌅", "Подъём"),
-        ("affirm", "06:10", "🌷", "Аффирмации"),
-        ("gym", "08:00", "💪", "Спортзал"),
-        ("ai", "17:00", "💻", "Обучение ИИ"),
-        ("motivation", "18:00", "🎧", "Подкаст"),
-        ("read", "20:00", "📖", "Книга 20 стр"),
-        ("food", "21:00", "📝", "Питание")
-    ]
-    private let dailyIds = ["wake", "affirm", "read", "food"]
+    // Same list, order, times and icons as the tracker in docs/routine.html.
+    private var defs: [HabitDef] { RoutineWeek.defs(entry.payload) }
+    private var allRows: [(id: String, time: String, icon: String, title: String)] {
+        defs.map { (id: $0.id, time: $0.time, icon: $0.icon, title: $0.title) }
+    }
+    private var dailyIds: [String] { RoutineWeek.dailyIds(defs) }
     private var labels: [(id: String, time: String, icon: String, title: String)] {
-        isLarge ? allRows : allRows.filter { dailyIds.contains($0.id) }
+        isLarge ? Array(allRows.prefix(10)) : allRows.filter { dailyIds.contains($0.id) }
     }
     private let days = ["п","в","с","ч","п","с","в"]
 
@@ -611,7 +634,8 @@ private struct RoutineWidgetView: View {
     private var rows: Int { labels.count }
     private var dotSize: CGFloat { isLarge ? 16 : 14 }
     private var colWidth: CGFloat { isLarge ? 19 : 18 }
-    private var rowHeight: CGFloat { isLarge ? 37 : 24 }
+    // Large widget: rows shrink so up to ten habits still fit.
+    private var rowHeight: CGFloat { isLarge ? min(37, 290 / CGFloat(max(rows, 1))) : 24 }
     private var labelSize: CGFloat { isLarge ? 13 : 12 }
 
     var body: some View {

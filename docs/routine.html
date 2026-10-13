@@ -152,7 +152,7 @@ h1,h2,h3,.statnum,.wtitle,strong{font-family:-apple-system,BlinkMacSystemFont,"S
 
   </header>
 
-  <div hidden><span id="countdown"></span><span id="phase-caption"></span><span id="daily-quote"></span><input id="pages-input" type="number"><textarea id="money-note"></textarea><textarea id="self-note"></textarea></div><section id="tracker" class="panel active" aria-label="Трекер привычек"><div class="rest-banner">🌸 <strong>Воскресенье — время для себя</strong><span>Воскресенье · отдых и подготовка к неделе</span></div><div class="matrix-head"><div><h2 id="matrix-title">Моя неделя</h2><div class="sectioncap" id="matrix-dates"></div></div><div class="arrowgrp"><button class="iconbtn" id="matrix-prev">‹</button><button class="iconbtn" id="matrix-next">›</button></div></div><div class="matrix-percent"><strong id="matrix-percent">0%</strong><span id="matrix-count">0 из 0</span></div><div class="progressbar"><div id="matrix-progress" style="width:0%"></div></div><div class="matrix-wrap"><div class="wk-grid" id="matrix-table" aria-label="Привычки по дням"></div></div></section>
+  <div hidden><span id="countdown"></span><span id="phase-caption"></span><span id="daily-quote"></span><input id="pages-input" type="number"><textarea id="money-note"></textarea><textarea id="self-note"></textarea></div><section id="tracker" class="panel active" aria-label="Трекер привычек"><div class="rest-banner">🌸 <strong>Воскресенье — время для себя</strong><span>Воскресенье · отдых и подготовка к неделе</span></div><div class="matrix-head"><div><h2 id="matrix-title">Моя неделя</h2><div class="sectioncap" id="matrix-dates"></div></div><div class="arrowgrp"><button class="iconbtn" id="habits-edit" aria-label="Изменить привычки">✎</button><button class="iconbtn" id="matrix-prev">‹</button><button class="iconbtn" id="matrix-next">›</button></div></div><div class="matrix-percent"><strong id="matrix-percent">0%</strong><span id="matrix-count">0 из 0</span></div><div class="progressbar"><div id="matrix-progress" style="width:0%"></div></div><div class="matrix-wrap"><div class="wk-grid" id="matrix-table" aria-label="Привычки по дням"></div></div></section>
 <section id="plan" class="panel" aria-label="Расписание">
     <div class="eyebrow">Редактируемое расписание</div><h1 style="margin:9px 0 9px">Моя неделя</h1><p class="small muted">Работа у Элины — пн, ср, пт с 10:00 до 18:00. Спорт — пн, ср, сб. Вторник и четверг — главные дни для дохода.</p>
     <section class="section"><div class="sectionhead"><h2>Расписание</h2><button class="btn smallbtn" id="schedule-edit" type="button">✎ Изменить</button></div><div id="schedule-daystrip" class="days"></div><div class="whitecard" style="margin-top:11px"><h3 id="schedule-heading"></h3><p id="schedule-subhead" class="sectioncap" style="margin-top:5px"></p><div id="schedule-timeline" class="timeline"></div><textarea id="schedule-editor" class="textinput" style="display:none;width:100%;min-height:190px;margin-top:12px" placeholder="Время | Дело, каждая строка отдельно"></textarea><button class="btn primary" id="schedule-save" style="display:none;margin-top:8px">Сохранить расписание</button></div></section>
@@ -183,6 +183,24 @@ const DEFAULT_GOALS=['Я укрепляю тело и тренируюсь 3 р�
 const DW=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 const DLF=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 const ICONS={wake:'🌅',affirm:'🌷',read:'📖',food:'🥗',gym:'💪',motivation:'🎧',ai:'💻',money:'💰'};
+
+/* Editable habit list («✎ Привычки»). days: 0 = Sunday … 6 = Saturday. Ticks are keyed by id, so renaming keeps them. */
+const HABITS_KEY='alina-habits-v1';
+const DEFAULT_HABITS=[
+ {id:'wake',title:'Подъём',time:'06:00',icon:'🌅',days:[1,2,3,4,5,6],desc:'Встать по будильнику и начать день'},
+ {id:'affirm',title:'Аффирмации',time:'06:10',icon:'🌷',days:[1,2,3,4,5,6],desc:'5–10 минут, один раз в день'},
+ {id:'gym',title:'Спортзал',time:'08:00',icon:'💪',days:[1,3,6],desc:'Силовая тренировка — около 60 минут'},
+ {id:'ai',title:'Обучение ИИ',time:'17:00',icon:'💻',days:[2,4,6],desc:'40 минут урок + 20 минут применения'},
+ {id:'motivation',title:'Подкаст',time:'18:00',icon:'🎧',days:[1,3,5],desc:'15–20 минут в дороге или дома'},
+ {id:'money',title:'Шаг к доходу',time:'',icon:'💰',days:[2,4,6],desc:'Конкретное действие для агентства или Альбины'},
+ {id:'read',title:'Книга 20 стр',time:'20:00',icon:'📖',days:[1,2,3,4,5,6],desc:''},
+ {id:'food',title:'Питание',time:'21:00',icon:'📝',days:[1,2,3,4,5,6],desc:'Автоматически: завтрак, обед и ужин'}
+];
+let HABITS=DEFAULT_HABITS;
+try{const saved=JSON.parse(localStorage.getItem(HABITS_KEY)||'null');if(Array.isArray(saved)&&saved.length)HABITS=saved.filter(h=>h&&h.id&&h.title&&Array.isArray(h.days))}catch(e){}
+function iconOf(id){return (HABITS.find(h=>h.id===id)||{}).icon||'✨'}
+function matrixRows(){return HABITS.map(h=>[h.id,h.time||'',h.icon||'✨',h.title])}
+window.alinaHabits={get:()=>HABITS,set:v=>{HABITS=v},refresh:()=>{render();syncNativeRoutine()}};
 const DAILY=[{id:'wake',name:'Подъём в 06:00',desc:'Встать по будильнику и начать день'},{id:'affirm',name:'Аффирмации + цели',desc:'5–10 минут, один раз в день'},{id:'read',name:'Книга — 20 страниц',desc:''},{id:'food',name:'Запись питания',desc:'Автоматически: завтрак, обед и ужин'}];
 const OTHER={gym:{id:'gym',name:'Спортзал',desc:'Силовая тренировка — около 60 минут'},motivation:{id:'motivation',name:'Мотивация / бизнес-подкаст',desc:'15–20 минут в дороге или дома'},ai:{id:'ai',name:'Обучение ИИ + практика',desc:'40 минут урок + 20 минут применения'},money:{id:'money',name:'Шаг к доходу',desc:'Конкретное действие для агентства или Альбины'}};
 const PLANS={1:{label:'Работа + спорт',rows:[['06:30–07:25','Завтрак, аффирмации и цели, сборы'],['07:30–08:00','Дорога в спортзал'],['08:00–09:00','Тренировка №1'],['09:00–10:00','Душ и дорога на работу'],['10:00–18:00','Элина — основная работа'],['В дороге','Мотивационный подкаст 20 минут'],['20:00–20:30','Книга: 20 страниц'],['22:30','Сон']]},2:{label:'Агентство + Альбина + ИИ',rows:[['06:30–07:30','Завтрак, аффирмации и цели'],['08:30–11:30','Агентство — лиды, предложения, продажи'],['11:30–12:30','Обед и пауза'],['12:30–14:30','Воронка Альбины'],['15:00–16:00','Практическое обучение ИИ'],['16:00–16:15','Результат дня и план на завтра'],['20:00–20:30','Книга: 20 страниц'],['22:30','Сон']]},3:{label:'Работа + спорт',rows:[['06:30–07:25','Завтрак, аффирмации и цели, сборы'],['07:30–08:00','Дорога в спортзал'],['08:00–09:00','Тренировка №2'],['09:00–10:00','Душ и дорога на работу'],['10:00–18:00','Элина — основная работа'],['В дороге','Мотивационный подкаст 20 минут'],['20:00–20:30','Книга: 20 страниц'],['22:30','Сон']]},4:{label:'Альбина + агентство + ИИ',rows:[['06:30–07:30','Завтрак, аффирмации и цели'],['08:30–11:30','Альбина — продажи и воронка'],['11:30–12:30','Обед и пауза'],['12:30–14:30','Агентство — привлечение клиентов'],['15:00–16:00','Практическое обучение ИИ'],['16:00–16:15','Результат дня и план на завтра'],['20:00–20:30','Книга: 20 страниц'],['22:30','Сон']]},5:{label:'Работа + лёгкий вечер',rows:[['06:30–07:30','Завтрак, аффирмации и цели'],['Утро','Сборы и дорога'],['10:00–18:00','Элина — основная работа'],['В дороге','Бизнес-подкаст 20 минут'],['20:00–20:30','Книга: 20 страниц'],['Вечер','Отдых и время с близкими'],['22:30','Сон']]},6:{label:'Спорт + практика + свободный вечер',rows:[['06:30–07:25','Завтрак, аффирмации и цели, сборы'],['07:30–08:00','Дорога в спортзал'],['08:00–09:00','Тренировка №3'],['09:00–10:30','Вернуться, душ и отдых'],['11:00–13:00','Одна важная задача агентства / Альбины'],['14:00–15:00','ИИ — создать практический результат'],['После 15:00','Свободное время'],['20:00–20:30','Книга: 20 страниц']]},0:{label:'Восстановление + планирование',rows:[['06:30–07:30','Спокойное утро, аффирмации и цели'],['Днём','Семья, дом, отдых, прогулка'],['18:00–18:20','Итоги недели и 3 приоритета'],['20:00–20:30','Книга: 20 страниц'],['22:30','Сон']]}};
@@ -241,18 +259,19 @@ function get(s){return state.days[s]||{checks:{},pages:0,paused:false,moneyNote:
 function syncNativeRoutine(){
   if(window.parent===window)return;
   const d=iso(new Date()), active=isPlanned(d);
-  const ids=['wake','affirm','read','food'];
+  const ids=HABITS.filter(h=>h.days.length>=6).slice(0,4).map(h=>h.id);
   const daily=ids.map(id=>({id,done:active&&checked(d,id)}));
   const dayScore=active?scoreDay(d):{done:0,total:0,pct:0};
   const w=weekStartFor(d<TEST_START?TEST_START:d>END?END:d);
   const weekly=scoreWeek(w);
   const weekDays=Array.from({length:7},(_,i)=>{
     const date=addDays(w,i);
-    return {date,habits:MATRIX_ROWS.map(([id])=>({id,planned:isPlanned(date)&&habits(date).some(h=>h.id===id)&&!get(date).paused,done:checked(date,id)}))};
+    return {date,habits:matrixRows().map(([id])=>({id,planned:isPlanned(date)&&habits(date).some(h=>h.id===id)&&!get(date).paused,done:checked(date,id)}))};
   });
   window.parent.postMessage({type:'alina-routine-sync-v1',payload:{
     date:d,active,habits:daily,done:dayScore.done,total:dayScore.total,percent:dayScore.pct,
-    weekPercent:weekly.pct,weekDone:weekly.done,weekTotal:weekly.total,affirmations:affirmations,weekDays
+    weekPercent:weekly.pct,weekDone:weekly.done,weekTotal:weekly.total,affirmations:affirmations,weekDays,
+    habitDefs:HABITS.map(h=>({id:h.id,title:h.title,time:h.time||'',icon:h.icon||'✨',days:h.days}))
   }},location.origin);
 }
 function save(){closeFineDays();try{localStorage.setItem(KEY,JSON.stringify(state));syncNativeRoutine()}catch(e){alert('Не удалось сохранить данные в браузере. Выгрузи резервную копию.') }}
@@ -268,7 +287,7 @@ window.addEventListener('message',function(event){
   if(dayClosed(date)||!isPlanned(date)||date>iso(new Date())||!checks||typeof checks!=='object')continue;
   const r=rec(date);
   for(const [id,value] of Object.entries(checks)){
-    if(!['wake','affirm','read','food','gym','motivation','ai'].includes(id)||typeof value!=='boolean')continue;
+    if(!HABITS.some(h=>h.id===id)||typeof value!=='boolean')continue;
     if(id==='read'){
       if(checked(date,'read')!==value){r.pages=value?20:0;changed=true}
     }else if(!!r.checks[id]!==value){r.checks[id]=value;changed=true}
@@ -278,7 +297,7 @@ window.addEventListener('message',function(event){
   else syncNativeRoutine();
 });
 
-function habits(s){const dow=parseISO(s).getDay();if(dow===0)return [];let list=[...DAILY];if([1,3,6].includes(dow))list.push(OTHER.gym);if([1,3,5].includes(dow))list.push(OTHER.motivation);if([2,4,6].includes(dow))list.push(OTHER.ai,OTHER.money);return list}
+function habits(s){const dow=parseISO(s).getDay();if(dow===0)return [];return HABITS.filter(h=>h.days.includes(dow)).map(h=>({id:h.id,name:h.title,desc:h.desc||''}))}
 function checked(s,id){const r=get(s);if(id==='gym'){try{return !!JSON.parse(localStorage.getItem('alina-workout-journal-2026-v1')||'{}').logs?.[s]?.photo}catch(e){return false}}if(id==='food'){const m=foodDays[s];return !!(m&&m.breakfast&&m.lunch&&m.dinner)}return id==='read'?Number(r.pages||0)>=20:!!r.checks?.[id]}
 function scoreDay(s){const h=habits(s);const v=h.filter(x=>checked(s,x.id)).length;return {done:v,total:h.length,pct:h.length?Math.round(100*v/h.length):0,paused:!!get(s).paused}}
 function weekStartFor(s){return addDays(s,-dayNum(s))}
@@ -287,9 +306,8 @@ function currentElapsed(s){return s<=today&&isPlanned(s)}
 function renderHeader(){return;let remain;if(today<START){remain=Math.round((parseISO(START)-parseISO(today))/86400000);document.getElementById('countdown').textContent='Тестируем · до старта '+remain+' дн.';document.getElementById('phase-caption').textContent='Отмечай привычки уже сейчас'}else if(today<=END){remain=Math.round((parseISO(END)-parseISO(today))/86400000);document.getElementById('countdown').textContent=remain?'До итога '+remain+' дн.':'Сегодня финальный итог';document.getElementById('phase-caption').textContent='Итог 31 октября'}else{document.getElementById('countdown').textContent='Спринт завершён';document.getElementById('phase-caption').textContent='Время оценить результат'}}
 function selectDate(s){selected=s;displayedWeek=weekStartFor(s);renderToday()}
 function renderToday(){if(!document.getElementById('week-caption'))return;closeFineDays();renderHeader();const ws=displayedWeek;document.getElementById('week-caption').textContent=fmt(ws,{day:'numeric',month:'short'})+' — '+fmt(addDays(ws,6),{day:'numeric',month:'short'});document.getElementById('daystrip').innerHTML=Array.from({length:7},(_,i)=>{const s=addDays(ws,i),r=scoreDay(s),cls=s===selected?' selected':'';return `<button class="daybtn${cls}" data-date="${s}" aria-label="${escapeHtml(fmt(s,{weekday:'long',day:'numeric',month:'long'}))}" aria-pressed="${s===selected}"><span class="dow">${DW[parseISO(s).getDay()]}</span><span class="dnum">${parseISO(s).getDate()}</span><span class="dot${r.done?'':' empty'}"></span></button>`}).join('');
-const r=get(selected),progress=scoreDay(selected),inRange=isPlanned(selected);document.getElementById('selected-heading').textContent=fmt(selected,{day:'numeric',month:'long'});document.getElementById('daytype').textContent=PLANS[parseISO(selected).getDay()].label;document.getElementById('habit-fraction').textContent=r.paused?'Пауза':`${progress.done}/${progress.total}`;document.getElementById('dayprogress').style.width=r.paused?'0%':progress.pct+'%';document.getElementById('habit-list').innerHTML=(parseISO(selected).getDay()===0?'<div class="whitecard" style="text-align:center;padding:24px 14px;color:#f05c94;font-size:19px;font-weight:600">♡ Воскресенье — время для себя ♡<p style="font-size:13px;font-weight:400;color:#8e8e93;margin-top:8px">Отдыхай, люби, наполняйся. Сегодня никаких галочек.</p></div>':'')+habits(selected).map(h=>`<button type="button" class="habit${checked(selected,h.id)?' done':''}" data-habit="${h.id}" aria-pressed="${checked(selected,h.id)}" ${h.id==='food'||r.paused||!inRange||dayClosed(selected)?'disabled':''}><span class="habit-icon">${ICONS[h.id]}</span><span class="habittext"><span class="habitname">${escapeHtml(h.name)}</span><span class="habitdesc">${escapeHtml(h.desc)}</span></span><span class="checkmark">${checked(selected,h.id)?'✓':h.id==='food'?'—':''}</span></button>`).join('');document.getElementById('pause-area').innerHTML=!inRange?'<div class="paused">Для тестирования доступны дни с 9 октября, основной марафон начнётся 12 октября.</div>':(r.paused?'<div class="paused">Сегодня уважительная пауза. Этот день не влияет на оценку дисциплины. Восстанавливайся без чувства вины.</div>':'')+`<button class="pausebtn" id="pause-toggle">${r.paused?'Отменить паузу':'Болезнь / форс-мажор? Отметить паузу без штрафа'}</button>`;document.getElementById('daily-quote').textContent=QUOTES[Math.abs(Math.round((parseISO(selected)-parseISO(START))/86400000))%QUOTES.length];}
+const r=get(selected),progress=scoreDay(selected),inRange=isPlanned(selected);document.getElementById('selected-heading').textContent=fmt(selected,{day:'numeric',month:'long'});document.getElementById('daytype').textContent=PLANS[parseISO(selected).getDay()].label;document.getElementById('habit-fraction').textContent=r.paused?'Пауза':`${progress.done}/${progress.total}`;document.getElementById('dayprogress').style.width=r.paused?'0%':progress.pct+'%';document.getElementById('habit-list').innerHTML=(parseISO(selected).getDay()===0?'<div class="whitecard" style="text-align:center;padding:24px 14px;color:#f05c94;font-size:19px;font-weight:600">♡ Воскресенье — время для себя ♡<p style="font-size:13px;font-weight:400;color:#8e8e93;margin-top:8px">Отдыхай, люби, наполняйся. Сегодня никаких галочек.</p></div>':'')+habits(selected).map(h=>`<button type="button" class="habit${checked(selected,h.id)?' done':''}" data-habit="${h.id}" aria-pressed="${checked(selected,h.id)}" ${h.id==='food'||r.paused||!inRange||dayClosed(selected)?'disabled':''}><span class="habit-icon">${iconOf(h.id)}</span><span class="habittext"><span class="habitname">${escapeHtml(h.name)}</span><span class="habitdesc">${escapeHtml(h.desc)}</span></span><span class="checkmark">${checked(selected,h.id)?'✓':h.id==='food'?'—':''}</span></button>`).join('');document.getElementById('pause-area').innerHTML=!inRange?'<div class="paused">Для тестирования доступны дни с 9 октября, основной марафон начнётся 12 октября.</div>':(r.paused?'<div class="paused">Сегодня уважительная пауза. Этот день не влияет на оценку дисциплины. Восстанавливайся без чувства вины.</div>':'')+`<button class="pausebtn" id="pause-toggle">${r.paused?'Отменить паузу':'Болезнь / форс-мажор? Отметить паузу без штрафа'}</button>`;document.getElementById('daily-quote').textContent=QUOTES[Math.abs(Math.round((parseISO(selected)-parseISO(START))/86400000))%QUOTES.length];}
 
-const MATRIX_ROWS=[['wake','06:00','🌅','Подъём'],['affirm','06:10','🌷','Аффирмации'],['gym','08:00','💪','Спортзал'],['ai','17:00','💻','Обучение ИИ'],['motivation','18:00','🎧','Подкаст'],['read','20:00','📖','Книга 20 стр'],['food','21:00','📝','Питание']];
 function renderMatrix(){
  const w=matrixWeek;
  document.getElementById('matrix-title').textContent='Моя неделя';
@@ -297,7 +315,7 @@ function renderMatrix(){
  let done=0,total=0;const now=iso(new Date());
  const cols=Array.from({length:7},(_,i)=>addDays(w,i)),letters=['п','в','с','ч','п','с','в'];
  let html='<div class="wk-row wk-days"><div class="wk-label"></div>'+cols.map((d,i)=>'<div class="wk-col'+(d===now?' is-today':'')+'">'+letters[i]+'</div>').join('')+'</div>';
- for(const [id,time,icon,title] of MATRIX_ROWS){
+ for(const [id,time,icon,title] of matrixRows()){
   html+='<div class="wk-row"><div class="wk-label"><span class="wk-time">'+time+'</span><span class="wk-icon">'+icon+'</span><span class="wk-title">'+escapeHtml(title)+'</span></div>';
   for(const d of cols){
    const planned=isPlanned(d)&&habits(d).some(h=>h.id===id),pause=get(d).paused,yes=planned&&!pause&&checked(d,id);
@@ -320,7 +338,7 @@ function renderMatrix(){
 function renderSchedule(){document.getElementById('schedule-daystrip').innerHTML=Array.from({length:7},(_,i)=>{const d=(i+1)%7;return `<button class="daybtn${schedDay===d?' selected':''}" data-schedule-day="${d}"><span class="dow">${DW[d]}</span><span class="dnum">${d===0?'7':d}</span><span class="dot empty"></span></button>`}).join('');document.getElementById('schedule-heading').textContent=DLF[schedDay].replace(/^./,m=>m.toUpperCase());document.getElementById('schedule-subhead').textContent=PLANS[schedDay].label;document.getElementById('schedule-timeline').innerHTML=(scheduleCustom[schedDay]||PLANS[schedDay].rows).map(r=>`<div class="timeline-item"><div class="time">${escapeHtml(r[0])}</div><div class="timeline-desc">${escapeHtml(r[1])}</div></div>`).join('')}
 function renderStats(){let done=0,total=0,gym=0,pg=0,money=0;for(let s=START;s<=END;s=addDays(s,1)){const r=get(s);pg+=Math.max(0,Number(r.pages||0));if(checked(s,'gym'))gym++;if(checked(s,'money'))money++;if(currentElapsed(s)&&!r.paused){const p=scoreDay(s);done+=p.done;total+=p.total}}document.getElementById('stat-coverage').textContent=total?Math.round(done/total*100)+'%':'—';document.getElementById('stat-gym').textContent=gym+'/12';document.getElementById('stat-pages').textContent=pg;document.getElementById('stat-money').textContent=money;document.getElementById('week-quarters').innerHTML=weeks().map((w,i)=>{const data=scoreWeek(w);return `<div class="quarteritem${today>=w&&today<=addDays(w,6)?' on':''}"><div class="wlabel">Нед. ${i+1}</div><div class="pct">${data.total?data.pct+'%':'—'}</div><div class="dates">${fmt(w,{day:'numeric',month:'short'})}</div></div>`}).join('');document.getElementById('week-stats-list').innerHTML=weeks().map((w,i)=>{const dat=scoreWeek(w);return `<div class="weekrow"><div class="weekdate">${fmt(w,{day:'numeric',month:'short'})}</div><div class="weekinfo"><strong>Неделя ${i+1}</strong><p>${dat.days} учтённых дней · ${dat.done}/${dat.total} отметок</p><div class="weekline"><div style="width:${dat.pct}%"></div></div></div><div class="weekpct">${dat.total?dat.pct+'%':'—'}</div></div>`}).join('')}
 function scoreWeek(w){let done=0,total=0,days=0;for(let i=0;i<7;i++){const s=addDays(w,i);if(!isPlanned(s)||get(s).paused)continue;const p=scoreDay(s);done+=p.done;total+=p.total;days++}return {done,total,days,pct:total?Math.round(done/total*100):0}}
-function recoveries(){const result=[];for(let i=1;i<20;i++){const p=addDays(START,i-1),s=addDays(START,i);if(s>=today)continue;const a=get(p),b=get(s);if(a.paused||b.paused)continue;const cnt=x=>DAILY.filter(h=>checked(x,h.id)).length;if(cnt(p)<2&&cnt(s)<2)result.push([p,s])}return result}
+function recoveries(){const result=[];for(let i=1;i<20;i++){const p=addDays(START,i-1),s=addDays(START,i);if(s>=today)continue;const a=get(p),b=get(s);if(a.paused||b.paused)continue;const cnt=x=>HABITS.filter(h=>h.days.length>=6).filter(h=>checked(x,h.id)).length;if(cnt(p)<2&&cnt(s)<2)result.push([p,s])}return result}
 function renderRules(){state.goals.forEach((g,i)=>{const el=document.querySelector('[data-goal="'+i+'"]');if(el&&document.activeElement!==el)el.value=g});document.getElementById('affirm-list').innerHTML=affirmations.map((a,i)=>'<div class="affirm-card"><div class="affirm-text"><span class="affirm-num">'+['🌷','✨','💗','🦋','🌸','💎','☀️','🪷','🧡','🌿'][i%10]+' '+(i+1)+'</span><p>'+escapeHtml(a)+'</p></div><button class="affirm-edit" data-affirm-edit="'+i+'">✎</button></div>').join('')}
 function render(){try{foodDays=JSON.parse(localStorage.getItem(FOOD_SYNC_KEY)||'{}')||{}}catch(e){}closeFineDays();renderMatrix();renderSchedule();renderStats();renderRules();renderFineLedger()}
 function switchTab(t){document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===t));document.querySelectorAll('.tab').forEach(b=>{b.classList.toggle('active',b.dataset.tab===t);b.setAttribute('aria-current',b.dataset.tab===t?'page':'false')});if(t==='tracker'){renderMatrix();}if(t==='stats')renderStats();if(t==='plan')renderSchedule();if(t==='rules')renderRules();window.scrollTo({top:0,behavior:'instant'})}
@@ -339,5 +357,46 @@ document.addEventListener('click',function(e){
  if(!e.target.closest('#schedule-edit,[data-schedule-day]'))return;
  setTimeout(function(){var ed=document.getElementById('schedule-editor');if(ed&&ed.style.display!=='none'){try{ed.focus({preventScroll:true})}catch(err){}}},80);
 });
+</script><style>
+.hx-shade{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:80;display:flex;align-items:flex-end}
+.hx{background:#fff;width:100%;max-height:92%;display:flex;flex-direction:column;border-radius:22px 22px 0 0;padding:16px 14px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 30px rgba(0,0,0,.1)}
+.hx h3{margin:0 4px 10px;font-size:18px;font-weight:600}
+.hx-list{overflow-y:auto;flex:1;min-height:0}
+.hx-row{background:#f7f6f8;border-radius:16px;padding:10px;margin-bottom:8px}
+.hx-top{display:flex;gap:6px;align-items:center}
+.hx input{border:0;background:#fff;border-radius:10px;padding:9px 8px;font-size:16px;color:#1c1c1e;font-family:inherit;min-width:0}
+.hx .hx-icon{width:46px;text-align:center;flex:none}
+.hx .hx-title{flex:1}
+.hx .hx-time{width:96px;flex:none}
+.hx-del{border:0;background:transparent;color:#c7c7cc;font-size:22px;padding:0 4px;flex:none}
+.hx-days{display:flex;gap:5px;margin-top:8px}
+.hx-days button{flex:1;border:0;border-radius:10px;padding:7px 0;background:#fff;color:#8e8e93;font-size:13px;font-family:inherit}
+.hx-days button.on{background:#f05c94;color:#fff;font-weight:600}
+.hx-add{width:100%;border:1px dashed #d9d9df;background:transparent;border-radius:14px;padding:12px;color:#8e8e93;font-size:15px;font-family:inherit;margin-top:2px}
+.hx-actions{display:flex;gap:10px;margin-top:12px}
+.hx-actions button{flex:1;border:0;border-radius:14px;padding:14px;font-size:16px;font-weight:600;font-family:inherit}
+.hx-cancel{background:#f2f2f7;color:#1c1c1e}.hx-save{background:#f05c94;color:#fff}
+.hx-note{font-size:12px;color:#8e8e93;margin:0 4px 8px}
+</style>
+<script>
+(function(){
+ const LETTERS=[[1,'п'],[2,'в'],[3,'с'],[4,'ч'],[5,'п'],[6,'с']];
+ let draft=[];
+ function esc(v){return String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+ function row(h,i){return '<div class="hx-row" data-i="'+i+'"><div class="hx-top"><input class="hx-icon" maxlength="4" value="'+esc(h.icon)+'" aria-label="Иконка"><input class="hx-title" maxlength="40" value="'+esc(h.title)+'" placeholder="Название" aria-label="Название"><input class="hx-time" type="time" value="'+esc(h.time)+'" aria-label="Время"><button class="hx-del" data-del="'+i+'" aria-label="Удалить">×</button></div><div class="hx-days">'+LETTERS.map(([d,l])=>'<button type="button" class="'+(h.days.includes(d)?'on':'')+'" data-day="'+d+'">'+l+'</button>').join('')+'</div></div>'}
+ function read(){document.querySelectorAll('.hx-row').forEach(r=>{const h=draft[+r.dataset.i];h.icon=r.querySelector('.hx-icon').value.trim()||'✨';h.title=r.querySelector('.hx-title').value.trim();h.time=r.querySelector('.hx-time').value||''})}
+ function draw(){const list=document.querySelector('.hx-list');list.innerHTML=draft.map(row).join('')+'<button type="button" class="hx-add" id="hx-add">＋ Добавить привычку</button>'}
+ function open(){draft=window.alinaHabits.get().map(h=>Object.assign({},h,{days:h.days.slice()}));const shade=document.createElement('div');shade.className='hx-shade';shade.innerHTML='<div class="hx"><h3>Мои привычки</h3><p class="hx-note">Название, время, иконка и дни недели. Отметки за прошлые дни сохраняются.</p><div class="hx-list"></div><div class="hx-actions"><button type="button" class="hx-cancel">Отмена</button><button type="button" class="hx-save">Сохранить</button></div></div>';document.body.appendChild(shade);draw();
+  shade.addEventListener('click',e=>{const t=e.target;
+   if(t===shade||t.closest('.hx-cancel')){shade.remove();return}
+   if(t.dataset.day){read();const h=draft[+t.closest('.hx-row').dataset.i],d=+t.dataset.day;h.days=h.days.includes(d)?h.days.filter(x=>x!==d):h.days.concat(d).sort();draw();return}
+   if(t.dataset.del!==undefined){read();const h=draft[+t.dataset.del];if(confirm('Удалить «'+h.title+'»? Старые отметки останутся в истории.')){draft.splice(+t.dataset.del,1);draw()}return}
+   if(t.id==='hx-add'){read();draft.push({id:'h'+Date.now().toString(36),title:'',time:'',icon:'✨',days:[1,2,3,4,5,6],desc:''});draw();const rows=document.querySelectorAll('.hx-row');const last=rows[rows.length-1];last.scrollIntoView({block:'center'});last.querySelector('.hx-title').focus();return}
+   if(t.closest('.hx-save')){read();const clean=draft.filter(h=>h.title&&h.days.length).map((h,n)=>({h,n})).sort((a,b)=>((a.h.time?0:1)-(b.h.time?0:1))||String(a.h.time).localeCompare(String(b.h.time))||a.n-b.n).map(x=>x.h);if(!clean.length){alert('Нужна хотя бы одна привычка с названием и днями.');return}
+    window.alinaHabits.set(clean);try{localStorage.setItem('alina-habits-v1',JSON.stringify(clean))}catch(err){}shade.remove();window.alinaHabits.refresh();}
+  });
+ }
+ document.addEventListener('click',e=>{if(e.target.closest('#habits-edit'))open()});
+})();
 </script></body>
 </html>
