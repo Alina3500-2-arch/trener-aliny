@@ -305,6 +305,7 @@ function renderMatrix(){
    let cell;
    if(!planned||pause)cell='<span class="wk-dot is-off"></span>';
    else if(d>now)cell='<span class="wk-dot is-future"></span>';
+   else if(d<now)cell=yes?'<span class="wk-dot is-done">✓</span>':'<span class="wk-dot is-future"></span>';
    else cell=`<button type="button" class="wk-dot${yes?' is-done':' is-open'}" data-grid-date="${d}" data-grid-habit="${id}" aria-label="${escapeHtml(title+' '+fmt(d))}" aria-pressed="${yes}">${yes?'✓':''}</button>`;
    html+='<div class="wk-col">'+cell+'</div>';
   }

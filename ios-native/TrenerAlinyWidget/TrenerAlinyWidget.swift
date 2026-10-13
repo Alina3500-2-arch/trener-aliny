@@ -413,7 +413,7 @@ struct ToggleRoutineHabitIntent: AppIntent {
         let valid = ["wake", "affirm", "read", "food", "gym", "motivation", "ai"]
         let today = RoutineWeek.key(Date())
         guard valid.contains(habitId), dateKey >= "2026-10-09",
-              dateKey <= "2026-11-08", dateKey <= today,
+              dateKey <= "2026-11-08", dateKey == today, // finished days are frozen
               let defaults = SharedStore.defaults else { return .result() }
 
         var payload = defaults.string(forKey: "routineWidgetPayload")
@@ -738,7 +738,8 @@ private struct RoutineWidgetView: View {
 
     @ViewBuilder
     private func cell(id: String, date: String, planned: Bool, done: Bool) -> some View {
-        if planned && date <= today {
+        // Only today can be ticked; finished days are frozen as they ended.
+        if planned && date == today {
             Button(intent: ToggleRoutineHabitIntent(habitId: id, dateKey: date)) {
                 dotView(done ? .done : .tappable)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
