@@ -171,23 +171,20 @@ function buildWidgetPayload(){
     calorieDays.push({date:ds,label:labels[dow(a[0],a[1],a[2])],kcal:incomplete?Math.max(2000,actual):actual,actualKcal:actual,complete:!incomplete});
   }
   var payload={calorieTarget:target,todayKcal:eatenToday(state,today).kcal,calorieDays:calorieDays};
-  var days=(state.workoutDays||[]).slice().sort(function(a,b){return a-b;});
-  var plan=state.workoutPlan;
-  if(days.length&&plan&&plan.days&&plan.days.length){
-    var now=new Date(); now.setHours(0,0,0,0); var done=workoutDatesSet(state.workouts||[]);
-    var next=null;
-    for(var add=0;add<8;add++){
-      var d=new Date(now); d.setDate(now.getDate()+add);
-      if(days.includes(dowOf(d))&&!(add===0&&done.has(todayStr(d)))){next=d;break;}
-    }
-    if(next){
-      var pos=days.indexOf(dowOf(next)); var day=plan.days[(pos<0?0:pos)%plan.days.length];
-      payload.nextDate=Math.floor(next.getTime()/1000);
-      payload.title=tidyDayTitle(day.title||plan.name||'Тренировка',pos<0?0:pos).toUpperCase();
-      payload.durationMinutes=Math.max(25,Math.min(60,10+((day.ex||[]).length*5)));
-      payload.workoutDays=days;
-    }
+  // Next workout comes from the workout diary: the «Спортзал» days of My Week, Oct 15–31.
+  var gymDays=[1,3,6];
+  try{var hl=JSON.parse(localStorage.getItem('alina-habits-v1')||'null');var g=Array.isArray(hl)&&hl.filter(function(h){return h.id==='gym';})[0];if(g&&g.days&&g.days.length)gymDays=g.days.slice().sort(function(x,y){return x-y;});}catch(e){}
+  var logs={};try{logs=(JSON.parse(localStorage.getItem('alina-workout-journal-2026-v1')||'{}')||{}).logs||{};}catch(e){}
+  var DIARY=[{name:'Ягодицы база',min:54},{name:'Ягодицы шлифовка',min:55},{name:'Кардио',min:30}];
+  var sched=[];for(var sd='2026-10-15';sd<='2026-10-31';sd=addDays(sd,1)){var p=sd.split('-').map(Number);if(gymDays.indexOf(dow(p[0],p[1],p[2]))>=0)sched.push(sd);}
+  var nextKey=null;for(var i=0;i<sched.length;i++){if(sched[i]>=today&&!(logs[sched[i]]&&logs[sched[i]].photo)){nextKey=sched[i];break;}}
+  if(nextKey){
+    var np=nextKey.split('-').map(Number),plan=DIARY[sched.indexOf(nextKey)%3];
+    payload.nextDate=Math.floor(new Date(np[0],np[1]-1,np[2],12).getTime()/1000);
+    payload.title=plan.name.toUpperCase();
+    payload.durationMinutes=plan.min;
   }
+  payload.workoutDays=gymDays;
   return payload;
 }
 function syncWidget(){

@@ -318,9 +318,11 @@ window.addEventListener('message',function(event){
   const data=message.payload;
   if(!data||( !data.checks && !data.batches))return;
   const batches=data.batches&&typeof data.batches==='object'?data.batches:{[data.date]:data.checks};
-  let changed=false;
+  let changed=false;const reopened=new Set();
+  // The widget only accepts taps for the current day, so a late-arriving tick was made in time:
+  // apply it even if the day has closed since, and recount that day's fines.
   for(const [date,checks] of Object.entries(batches)){
-  if(dayClosed(date)||!isPlanned(date)||date>iso(new Date())||!checks||typeof checks!=='object')continue;
+  if(!isPlanned(date)||date>iso(new Date())||!checks||typeof checks!=='object')continue;
   const r=rec(date);
   for(const [id,value] of Object.entries(checks)){
     if(!HABITS.some(h=>h.id===id)||typeof value!=='boolean')continue;
@@ -328,7 +330,9 @@ window.addEventListener('message',function(event){
       if(checked(date,'read')!==value){r.pages=value?20:0;changed=true}
     }else if(!!r.checks[id]!==value){r.checks[id]=value;changed=true}
   }
+  if(changed&&dayClosed(date))reopened.add(date);
   }
+  if(reopened.size){reopened.forEach(d=>{delete fineLedger.days[d]});try{localStorage.setItem(FINE_KEY,JSON.stringify(fineLedger))}catch(e){}}
   if(changed){save();render()}
   else syncNativeRoutine();
 });

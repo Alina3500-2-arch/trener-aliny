@@ -146,8 +146,8 @@ private struct WeekDay: Identifiable {
 private struct TrenerWidgetView: View {
     let entry: WorkoutEntry
 
-    private let violet = Color(red: 0.61, green: 0.28, blue: 1.0)
-    private let muted = Color(red: 0.72, green: 0.68, blue: 0.82)
+    private let violet = Color(red: 0.94, green: 0.36, blue: 0.58) // rose accent, same as the other widgets
+    private let muted = Color(red: 0.56, green: 0.56, blue: 0.60)
 
     private var payload: WidgetPayload? { entry.payload }
     private var nextDate: Date? { payload?.nextDate.map { Date(timeIntervalSince1970: $0) } }
@@ -232,6 +232,7 @@ private struct TrenerWidgetView: View {
                         Text("\(Calendar.current.component(.day, from: day.date))")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
                             .frame(width: 25, height: 25)
+                            .foregroundStyle(isNext ? Color.white : Color(red: 0.11, green: 0.11, blue: 0.13))
                             .background(isNext ? violet : Color.clear, in: Circle())
                         Image(systemName: "dumbbell.fill")
                             .font(.system(size: 8, weight: .bold))
@@ -242,16 +243,16 @@ private struct TrenerWidgetView: View {
                 }
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
         .padding(.horizontal, 15)
         .padding(.vertical, 12)
     }
 
     private var widgetBackground: some View {
         ZStack {
-            Color(red: 0.035, green: 0.03, blue: 0.065)
+            Color.white
             RadialGradient(
-                colors: [violet.opacity(0.22), .clear],
+                colors: [violet.opacity(0.10), .clear],
                 center: .topTrailing,
                 startRadius: 0,
                 endRadius: 190
@@ -277,10 +278,10 @@ struct TrenerAlinyWidget: Widget {
 private struct CalorieWidgetView: View {
     let entry: WorkoutEntry
 
-    private let violet = Color(red: 0.61, green: 0.28, blue: 1.0)
-    private let muted = Color(red: 0.72, green: 0.68, blue: 0.82)
-    private let danger = Color(red: 0.97, green: 0.38, blue: 0.43)
-    private let incomplete = Color(red: 0.96, green: 0.65, blue: 0.28)
+    private let violet = Color(red: 0.94, green: 0.36, blue: 0.58) // rose accent, same as the other widgets
+    private let muted = Color(red: 0.56, green: 0.56, blue: 0.60)
+    private let danger = Color(red: 0.90, green: 0.28, blue: 0.30)
+    private let incomplete = Color(red: 0.89, green: 0.60, blue: 0.18)
 
     private var target: Int { max(entry.payload?.calorieTarget ?? 1700, 1) }
     private var today: Int { max(entry.payload?.todayKcal ?? 0, 0) }
@@ -306,7 +307,7 @@ private struct CalorieWidgetView: View {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text("\(today)")
                     .font(.system(size: 28, weight: .heavy, design: .rounded))
-                    .foregroundStyle(isOver ? danger : .white)
+                    .foregroundStyle(isOver ? danger : Color(red: 0.11, green: 0.11, blue: 0.13))
                 Text("ккал сегодня")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(muted)
@@ -348,7 +349,7 @@ private struct CalorieWidgetView: View {
                 legend(color: incomplete, text: "неполный ≈2000")
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.13))
         .padding(.horizontal, 15)
         .padding(.vertical, 11)
         .widgetURL(URL(string: "treneraliny://open?tab=today"))
@@ -369,9 +370,9 @@ private struct CalorieWidgetView: View {
 
     private var widgetBackground: some View {
         ZStack {
-            Color(red: 0.035, green: 0.03, blue: 0.065)
+            Color.white
             RadialGradient(
-                colors: [violet.opacity(0.2), .clear],
+                colors: [violet.opacity(0.10), .clear],
                 center: .topTrailing,
                 startRadius: 0,
                 endRadius: 190
