@@ -866,6 +866,7 @@ private struct DailyTaskItem: Codable, Identifiable {
     var done: Bool
     let overdue: Bool?
     let time: String?
+    var moved: Bool? = nil
 }
 private struct DailyTaskDay: Codable, Identifiable {
     let date: String
@@ -989,7 +990,7 @@ private struct DailyTasksWidgetView: View {
         return map
     }
 
-    private var all: [DailyTaskItem] { days.flatMap { $0.tasks } }
+    private var all: [DailyTaskItem] { days.flatMap { $0.tasks }.filter { $0.moved != true } }
     private var doneCount: Int { all.filter { $0.done }.count }
     private var limit: Int { 3 }
     private var tileHeight: CGFloat { isLarge ? 148 : 98 }
@@ -1064,6 +1065,15 @@ private struct DailyTasksWidgetView: View {
                 }
             } else {
                 ForEach(Array(day.tasks.prefix(limit))) { task in
+                    if task.moved == true {
+                        // Carried to a later day: shown greyed, ticked only where it moved.
+                        HStack(alignment: .top, spacing: 4) {
+                            Text("→").font(.system(size: 10, weight: .semibold)).foregroundStyle(faded.opacity(0.7)).frame(width: 13)
+                            Text(task.title).font(.system(size: 11)).foregroundStyle(faded.opacity(0.8)).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 2)
+                    } else {
                     Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
                         HStack(alignment: .top, spacing: 4) {
                             taskDot(task).padding(.top, 1)
@@ -1087,6 +1097,7 @@ private struct DailyTasksWidgetView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    }
                 }
                 if day.tasks.count > limit {
                     Text("ещё \(day.tasks.count - limit)")

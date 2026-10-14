@@ -9,7 +9,7 @@
   --bg:#ffffff; --card:#ffffff; --cardAlt:#f7f6f8; --primary:#f05c94; --primaryDim:#fde3ee;
   --accent:#f05c94; --danger:#c9707b; --warn:#d3a268; --text:#1c1c1e; --textDim:#8e8e93; --line:#ececf0;
   --tint:#f8eff2; --successBg:#e8f3ed; --dangerBg:#fbe8e9; --warnBg:#fbf2e7;
-  --good:#57E39B; --alert:#FF6B6B; --low:#e39a2f;
+  --good:#2fb67c; --alert:#e5484d; --low:#e39a2f;
   --grad:linear-gradient(135deg,#f47aa8,#e04f86);
   --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
 }
@@ -92,7 +92,7 @@ input:focus,textarea:focus{outline:none;}
 /* Unified light planner theme; preserve existing trainer records and logic */
 html,body{color-scheme:light!important;background:#ffffff!important;color:#1c1c1e!important}#tabbar{background:#fff!important;border-top:1px solid #ececf0!important}#tabbar .tab{color:#877a83!important}#tabbar .tab.on{color:#f05c94!important}.card{background:#fff!important;color:#1c1c1e!important;border-color:#ececf0!important}.field,input,textarea{color:#1c1c1e;background:#fff;border-color:#eadfe4}#app iframe{border:0;width:100%}
 
-#tabbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}#tabbar::-webkit-scrollbar{display:none}#tabbar .tab{flex:0 0 20%;min-width:67px;font-size:10px}#app.screen-result{padding:0;min-height:0;height:100dvh;background:#ffffff}#result-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab))!important;border:0;background:#ffffff}
+#tabbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}#tabbar::-webkit-scrollbar{display:none}#tabbar .tab{flex:1 1 0;min-width:0;font-size:10px}#app.screen-result{padding:0;min-height:0;height:100dvh;background:#ffffff}#result-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab))!important;border:0;background:#ffffff}
 
 /* Unified light appearance for nutrition, workouts and coach advice */
 body,html,#app{background:#ffffff!important;color:#1c1c1e!important;color-scheme:light!important}
@@ -113,6 +113,7 @@ body,html,#app{background:#ffffff!important;color:#1c1c1e!important;color-scheme
 #app.screen-today .gridCard,#app.screen-today .card{background:#fff!important;color:#1c1c1e!important}
 #app.screen-today button[onclick^="openMealSheet"]{background:linear-gradient(145deg,#fff,#f8e9ef)!important;border:1px solid #ead9e0!important;color:#4d3b45!important;box-shadow:0 2px 8px #f05c9410}#app.screen-today button[onclick^="openMealSheet"] div{color:#5c4550!important}#app.screen-today button[onclick^="openMealSheet"] svg{color:#f05c94!important;stroke:#f05c94!important}#app.screen-workout .card{background:#fff!important;color:#3b3036!important}
 
+#app [style*="color:rgba(255,255,255"]{color:#8e8e93!important}
 /* Pop-ups live outside #app: give them the same light look */
 #modals .overlay{background:rgba(28,28,30,.32)!important}
 #modals .dialog,#modals .sheet{background:#fff!important;color:#1c1c1e!important;border-color:#ececf0!important;box-shadow:0 18px 50px rgba(0,0,0,.14)!important}
@@ -243,9 +244,9 @@ function syncSavedTasksToWidget(){
   for(var i=0;i<6;i++){
    var d=new Date(monday);d.setDate(monday.getDate()+i);
    var date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-   var dayTasks=(db[date]||[]).map(function(t,n){return {id:String(t.id),title:String(t.title),done:!!t.done,overdue:!!t.overdue,time:t.time||'',n:n}});
+   var dayTasks=(db[date]||[]).map(function(t,n){return {id:String(t.id),title:String(t.title),done:!!t.done,overdue:!!t.overdue,time:t.time||'',moved:!!(t.carriedTo&&!t.done),n:n}});
    dayTasks.sort(function(a,b){return (a.time?0:1)-(b.time?0:1)||(a.time<b.time?-1:a.time>b.time?1:0)||a.n-b.n});
-   days.push({date:date,label:names[i],tasks:dayTasks.map(function(t){var o={id:t.id,title:t.title,done:t.done,overdue:t.overdue};if(t.time)o.time=t.time;return o})});
+   days.push({date:date,label:names[i],tasks:dayTasks.map(function(t){var o={id:t.id,title:t.title,done:t.done,overdue:t.overdue};if(t.time)o.time=t.time;if(t.moved)o.moved=true;return o})});
   }
   var payload={days:days};
   localStorage.setItem('alina-daily-tasks-widget-v1',JSON.stringify(payload));
@@ -674,8 +675,9 @@ var TABS=[
   {key:'today',label:'Питание',ico:'🍽️'},
   {key:'workout',label:'Тренировки',ico:'💪'},
   
-  {key:'settings',label:'Настройки',ico:'⚙️'},
 ];
+function openSettings(from){ui.settingsFrom=from||ui.tab;setTab('settings');}
+window.addEventListener('message',function(e){if(e.origin===location.origin&&e.data&&e.data.type==='alina-open-settings')openSettings(e.data.from||'workout');});
 function setTab(t,keepDeepLink){
   if(!keepDeepLink&&location.search.indexOf('open=')>=0){
     try{ history.replaceState(null,'',location.pathname); }catch(e){}
@@ -701,7 +703,7 @@ function renderTabBar(){
   var tb=document.getElementById('tabbar');
   if(!state.onboarded){ tb.style.display='none'; return; }
   tb.style.display='flex';
-  tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+(ui.tab===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+tabIcon(t.key)+'</span>'+t.label+'</button>'; }).join('');
+  tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+((ui.tab==='settings'?(ui.settingsFrom||'workout'):ui.tab==='progress'?'today':ui.tab)===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+tabIcon(t.key)+'</span>'+t.label+'</button>'; }).join('');
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   size=size||200; stroke=stroke||14; centerColor=centerColor||'#FFFFFF';
@@ -928,7 +930,7 @@ function renderDateCal(){
 function heroMacro(label,v,t,kind){
   var pct=t>0?Math.min(v/t,1):0;
   var over=kind==='limit'&&t>0&&v>t*1.03; var low=kind==='protein'&&t>0&&v<t*0.9;
-  var signal=over?'var(--alert)':low?'var(--low)':'#f7b0cc';
+  var signal=over?'var(--alert)':low?'var(--low)':'#d24f86';
   return '<div style="flex:1"><div style="color:rgba(255,255,255,.95);font-size:11px;font-weight:800;margin-bottom:4px">'+label+(over?' ⚠️':'')+'</div>'+
     '<div style="height:4px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden"><div style="height:100%;border-radius:3px;width:'+(pct*100)+'%;background:'+signal+'"></div></div>'+
     '<div style="color:'+signal+';font-size:10px;font-weight:700;margin-top:3px">'+Math.round(v)+' / '+Math.round(t)+' г</div></div>';
@@ -961,6 +963,7 @@ function renderToday(){
   }
   var h='<div style="position:relative;overflow:hidden;background:radial-gradient(circle at 88% 0,rgba(240,106,158,.22),transparent 42%),linear-gradient(145deg,#F8EFF2,#F1DEE5);border:1px solid rgba(243,137,178,.28);padding:calc(8px + var(--sat)) 14px 10px;border-radius:0 0 26px 26px;color:#fff;box-shadow:0 14px 35px rgba(42,22,79,.18)">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center;min-height:52px">'+
+      '<button onclick="openSettings(\'today\')" style="position:absolute;right:0;padding:6px;color:#8e8e93" aria-label="Настройки"><svg viewBox="0 0 24 24" style="width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>'+
       '<button onclick="openDateCal()" style="position:absolute;left:0;padding:6px;color:#ef5d96" aria-label="Выбрать дату"><svg viewBox="0 0 24 24" style="width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>'+
       '<div style="text-align:center"><div style="font-size:18px;font-weight:900;letter-spacing:-.2px">Дневник питания</div><div style="font-size:11px;font-weight:700;color:#e0508a;text-transform:capitalize;margin-top:1px">'+niceDate(date)+'</div></div>'+    '</div>'+
     '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:2px;margin-top:2px">'+
@@ -1102,7 +1105,8 @@ function mealPromptCandidate(){
   return current;
 }
 function checkMealDecisionPrompt(){
-  if(!state.onboarded||ui.mealDecision||ui.mealSheet||ui.editMeal||ui.manual||ui.smart||ui.foodSearch||ui.wlog||ui.actModal||ui.deleteWorkout) return;
+  // Only on the nutrition tab: it must not interrupt planning or a workout.
+  if(!state.onboarded||ui.tab!=='today'||ui.mealDecision||ui.mealSheet||ui.editMeal||ui.manual||ui.smart||ui.foodSearch||ui.wlog||ui.actModal||ui.deleteWorkout) return;
   cleanReminderChoices(); var c=mealPromptCandidate(); if(c){ui.mealDecision=c.key;renderModals();}
 }
 function renderMealDecision(){
@@ -1976,7 +1980,7 @@ function progressWeightSave(){ var kg=parseFloat(String(progressLocal.val).repla
 function renderSettings(){
   var p=state.profile||{}; var goal=state.goal;
   var h='<div style="background:#ffffff;padding:calc(6px + var(--sat)) 16px 12px;border-radius:0 0 22px 22px;color:#fff">'+
-    '<div style="font-size:17px;font-weight:800;text-align:center">Настройки</div>'+
+    '<div style="position:relative;display:flex;align-items:center;justify-content:center;min-height:40px"><button onclick="setTab(ui.settingsFrom||\'workout\')" style="position:absolute;left:0;background:#fff;border:1px solid #ececf0;color:#1c1c1e;border-radius:12px;padding:8px 13px;font-weight:600">‹ Назад</button><div style="font-size:17px;font-weight:700;color:#1c1c1e">Настройки</div></div>'+
     (p.name?'<div style="font-size:13px;color:#C88CA3;font-weight:700;text-align:center;margin-top:2px">'+esc(p.name)+'</div>':'')+
   '</div>';
   h+='<div class="body-pad">';
