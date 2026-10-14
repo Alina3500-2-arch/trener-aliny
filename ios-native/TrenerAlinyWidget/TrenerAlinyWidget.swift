@@ -411,7 +411,7 @@ struct ToggleRoutineHabitIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let today = RoutineWeek.key(Date())
-        guard dateKey >= "2026-10-09",
+        guard dateKey >= "2026-10-15",
               dateKey <= "2026-11-08", dateKey == today, // finished days are frozen
               let defaults = SharedStore.defaults else { return .result() }
 
@@ -479,7 +479,18 @@ private struct RoutinePayload: Codable {
     var weekDone: Int
     var weekTotal: Int
     var weekDays: [RoutineWeekDay]? = nil
+    var fines: RoutineFines? = nil
     var habitDefs: [HabitDef]? = nil
+}
+
+// Fines as the tracker counts them: closed days only, plus what today still risks.
+private struct RoutineFines: Codable {
+    struct Missed: Codable { let date: String; let title: String; let amount: Int }
+    let total: Int
+    let week: Int
+    let risk: Int
+    let missed: [Missed]
+    var rates: [String: Int]? = nil
 }
 
 private struct RoutineWeekHabit: Codable {
@@ -544,7 +555,7 @@ private enum RoutineWeek {
             let day = cal.date(byAdding: .day, value: offset, to: monday) ?? monday
             let key = self.key(day)
             let jsDay = cal.component(.weekday, from: day) - 1
-            let active = key >= "2026-10-09" && key <= "2026-11-08" && jsDay != 0
+            let active = key >= "2026-10-15" && key <= "2026-10-31" && jsDay != 0
             return RoutineWeekDay(date: key, habits: defs.map { def in
                 RoutineWeekHabit(id: def.id, planned: active && def.days.contains(jsDay), done: false)
             })
@@ -589,9 +600,14 @@ private struct RoutineProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<RoutineEntry>) -> Void) {
+        // A fresh entry exactly at midnight, so yesterday freezes on time.
         let now = Date()
-        let next = Calendar.current.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(1200)
-        completion(Timeline(entries: [RoutineEntry(date: now, payload: load())], policy: .after(next)))
+        let payload = load()
+        let midnight = Calendar.current.startOfDay(for: now.addingTimeInterval(86400))
+        let next = min(Calendar.current.date(byAdding: .minute, value: 20, to: now) ?? now.addingTimeInterval(1200), midnight)
+        var entries = [RoutineEntry(date: now, payload: payload)]
+        if next >= midnight { entries.append(RoutineEntry(date: midnight, payload: payload)) }
+        completion(Timeline(entries: entries, policy: .after(next)))
     }
 
     private func load() -> RoutinePayload? {
@@ -635,7 +651,7 @@ private struct RoutineWidgetView: View {
     private var dotSize: CGFloat { isLarge ? 16 : 14 }
     private var colWidth: CGFloat { isLarge ? 19 : 18 }
     // Large widget: rows shrink so up to ten habits still fit.
-    private var rowHeight: CGFloat { isLarge ? min(37, 290 / CGFloat(max(rows, 1))) : 24 }
+    private var rowHeight: CGFloat { isLarge ? min(37, (hasFooter ? 256 : 290) / CGFloat(max(rows, 1))) : 24 }
     private var labelSize: CGFloat { isLarge ? 13 : 12 }
 
     var body: some View {
@@ -646,6 +662,7 @@ private struct RoutineWidgetView: View {
             } else {
                 weekTable
             }
+            if isLarge { finesFooter }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, isLarge ? 18 : 16)
@@ -665,11 +682,64 @@ private struct RoutineWidgetView: View {
                 .foregroundStyle(ink)
                 .lineLimit(1)
             Spacer(minLength: 4)
+            if let fines = entry.payload?.fines, fines.week > 0 {
+                Text("−\(rubles(fines.week))")
+                    .font(.system(size: isLarge ? 13 : 11.5, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(alarm))
+            }
             Text("\(pct)%")
                 .font(.system(size: isLarge ? 15 : 13, weight: .medium))
                 .foregroundStyle(rose)
         }
         .padding(.bottom, isLarge ? 12 : 5)
+    }
+
+    private let alarm = Color(red: 0.90, green: 0.28, blue: 0.30)
+
+    private func rubles(_ n: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "\u{00a0}"
+        return (f.string(from: NSNumber(value: n)) ?? String(n)) + "\u{00a0}₽"
+    }
+
+    // Large widget footer: what was missed this week and what today still risks.
+    @ViewBuilder
+    private var finesFooter: some View {
+        if let fines = entry.payload?.fines, fines.week > 0 || todayRisk > 0 {
+            VStack(alignment: .leading, spacing: 2) {
+                if !fines.missed.isEmpty {
+                    Text("Пропущено: " + Array(Set(fines.missed.map { $0.title })).sorted().joined(separator: ", "))
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(alarm)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                if todayRisk > 0 {
+                    Text("Не отмечено сегодня: −\(rubles(todayRisk)) в полночь")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color(red: 0.76, green: 0.25, blue: 0.05))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+            }
+            .padding(.top, 6)
+        }
+    }
+
+    // What today's still-open habits cost at midnight; follows widget ticks at once.
+    private var todayRisk: Int {
+        guard let fines = entry.payload?.fines, let rates = fines.rates else { return entry.payload?.fines?.risk ?? 0 }
+        let day = week.first(where: { $0.date == today })?.habits ?? []
+        return day.filter { $0.planned && !$0.done }.reduce(0) { $0 + (rates[$1.id] ?? 50) }
+    }
+
+    private var hasFooter: Bool {
+        guard let fines = entry.payload?.fines else { return false }
+        return fines.week > 0 || todayRisk > 0
     }
 
     private var weekTable: some View {
@@ -821,9 +891,14 @@ private struct DailyTasksProvider: TimelineProvider {
         completion(DailyTasksEntry(date: .now, payload: load()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<DailyTasksEntry>) -> Void) {
+        // An extra entry at midnight so "today" moves on time.
         let now = Date()
-        let next = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800)
-        completion(Timeline(entries: [DailyTasksEntry(date: now, payload: load())], policy: .after(next)))
+        let payload = load()
+        let midnight = Calendar.current.startOfDay(for: now.addingTimeInterval(86400))
+        let next = min(Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800), midnight)
+        var entries = [DailyTasksEntry(date: now, payload: payload)]
+        if next >= midnight { entries.append(DailyTasksEntry(date: midnight, payload: payload)) }
+        completion(Timeline(entries: entries, policy: .after(next)))
     }
 }
 
@@ -870,27 +945,16 @@ struct ToggleDailyTaskIntent: AppIntent {
 private struct DailyTasksWidgetView: View {
     let entry: DailyTasksEntry
     @Environment(\.widgetFamily) private var family
-    // Same iPhone-style palette as "Моя неделя".
+    // Same palette as the planner tab in the app.
     private let rose = Color(red: 0.94, green: 0.36, blue: 0.58)
     private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
     private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
     private let ring = Color(red: 0.76, green: 0.76, blue: 0.80)
+    private let late = Color(red: 0.90, green: 0.28, blue: 0.30)
+    private let tile = Color(red: 0.99, green: 0.945, blue: 0.96)
+    private let tileLine = Color(red: 0.97, green: 0.86, blue: 0.90)
     private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
     private var isLarge: Bool { family == .systemLarge }
-
-    // One full-width line each, so titles get the whole widget width.
-    private enum Row: Identifiable {
-        case head(DailyTaskDay, String, Bool)
-        case task(DailyTaskDay, DailyTaskItem)
-        case more(DailyTaskDay, Int)
-        var id: String {
-            switch self {
-            case .head(let d, _, _): return "h" + d.date
-            case .task(let d, let t): return "t" + d.date + t.id
-            case .more(let d, _): return "m" + d.date
-            }
-        }
-    }
 
     private static func key(_ date: Date) -> String {
         let f = DateFormatter()
@@ -913,33 +977,29 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    // From today to Saturday; empty days shrink to a single "+ добавить" line.
-    private var rows: [Row] {
-        var budget = isLarge ? 13 : 4
-        var result: [Row] = []
-        let upcoming = days.filter { $0.date >= todayKey }
-        for (offset, day) in (upcoming.isEmpty ? days : upcoming).enumerated() {
-            guard budget > 0 else { break }
-            let title = day.date == todayKey ? "Сегодня" : (offset == 1 && day.date > todayKey ? "Завтра" : day.label)
-            result.append(.head(day, title, day.date == todayKey)); budget -= 1
-            let tasks = day.tasks
-            let fit = min(tasks.count, max(0, budget - (tasks.count > budget ? 1 : 0)))
-            for task in tasks.prefix(fit) { result.append(.task(day, task)) }
-            budget -= fit
-            if fit < tasks.count && budget > 0 { result.append(.more(day, tasks.count - fit)); budget -= 1 }
-        }
-        return result
+    // Large: the whole week, 3 on top and 3 below. Medium: today and the next two days.
+    private var shown: [DailyTaskDay] {
+        if isLarge { return days }
+        let start = days.firstIndex(where: { $0.date >= todayKey }) ?? 0
+        return Array(days[start...].prefix(3))
+    }
+    private var dayNumber: [String: String] {
+        var map: [String: String] = [:]
+        for d in days { map[d.date] = String(Int(d.date.suffix(2)) ?? 0) }
+        return map
     }
 
     private var all: [DailyTaskItem] { days.flatMap { $0.tasks } }
     private var doneCount: Int { all.filter { $0.done }.count }
+    private var limit: Int { 3 }
+    private var tileHeight: CGFloat { isLarge ? 148 : 98 }
 
     private func addURL(_ date: String?) -> URL {
         URL(string: date.map { "treneraliny://open?tab=tasks&day=\($0)" } ?? "treneraliny://open?tab=tasks")!
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "checklist")
                     .font(.system(size: isLarge ? 17 : 15, weight: .semibold))
@@ -959,80 +1019,105 @@ private struct DailyTasksWidgetView: View {
                         .background(Circle().fill(rose))
                 }
             }
-            .padding(.bottom, 6)
-            ForEach(rows) { row in
-                switch row {
-                case .head(let day, let title, let isToday):
-                    HStack(spacing: 6) {
-                        Text(title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(isToday ? rose : ink)
-                        if day.tasks.isEmpty {
-                            Text("свободно").font(.system(size: 12)).foregroundStyle(faded)
-                        }
-                        Spacer(minLength: 0)
-                        Link(destination: addURL(day.date)) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(faded)
-                                .frame(width: 30, height: 22, alignment: .trailing)
-                        }
-                    }
-                    .frame(height: 22)
-                    .padding(.top, 2)
-                case .task(let day, let task):
-                    Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
-                        HStack(spacing: 7) {
-                            taskDot(task)
-                            if let time = task.time, !time.isEmpty {
-                                Text(time)
-                                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                                    .foregroundStyle(task.done ? faded : rose)
-                            }
-                            Text(task.title)
-                                .font(.system(size: 13))
-                                .foregroundStyle(task.done ? faded : ink)
-                                .strikethrough(task.done, color: faded)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                            Spacer(minLength: 0)
-                        }
-                        .frame(height: 22)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                case .more(let day, let count):
-                    Link(destination: addURL(day.date)) {
-                        Text("ещё \(count)")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(faded)
-                            .padding(.leading, 23)
-                            .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
-                    }
-                }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                ForEach(shown) { day in dayTile(day) }
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, isLarge ? 16 : 13)
-        .padding(.bottom, 10)
+        .padding(.horizontal, 12)
+        .padding(.top, isLarge ? 14 : 12)
+        .padding(.bottom, 8)
         .widgetURL(addURL(nil))
         .containerBackground(for: .widget) {
             LinearGradient(colors: [.white, Color(red: 1.0, green: 0.968, blue: 0.98)], startPoint: .top, endPoint: .bottom)
         }
     }
 
+    private func dayTile(_ day: DailyTaskDay) -> some View {
+        let isToday = day.date == todayKey
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 3) {
+                Text(isToday && !isLarge ? "Сегодня" : day.label)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(isToday ? rose : ink)
+                    .lineLimit(1)
+                if !(isToday && !isLarge) {
+                    Text(dayNumber[day.date] ?? "")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(faded)
+                }
+                Spacer(minLength: 0)
+                Link(destination: addURL(day.date)) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10.5, weight: .bold))
+                        .foregroundStyle(Color(red: 0.78, green: 0.53, blue: 0.62))
+                        .frame(width: 20, height: 18, alignment: .trailing)
+                }
+            }
+            .padding(.bottom, 3)
+            if day.tasks.isEmpty {
+                Link(destination: addURL(day.date)) {
+                    Text("свободно")
+                        .font(.system(size: 11))
+                        .foregroundStyle(faded)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            } else {
+                ForEach(Array(day.tasks.prefix(limit))) { task in
+                    Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
+                        HStack(alignment: .top, spacing: 4) {
+                            taskDot(task).padding(.top, 1)
+                            VStack(alignment: .leading, spacing: 0) {
+                                if let time = task.time, !time.isEmpty {
+                                    Text(time)
+                                        .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
+                                        .foregroundStyle(task.done ? faded : rose)
+                                }
+                                (task.overdue == true && !task.done ? Text("! ").foregroundColor(late).bold() : Text(""))
+                                    + Text(task.title)
+                                        .foregroundColor(task.done ? faded : (task.overdue == true ? late : ink))
+                                        .strikethrough(task.done, color: faded)
+                            }
+                            .font(.system(size: 11))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 2)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                if day.tasks.count > limit {
+                    Text("ещё \(day.tasks.count - limit)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(faded)
+                        .padding(.leading, 17)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(7)
+        .frame(maxWidth: .infinity, minHeight: tileHeight, maxHeight: tileHeight, alignment: .topLeading)
+        .background(isToday ? Color.white : tile)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(isToday ? rose : tileLine, lineWidth: isToday ? 1.3 : 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     private func taskDot(_ task: DailyTaskItem) -> some View {
         ZStack {
             if task.done {
                 Circle().fill(rose)
-                Image(systemName: "checkmark").font(.system(size: 7.5, weight: .bold)).foregroundStyle(.white)
+                Image(systemName: "checkmark").font(.system(size: 6.5, weight: .bold)).foregroundStyle(.white)
             } else {
                 Circle().fill(Color.white)
-                Circle().strokeBorder(task.overdue == true ? rose : ring, lineWidth: 1.4)
+                Circle().strokeBorder(task.overdue == true ? late : ring, lineWidth: 1.3)
             }
         }
-        .frame(width: 16, height: 16)
+        .frame(width: 13, height: 13)
     }
 }
 

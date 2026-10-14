@@ -9,7 +9,7 @@
   --bg:#ffffff; --card:#ffffff; --cardAlt:#f7f6f8; --primary:#f05c94; --primaryDim:#fde3ee;
   --accent:#f05c94; --danger:#c9707b; --warn:#d3a268; --text:#1c1c1e; --textDim:#8e8e93; --line:#ececf0;
   --tint:#f8eff2; --successBg:#e8f3ed; --dangerBg:#fbe8e9; --warnBg:#fbf2e7;
-  --good:#57E39B; --alert:#FF6B6B; --low:#FFCE5A;
+  --good:#57E39B; --alert:#FF6B6B; --low:#e39a2f;
   --grad:linear-gradient(135deg,#f47aa8,#e04f86);
   --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
 }
@@ -112,11 +112,18 @@ body,html,#app{background:#ffffff!important;color:#1c1c1e!important;color-scheme
 #app.screen-today .btn:not(.ghost):not(.soft):not(.gray):not(.danger){color:#fff!important}
 #app.screen-today .gridCard,#app.screen-today .card{background:#fff!important;color:#1c1c1e!important}
 #app.screen-today button[onclick^="openMealSheet"]{background:linear-gradient(145deg,#fff,#f8e9ef)!important;border:1px solid #ead9e0!important;color:#4d3b45!important;box-shadow:0 2px 8px #f05c9410}#app.screen-today button[onclick^="openMealSheet"] div{color:#5c4550!important}#app.screen-today button[onclick^="openMealSheet"] svg{color:#f05c94!important;stroke:#f05c94!important}#app.screen-workout .card{background:#fff!important;color:#3b3036!important}
+
+/* Pop-ups live outside #app: give them the same light look */
+#modals .overlay{background:rgba(28,28,30,.32)!important}
+#modals .dialog,#modals .sheet{background:#fff!important;color:#1c1c1e!important;border-color:#ececf0!important;box-shadow:0 18px 50px rgba(0,0,0,.14)!important}
+#modals [style*="background:linear-gradient(155deg,#2"],#modals [style*="background:linear-gradient(145deg,#1"],#modals [style*="background:#1"],#modals [style*="background:#2"],#modals [style*="background:#0"]{background:#f7f6f8!important;color:#1c1c1e!important}
+#modals [style*="color:#fff"]:not(.btn):not(button),#modals [style*="color:#FFF"]:not(.btn):not(button),#modals [style*="color:white"]:not(.btn):not(button){color:#1c1c1e!important}
+#modals [style*="color:rgba(255,255,255"]{color:#8e8e93!important}
 /* Light iPhone style shared with the home-screen widgets */
 html,body{background:linear-gradient(#fff,#fff6f9) fixed}
 .card{border-radius:20px;border-color:#f0f0f3}
 .btn{border-radius:14px}
-.field{border-radius:12px;background:#f2f2f7;border-color:transparent}
+.field{border-radius:12px;background:#f7f2f4;border-color:transparent}
 </style>
 <div id="app"></div>
 <div id="tabbar"></div>
@@ -258,7 +265,7 @@ window.applyAppleReminders=function(items,silent){
    var time=/^\d{2}:\d{2}$/.test(r.time||'')?r.time:'';
    var old=list.filter(function(t){return t.id===id})[0];
    if(old){
-    if(old.title!==r.title||!!old.done!==!!r.done||(old.time||'')!==time){old.title=String(r.title);old.done=!!r.done;old.time=time;changed=true}
+    if(old.title!==r.title||(r.done&&!old.done)||(old.time||'')!==time){old.title=String(r.title);old.done=old.done||!!r.done;old.time=time;changed=true}
    }else{
     list.push({id:id,title:String(r.title),done:!!r.done,time:time,source:'reminders'});added++;changed=true;
    }
@@ -712,7 +719,7 @@ function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   for(var i=1;i<=N;i++){ var t=startA+(endA-startA)*i/N; var p=ptAt(t); totalLen+=Math.hypot(p[0]-prev[0],p[1]-prev[1]); prev=p; }
   var filledLen=totalLen*pct;
   var gid='rg'+Math.round(size)+(over?'o':'n'), fid='gf'+Math.round(size)+(over?'o':'n');
-  var trackColor='#9d5978';
+  var trackColor='#f3e4eb';
   var digits=String(Math.round(eaten)).length;
   var numSize=Math.round(size*(digits>=4?0.155:0.19));
   return '<div class="ringWrap" style="width:'+size+'px;height:'+visH+'px;margin:0 2px">'+
@@ -720,7 +727,7 @@ function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
     '<defs>'+
       '<linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse" x1="'+p0[0].toFixed(1)+'" y1="'+p0[1].toFixed(1)+'" x2="'+p1[0].toFixed(1)+'" y2="'+p1[1].toFixed(1)+'">'+
         (over?'<stop offset="0%" stop-color="#FF5A46"/><stop offset="50%" stop-color="#FFC9BC"/><stop offset="100%" stop-color="#FF8A72"/>':
-          '<stop offset="0%" stop-color="#9B30FF"/><stop offset="48%" stop-color="#F3DEFF"/><stop offset="100%" stop-color="#D15CFF"/>')+
+          '<stop offset="0%" stop-color="#ec4385"/><stop offset="48%" stop-color="#fce1ec"/><stop offset="100%" stop-color="#f06b9f"/>')+
       '</linearGradient>'+
       '<filter id="'+fid+'" x="-120%" y="-120%" width="340%" height="340%">'+
         '<feGaussianBlur in="SourceGraphic" stdDeviation="14" result="wide"/>'+
@@ -882,7 +889,7 @@ function mealIconSVG(key){
     snack:'<path d="M12 8c-4-3-7 1-5 6 2 5 4 3 5 3s3 2 5-3c2-5-1-9-5-6ZM12 8c0-2 1-3 3-4"/>',
     dinner:'<path d="M12 5a7 7 0 1 0 7 10 7.5 7.5 0 0 1-7-10Z"/>'
   };
-  return '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;fill:none;stroke:#b98cff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round">'+(p[key]||p.lunch)+'</svg>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;fill:none;stroke:#f596bb;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round">'+(p[key]||p.lunch)+'</svg>';
 }
 var todayLocal={extraMeals:[],aiTip:null,tipLoading:false,tipKey:null};
 function gotoToday(){ ui.viewDate=todayStr(); todayLocal.aiTip=null; render(); }
@@ -921,7 +928,7 @@ function renderDateCal(){
 function heroMacro(label,v,t,kind){
   var pct=t>0?Math.min(v/t,1):0;
   var over=kind==='limit'&&t>0&&v>t*1.03; var low=kind==='protein'&&t>0&&v<t*0.9;
-  var signal=over?'var(--alert)':low?'var(--low)':'#C9A8FF';
+  var signal=over?'var(--alert)':low?'var(--low)':'#f7b0cc';
   return '<div style="flex:1"><div style="color:rgba(255,255,255,.95);font-size:11px;font-weight:800;margin-bottom:4px">'+label+(over?' ⚠️':'')+'</div>'+
     '<div style="height:4px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden"><div style="height:100%;border-radius:3px;width:'+(pct*100)+'%;background:'+signal+'"></div></div>'+
     '<div style="color:'+signal+';font-size:10px;font-weight:700;margin-top:3px">'+Math.round(v)+' / '+Math.round(t)+' г</div></div>';
@@ -946,16 +953,16 @@ function renderToday(){
     var losing=state.goal.targetDeltaKg<0;
     var remKg=weightKg!=null?Number(Math.abs(weightKg-goalTargetW).toFixed(1)):null;
     var reached=weightKg!=null&&(losing?weightKg<=goalTargetW:weightKg>=goalTargetW);
-    goalBar='<div style="position:fixed;left:12px;right:12px;bottom:calc(62px + var(--sab));z-index:46;padding:6px 12px;background:linear-gradient(145deg,rgba(42,29,73,.98),rgba(27,23,43,.98));border:1px solid rgba(155,125,255,.34);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(111,55,210,.18);display:flex;justify-content:space-between;align-items:center">'+
+    goalBar='<div style="position:fixed;left:12px;right:12px;bottom:calc(62px + var(--sab));z-index:46;padding:6px 12px;background:linear-gradient(145deg,rgba(42,29,73,.98),rgba(27,23,43,.98));border:1px solid rgba(243,137,178,.34);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(210,55,115,.18);display:flex;justify-content:space-between;align-items:center">'+
       '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">Цель</div><div style="font-size:14px;font-weight:800;color:#fff">'+goalTargetW+' кг</div></div>'+
       (weightKg!=null?'<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">Сейчас</div><div style="font-size:14px;font-weight:800;color:#fff">'+weightKg+' кг</div></div>':'')+
       '<div style="text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">'+(reached?'Результат':(losing?'Осталось':'Набрать'))+'</div><div style="font-size:14px;font-weight:800;color:'+(reached?'var(--good)':'#C88CA3')+'">'+(reached?'🎉 Цель!':(remKg!=null?remKg+' кг':'—'))+'</div></div>'+
     '</div>';
   }
-  var h='<div style="position:relative;overflow:hidden;background:radial-gradient(circle at 88% 0,rgba(170,91,255,.22),transparent 42%),linear-gradient(145deg,#F8EFF2,#F1DEE5);border:1px solid rgba(155,125,255,.28);padding:calc(8px + var(--sat)) 14px 10px;border-radius:0 0 26px 26px;color:#fff;box-shadow:0 14px 35px rgba(42,22,79,.18)">'+
+  var h='<div style="position:relative;overflow:hidden;background:radial-gradient(circle at 88% 0,rgba(240,106,158,.22),transparent 42%),linear-gradient(145deg,#F8EFF2,#F1DEE5);border:1px solid rgba(243,137,178,.28);padding:calc(8px + var(--sat)) 14px 10px;border-radius:0 0 26px 26px;color:#fff;box-shadow:0 14px 35px rgba(42,22,79,.18)">'+
     '<div style="position:relative;display:flex;align-items:center;justify-content:center;min-height:52px">'+
-      '<button onclick="openDateCal()" style="position:absolute;left:0;padding:6px;color:#a855f7" aria-label="Выбрать дату"><svg viewBox="0 0 24 24" style="width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>'+
-      '<div style="text-align:center"><div style="font-size:18px;font-weight:900;letter-spacing:-.2px">Дневник питания</div><div style="font-size:11px;font-weight:700;color:#b98cff;text-transform:capitalize;margin-top:1px">'+niceDate(date)+'</div></div>'+    '</div>'+
+      '<button onclick="openDateCal()" style="position:absolute;left:0;padding:6px;color:#ef5d96" aria-label="Выбрать дату"><svg viewBox="0 0 24 24" style="width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>'+
+      '<div style="text-align:center"><div style="font-size:18px;font-weight:900;letter-spacing:-.2px">Дневник питания</div><div style="font-size:11px;font-weight:700;color:#e0508a;text-transform:capitalize;margin-top:1px">'+niceDate(date)+'</div></div>'+    '</div>'+
     '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:2px;margin-top:2px">'+
       '<div style="min-width:0;text-align:center"><div style="font-size:22px;font-weight:800;letter-spacing:-.5px">'+budget+'</div><div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">норма</div>'+(burned>0?'<div style="color:var(--good);font-size:10px;font-weight:800;margin-top:1px">+'+burned+'</div>':'')+'</div>'+
       calorieRingSVG(eaten.kcal,budget,164,14,over?'var(--alert)':'#b87994','#FFFFFF')+
@@ -984,10 +991,10 @@ function renderToday(){
       '</button>';
   });
   if(hiddenOptional.length){
-    h+='<button style="display:flex;align-items:center;width:100%;background:rgba(155,125,255,.06);border:1px dashed rgba(155,125,255,.25);border-radius:16px;padding:7px 10px;margin-bottom:6px;text-align:left;gap:9px" onclick="addExtraMeal(\''+hiddenOptional[0].key+'\')">'+
-      '<div style="width:34px;height:34px;min-width:34px;border-radius:11px;background:rgba(155,125,255,.12);display:flex;align-items:center;justify-content:center;color:#b98cff;font-size:22px">＋</div>'+
-      '<div style="flex:1;font-size:12.5px;font-weight:800;color:#bda8ff">Добавить приём пищи</div>'+
-      '<div style="color:#b98cff;font-size:16px;font-weight:800">›</div></button>';
+    h+='<button style="display:flex;align-items:center;width:100%;background:rgba(243,137,178,.06);border:1px dashed rgba(243,137,178,.25);border-radius:16px;padding:7px 10px;margin-bottom:6px;text-align:left;gap:9px" onclick="addExtraMeal(\''+hiddenOptional[0].key+'\')">'+
+      '<div style="width:34px;height:34px;min-width:34px;border-radius:11px;background:rgba(243,137,178,.12);display:flex;align-items:center;justify-content:center;color:#e0508a;font-size:22px">＋</div>'+
+      '<div style="flex:1;font-size:12.5px;font-weight:800;color:#d24f86">Добавить приём пищи</div>'+
+      '<div style="color:#e0508a;font-size:16px;font-weight:800">›</div></button>';
   }
   h+='</div>';
   // coach column — only relevant for the current day
@@ -1002,7 +1009,7 @@ function renderToday(){
     h+='<div style="flex:.75;min-width:0;display:flex;flex-direction:column;text-align:left;border-radius:16px;border:1px solid var(--primaryDim);background:linear-gradient(160deg,#FFF9FB,#F6E8EE);padding:9px">'+
       '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="font-size:13px">🌸</div><div style="color:var(--primary);font-size:11px;font-weight:800">Совет тренера</div>'+(todayLocal.tipLoading?'<span class="spin" style="width:9px;height:9px;margin:0 0 0 2px;border-width:1.5px"></span>':'')+'</div>'+
       '<div style="color:var(--text);font-size:11px;line-height:14px">'+esc(todayLocal.aiTip||advice).replace(/[🔥💪]/g,'').replace(/\s{2,}/g,' ')+'</div>'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px"><button onclick="askAlina(true)" style="border:1px solid rgba(155,125,255,.35);border-radius:999px;padding:4px 9px;color:#bda8ff;font-size:10px;font-weight:800;background:rgba(155,125,255,.10)">Обновить</button><img src="img/trainer.png" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(155,125,255,.6)"></div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px"><button onclick="askAlina(true)" style="border:1px solid rgba(243,137,178,.35);border-radius:999px;padding:4px 9px;color:#d24f86;font-size:10px;font-weight:800;background:rgba(243,137,178,.10)">Обновить</button><img src="img/trainer.png" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid var(--primary);box-shadow:0 0 8px rgba(243,137,178,.6)"></div>'+
       '</div>';
   }
   h+='</div>'+goalBar+'</div>';
@@ -1100,8 +1107,8 @@ function checkMealDecisionPrompt(){
 }
 function renderMealDecision(){
   var key=ui.mealDecision,info=MEAL_REMIND_INFO[key]; if(!info)return '';
-  return '<div class="overlay center" style="z-index:170;background:rgba(7,6,12,.78)"><div class="dialog" style="max-width:350px;text-align:center;background:linear-gradient(155deg,#20172f,#17141f);border-color:rgba(155,125,255,.46);box-shadow:0 24px 70px rgba(0,0,0,.45)">'+
-    '<div style="width:58px;height:58px;margin:0 auto 12px;border-radius:19px;display:flex;align-items:center;justify-content:center;background:rgba(155,125,255,.15);border:1px solid rgba(155,125,255,.28);font-size:28px">'+info.emoji+'</div>'+
+  return '<div class="overlay center" style="z-index:170;background:rgba(7,6,12,.78)"><div class="dialog" style="max-width:350px;text-align:center;background:linear-gradient(155deg,#20172f,#17141f);border-color:rgba(243,137,178,.46);box-shadow:0 24px 70px rgba(0,0,0,.45)">'+
+    '<div style="width:58px;height:58px;margin:0 auto 12px;border-radius:19px;display:flex;align-items:center;justify-content:center;background:rgba(243,137,178,.15);border:1px solid rgba(243,137,178,.28);font-size:28px">'+info.emoji+'</div>'+
     '<div style="font-size:22px;font-weight:900">Ты '+esc(info.verb)+'?</div>'+
     '<div class="muted" style="font-size:14px;line-height:20px;margin:7px 8px 17px">Выбери один вариант — и я больше не буду повторять одно и то же уведомление.</div>'+
     '<button class="btn" onclick="mealDecisionRecord()">Записать '+esc(info.noun)+'</button>'+
@@ -1137,8 +1144,8 @@ function renderMealSheet(){
           (grams?'<span>'+grams+' г</span>':'')+(x.time?'<span>'+esc(x.time)+'</span>':'')+
           '<span style="margin-left:auto">Б '+r1(x.protein)+' · Ж '+r1(x.fat)+' · У '+r1(x.carbs)+' г</span></div></div></div>';
     });
-    h+='<div style="background:linear-gradient(145deg,rgba(91,55,160,.42),rgba(41,30,67,.7));border:1px solid rgba(155,125,255,.38);border-radius:15px;padding:11px 12px;margin-top:8px">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:900">Итого — '+esc(m.label.toLowerCase())+'</span><span style="color:#c8a9ff;font-size:17px;font-weight:900">'+Math.round(totals.kcal)+' ккал</span></div>'+
+    h+='<div style="background:linear-gradient(145deg,rgba(160,55,96,.42),rgba(41,30,67,.7));border:1px solid rgba(243,137,178,.38);border-radius:15px;padding:11px 12px;margin-top:8px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:900">Итого — '+esc(m.label.toLowerCase())+'</span><span style="color:#f7b1cc;font-size:17px;font-weight:900">'+Math.round(totals.kcal)+' ккал</span></div>'+
       '<div style="font-size:12px;color:var(--text);margin-top:5px">Белки '+r1(totals.protein)+' г · Жиры '+r1(totals.fat)+' г · Углеводы '+r1(totals.carbs)+' г</div></div></div>';
   } else { h+='<p class="muted" style="margin-bottom:8px">Пока пусто. Добавь, что съела:</p>'; }
   h+='<div class="row g8">'+
@@ -1329,7 +1336,7 @@ function manualCustomForm(){
 function manualPending(){
   var m=ui.manual; if(!m.pending.length) return '';
   var total=m.pending.reduce(function(a,i){return a+i.kcal;},0);
-  var h='<div style="background:linear-gradient(145deg,rgba(64,47,94,.55),rgba(31,29,40,.92));border:1px solid rgba(155,125,255,.30);border-radius:16px;padding:10px 12px;margin:6px 0 10px"><div style="color:var(--primary);font-size:12px;font-weight:900;margin-bottom:3px">Добавлено</div>';
+  var h='<div style="background:linear-gradient(145deg,rgba(64,47,94,.55),rgba(31,29,40,.92));border:1px solid rgba(243,137,178,.30);border-radius:16px;padding:10px 12px;margin:6px 0 10px"><div style="color:var(--primary);font-size:12px;font-weight:900;margin-bottom:3px">Добавлено</div>';
   m.pending.forEach(function(it,idx){ h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:15px">'+esc(it.name)+'</span>'+(it.grams?'<span class="muted" style="margin-right:8px">'+it.grams+' г</span>':'')+'<span style="color:var(--accent);font-weight:800;margin-right:8px">'+it.kcal+' ккал</span><button style="color:var(--danger);padding:4px" onclick="maРremovePending('+idx+')">✕</button></div>'; });
   h+='<div style="display:flex;align-items:center;gap:10px;background:var(--cardAlt);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-top:8px">'+
     '<span style="font-size:18px">🕐</span><span style="font-size:14px;font-weight:700;color:var(--text)">Во сколько ела?</span>'+
@@ -1913,10 +1920,10 @@ function renderProgress(){
     var areaD=pathD+' L'+pts[pts.length-1][0].toFixed(1)+' '+(H-pad)+' L'+pts[0][0].toFixed(1)+' '+(H-pad)+' Z';
     h+='<div class="card"><div style="font-size:15px;font-weight:800;margin-bottom:8px">График веса</div>'+
       '<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="overflow:visible">'+
-      '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8B5CF6" stop-opacity=".4"/><stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/></linearGradient></defs>'+
+      '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f06299" stop-opacity=".4"/><stop offset="100%" stop-color="#f06299" stop-opacity="0"/></linearGradient></defs>'+
       '<path d="'+areaD+'" fill="url(#wg)"/>'+
-      '<path d="'+pathD+'" fill="none" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'+
-      pts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.5" fill="#8B5CF6"/>';}).join('')+
+      '<path d="'+pathD+'" fill="none" stroke="#f06299" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'+
+      pts.map(function(p){return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.5" fill="#f06299"/>';}).join('')+
       '<text x="'+pad+'" y="'+(H-pad+14)+'" fill="rgba(255,255,255,.4)" font-size="10">'+weights[0].date.slice(5)+'</text>'+
       '<text x="'+(W-pad)+'" y="'+(H-pad+14)+'" fill="rgba(255,255,255,.4)" font-size="10" text-anchor="end">'+weights[weights.length-1].date.slice(5)+'</text>'+
       '<text x="'+pad+'" y="'+(pts[0][1]-6)+'" fill="rgba(255,255,255,.6)" font-size="11">'+minK+'</text>'+
@@ -1937,7 +1944,7 @@ function renderProgress(){
       var bx=10+i*(barW+2);
       var by=BH-bh;
       var over=x.kcal>target;
-      h+='<rect x="'+bx+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="3" fill="'+(over?'#f87171':'#8B5CF6')+'"/>';
+      h+='<rect x="'+bx+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="3" fill="'+(over?'#f87171':'#f06299')+'"/>';
     });
     // target line
     var tY=Math.round(BH-(target/maxKcal)*(BH-16));
@@ -1945,7 +1952,7 @@ function renderProgress(){
       '<text x="'+(BW-6)+'" y="'+(tY-3)+'" fill="#34d399" font-size="9" text-anchor="end">цель</text>';
     h+='</svg>'+
       '<div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:10px;color:var(--textDim)">14 дней назад</span><span style="font-size:10px;color:var(--textDim)">сегодня</span></div>'+
-      '<div style="display:flex;gap:12px;margin-top:6px"><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:10px;border-radius:2px;background:#8B5CF6;display:inline-block"></span>норма</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:10px;border-radius:2px;background:#f87171;display:inline-block"></span>перебор</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:2px;background:#34d399;display:inline-block"></span>цель</span></div>'+
+      '<div style="display:flex;gap:12px;margin-top:6px"><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:10px;border-radius:2px;background:#f06299;display:inline-block"></span>норма</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:10px;border-radius:2px;background:#f87171;display:inline-block"></span>перебор</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--textDim)"><span style="width:10px;height:2px;background:#34d399;display:inline-block"></span>цель</span></div>'+
     '</div>';
   }
   // Weight log list
@@ -2077,7 +2084,7 @@ function workoutRingSVG(mins,maxMins,sz,sw){
   return '<div class="ringWrap" style="width:'+sz+'px;height:'+visH+'px;margin:0 2px">'+
     '<svg width="'+bW+'" height="'+bH+'" style="position:absolute;left:'+(-pad)+'px;top:'+(-pad)+'px">'+
     '<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse" x1="'+p0[0].toFixed(1)+'" y1="'+p0[1].toFixed(1)+'" x2="'+p1[0].toFixed(1)+'" y2="'+p1[1].toFixed(1)+'">'+
-    '<stop offset="0%" stop-color="#8B2FFF"/><stop offset="50%" stop-color="#EBD4FF"/><stop offset="100%" stop-color="#B968FF"/>'+
+    '<stop offset="0%" stop-color="#ec4284"/><stop offset="50%" stop-color="#fbd8e6"/><stop offset="100%" stop-color="#f176a6"/>'+
     '</linearGradient><filter id="'+fid+'" x="-120%" y="-120%" width="340%" height="340%">'+
     '<feGaussianBlur in="SourceGraphic" stdDeviation="11" result="wide"/><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="mid"/>'+
     '<feMerge><feMergeNode in="wide"/><feMergeNode in="mid"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>'+
@@ -2098,18 +2105,18 @@ function workoutEnergyHero(){
   var activityBurn=Math.round(todaysActivities.reduce(function(s,a){return s+(Number(a.kcal)||0);},0));
   var total=workoutBurn+activityBurn;
   var status=todaysWorkouts.length?'Тренировка записана':'Тренировка ещё не записана';
-  return '<div style="position:relative;overflow:hidden;background:linear-gradient(145deg,#1d123d,#2b1e55);border:1px solid rgba(155,125,255,.42);border-radius:25px;padding:18px 18px 16px;margin-bottom:12px;box-shadow:0 14px 35px rgba(57,25,112,.20)">'+
-    '<div style="position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(153,66,255,.20);filter:blur(35px);right:-50px;top:-90px"></div>'+
+  return '<div style="position:relative;overflow:hidden;background:linear-gradient(145deg,#1d123d,#2b1e55);border:1px solid rgba(243,137,178,.42);border-radius:25px;padding:18px 18px 16px;margin-bottom:12px;box-shadow:0 14px 35px rgba(57,25,112,.20)">'+
+    '<div style="position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(238,83,143,.20);filter:blur(35px);right:-50px;top:-90px"></div>'+
     '<div style="position:relative;display:flex;align-items:center;gap:16px">'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:11px;color:#c7b9df;font-weight:700;letter-spacing:.5px">ПОТРАЧЕНО СЕГОДНЯ</div>'+
-        '<div style="display:flex;align-items:baseline;gap:7px;margin:5px 0 2px"><span style="font-size:46px;line-height:1;font-weight:900;color:#fff;text-shadow:0 0 22px rgba(185,104,255,.45)">'+total+'</span><span style="font-size:14px;font-weight:800;color:#bda8dc">ккал</span></div>'+
+        '<div style="font-size:11px;color:#dfb9c8;font-weight:700;letter-spacing:.5px">ПОТРАЧЕНО СЕГОДНЯ</div>'+
+        '<div style="display:flex;align-items:baseline;gap:7px;margin:5px 0 2px"><span style="font-size:46px;line-height:1;font-weight:900;color:#fff;text-shadow:0 0 22px rgba(241,118,166,.45)">'+total+'</span><span style="font-size:14px;font-weight:800;color:#dca8bc">ккал</span></div>'+
         '<div style="font-size:11px;color:'+(todaysWorkouts.length?'#54dfa9':'rgba(255,255,255,.48)')+';font-weight:700">'+status+'</div>'+
       '</div>'+
       '<div style="width:145px;background:rgba(8,7,15,.25);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:11px 12px">'+
-        '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px"><span style="font-size:11px;color:#c7b9df">Тренировки</span><span style="font-size:12px;color:#fff;font-weight:800">'+workoutBurn+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px"><span style="font-size:11px;color:#dfb9c8">Тренировки</span><span style="font-size:12px;color:#fff;font-weight:800">'+workoutBurn+'</span></div>'+
         '<div style="height:1px;background:rgba(255,255,255,.08);margin-bottom:8px"></div>'+
-        '<div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:11px;color:#c7b9df">Нагрузка</span><span style="font-size:12px;color:#fff;font-weight:800">'+activityBurn+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:11px;color:#dfb9c8">Нагрузка</span><span style="font-size:12px;color:#fff;font-weight:800">'+activityBurn+'</span></div>'+
       '</div>'+
     '</div>'+
     '<div style="position:relative;font-size:10px;color:rgba(255,255,255,.30);margin-top:10px">По данным, которые записаны в приложении</div>'+
@@ -2131,17 +2138,17 @@ function workoutWeekWidget(plan,wDays){
     var hasWorkout=(wDays||[]).includes(jsDay);
     daysHtml+='<button style="flex:1;text-align:center;min-width:0;padding:0;border:0;background:transparent;color:inherit" onclick="workoutWeekDaySelect(\''+ds+'\')">'+
       '<div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:700">'+labels[i]+'</div>'+
-      '<div style="width:27px;height:27px;margin:4px auto 5px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+(isNext?'#8B2FFF':'transparent')+';color:#fff">'+d.getDate()+'</div>'+
+      '<div style="width:27px;height:27px;margin:4px auto 5px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+(isNext?'#ec4284':'transparent')+';color:#fff">'+d.getDate()+'</div>'+
       '<div style="width:16px;height:3px;border-radius:3px;margin:auto;background:'+(hasWorkout?'#f05c94':'rgba(255,255,255,.10)')+'"></div>'+
     '</button>';
   }
   var nextLabel=nextDate?nextDate.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric'}):'не запланирована';
   var title=payload?payload.title:'Нет активного расписания';
   var duration=payload?'≈ '+payload.durationMinutes+' мин':'';
-  return '<div style="background:radial-gradient(circle at 90% 0,rgba(139,47,255,.28),transparent 48%),#090811;border:1px solid rgba(155,125,255,.35);border-radius:24px;padding:16px;margin-bottom:12px">'+
-    '<div style="font-size:11px;letter-spacing:1.2px;color:#bbb0d0;font-weight:800;margin-bottom:14px">ТРЕНЕР АЛИНЫ</div>'+
+  return '<div style="background:radial-gradient(circle at 90% 0,rgba(236,66,132,.28),transparent 48%),#090811;border:1px solid rgba(243,137,178,.35);border-radius:24px;padding:16px;margin-bottom:12px">'+
+    '<div style="font-size:11px;letter-spacing:1.2px;color:#d0b0bc;font-weight:800;margin-bottom:14px">ТРЕНЕР АЛИНЫ</div>'+
     '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">'+
-      '<div style="flex:1;min-width:0"><div style="font-size:11px;color:#bbb0d0;font-weight:600">Следующая тренировка</div><div style="font-size:19px;font-weight:900;color:#fff;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(nextLabel)+'</div></div>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:11px;color:#d0b0bc;font-weight:600">Следующая тренировка</div><div style="font-size:19px;font-weight:900;color:#fff;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(nextLabel)+'</div></div>'+
       '<div style="max-width:50%;text-align:right"><div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(title)+'</div><div style="font-size:12px;color:#f05c94;font-weight:800">'+duration+'</div></div>'+
     '</div>'+
     '<div style="display:flex;gap:0">'+daysHtml+'</div>'+
@@ -2156,15 +2163,15 @@ function workoutSelectedDayCard(){
   if(!ds)return'';
   var weightKg=latestWeight(state);
   var info=daySummary(ds,state.workouts||[],state.activities||[],state.workoutDays||[],weightKg,todayStr());
-  var h='<div style="background:rgba(155,125,255,.08);border:1px solid rgba(155,125,255,.28);border-radius:18px;padding:13px 14px;margin:-2px 0 12px">'+
+  var h='<div style="background:rgba(243,137,178,.08);border:1px solid rgba(243,137,178,.28);border-radius:18px;padding:13px 14px;margin:-2px 0 12px">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
-      '<div style="font-size:13px;font-weight:800;color:#bda8ff">'+esc(info.label)+'</div>'+
+      '<div style="font-size:13px;font-weight:800;color:#d24f86">'+esc(info.label)+'</div>'+
       '<button style="font-size:17px;color:rgba(255,255,255,.45);padding:2px 5px" onclick="workoutLocal.weekSel=null;render()">×</button>'+
     '</div>'+
     '<div style="font-size:12px;line-height:18px;color:'+(info.missed?'#f0c36b':'rgba(255,255,255,.72)')+';white-space:pre-line;margin-top:4px">'+esc(info.text)+'</div>';
   if(info.workout){
     h+='<div style="display:flex;gap:8px;margin-top:10px">'+
-      '<button style="flex:1;padding:8px;border-radius:10px;background:rgba(155,125,255,.16);color:#bda8ff;font-size:12px;font-weight:800" onclick="workoutEditDone(\''+info.workout.id+'\')">Изменить</button>'+
+      '<button style="flex:1;padding:8px;border-radius:10px;background:rgba(243,137,178,.16);color:#d24f86;font-size:12px;font-weight:800" onclick="workoutEditDone(\''+info.workout.id+'\')">Изменить</button>'+
       '<button style="padding:8px 12px;border-radius:10px;background:rgba(240,138,148,.10);color:#f08a94;font-size:12px;font-weight:800" onclick="workoutDelDone(\''+info.workout.id+'\')">Удалить</button>'+
     '</div>';
   }
@@ -2174,17 +2181,17 @@ function workoutDashboard(){
   var plan=state.workoutPlan;var wl=workoutLocal;var wDays=state.workoutDays||[];
   var wkg=latestWeight(state);var tdIdx=todayPlanDayIdx(plan,wDays);
   var coachMsg=workoutCoachMsg(state);
-  var coachBd=coachMsg.type==='warn'?'rgba(239,68,68,0.35)':coachMsg.type==='go'?'rgba(139,92,246,0.5)':'rgba(255,255,255,0.1)';
-  var coachBg=coachMsg.type==='warn'?'rgba(239,68,68,0.07)':coachMsg.type==='go'?'rgba(139,92,246,0.08)':'rgba(255,255,255,0.03)';
+  var coachBd=coachMsg.type==='warn'?'rgba(239,68,68,0.35)':coachMsg.type==='go'?'rgba(240,98,153,0.5)':'rgba(255,255,255,0.1)';
+  var coachBg=coachMsg.type==='warn'?'rgba(239,68,68,0.07)':coachMsg.type==='go'?'rgba(240,98,153,0.08)':'rgba(255,255,255,0.03)';
   var coachCard='<div style="background:'+coachBg+';border:1px solid '+coachBd+';border-radius:20px;padding:14px;margin-bottom:12px;display:flex;align-items:center;gap:12px">'+
-    '<div style="width:8px;height:38px;border-radius:8px;background:linear-gradient(#B968FF,#7C3AED);flex-shrink:0"></div>'+
-    '<div style="flex:1;min-width:0"><div style="color:#a78bfa;font-size:10px;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px">Совет тренера</div>'+
+    '<div style="width:8px;height:38px;border-radius:8px;background:linear-gradient(#f176a6,#ec3b80);flex-shrink:0"></div>'+
+    '<div style="flex:1;min-width:0"><div style="color:#f491b8;font-size:10px;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px">Совет тренера</div>'+
     '<div style="font-size:13px;line-height:18px;color:rgba(255,255,255,0.85)">'+esc(coachMsg.text)+'</div></div>'+
-    '<img src="img/trainer.png" style="width:50px;height:50px;border-radius:25px;object-fit:cover;object-position:center top;border:2px solid rgba(139,92,246,0.4);flex-shrink:0" onerror="this.style.display=\'none\'">'+
+    '<img src="img/trainer.png" style="width:50px;height:50px;border-radius:25px;object-fit:cover;object-position:center top;border:2px solid rgba(240,98,153,0.4);flex-shrink:0" onerror="this.style.display=\'none\'">'+
   '</div>';
   return '<div class="body-pad">'+
     '<div style="text-align:center;padding:max(10px,var(--sat)) 0 14px"><div style="font-size:22px;font-weight:900;color:#fff">Тренировки</div>'+
-    '<div style="font-size:13px;color:#8B5CF6;font-weight:700;margin-top:2px">Расписание и прогресс</div></div>'+
+    '<div style="font-size:13px;color:#f06299;font-weight:700;margin-top:2px">Расписание и прогресс</div></div>'+
     workoutEnergyHero()+workoutWeekWidget(plan,wDays)+workoutSelectedDayCard()+workoutTypeProgressRow(plan)+workoutTodayPlanSection(plan,wDays,wkg,tdIdx)+
     workoutProgramsSection(plan)+coachCard+
   '</div>';
@@ -2201,30 +2208,30 @@ function workoutTypeProgressRow(plan){
   return '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:14px 16px;margin-bottom:12px">'+
     '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:9px">'+
       '<div><div style="font-size:14px;font-weight:800;color:#fff">Прогресс за месяц</div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">Только записанные тренировки</div></div>'+
-      '<div style="font-size:18px;font-weight:900;color:#a78bfa">'+done+' <span style="font-size:11px;color:rgba(255,255,255,.4);font-weight:700">из '+target+'</span></div>'+
+      '<div style="font-size:18px;font-weight:900;color:#f491b8">'+done+' <span style="font-size:11px;color:rgba(255,255,255,.4);font-weight:700">из '+target+'</span></div>'+
     '</div>'+
-    '<div style="height:6px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden"><div style="height:100%;width:'+Math.round(pct*100)+'%;background:linear-gradient(90deg,#7C3AED,#B968FF);border-radius:6px"></div></div>'+
+    '<div style="height:6px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden"><div style="height:100%;width:'+Math.round(pct*100)+'%;background:linear-gradient(90deg,#ec3b80,#f176a6);border-radius:6px"></div></div>'+
   '</div>';
 }
 function workoutTodayPlanSection(plan,wDays,wkg,tdIdx){
   if(!plan||!plan.days||!plan.days.length){
     return'<div style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:10px">План на сегодня</div>'+
-      '<div style="background:rgba(139,92,246,0.07);border:1px dashed rgba(139,92,246,0.3);border-radius:16px;padding:20px;text-align:center">'+
+      '<div style="background:rgba(240,98,153,0.07);border:1px dashed rgba(240,98,153,0.3);border-radius:16px;padding:20px;text-align:center">'+
       '<div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:8px">Нет активной программы тренировок</div>'+
       '<button class="btn" style="font-size:13px" onclick="workoutLocal.phase=\'setup\';render()">Подобрать программу 🌸</button></div></div>';
   }
   var h='<div style="margin-bottom:12px">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+
     '<div style="font-size:16px;font-weight:800;color:#fff">План на сегодня</div>'+
-    '<button onclick="workoutStartEdit()" style="display:flex;align-items:center;border:1px solid rgba(139,92,246,0.4);border-radius:999px;padding:5px 10px;background:rgba(139,92,246,0.1);color:#a78bfa;font-size:11px;font-weight:700">Изменить план</button></div>';
+    '<button onclick="workoutStartEdit()" style="display:flex;align-items:center;border:1px solid rgba(240,98,153,0.4);border-radius:999px;padding:5px 10px;background:rgba(240,98,153,0.1);color:#f491b8;font-size:11px;font-weight:700">Изменить план</button></div>';
   plan.days.forEach(function(day,di){
     var isToday=di===tdIdx;
     var mins=wDayMins(day);var kcal=wDayKcal(day,wkg);var photo=wDayPhoto(day);
-    var bg=isToday?'rgba(139,92,246,0.15)':'rgba(255,255,255,0.03)';
-    var bd=isToday?'1px solid rgba(139,92,246,0.5)':'1px solid rgba(255,255,255,0.06)';
-    var arrBg=isToday?'#7C3AED':'rgba(255,255,255,0.1)';
+    var bg=isToday?'rgba(240,98,153,0.15)':'rgba(255,255,255,0.03)';
+    var bd=isToday?'1px solid rgba(240,98,153,0.5)':'1px solid rgba(255,255,255,0.06)';
+    var arrBg=isToday?'#ec3b80':'rgba(255,255,255,0.1)';
     h+='<button style="width:100%;background:'+bg+';border:'+bd+';border-radius:16px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;text-align:left" onclick="workoutLocal.dayDetail='+di+';render()">'+
-      '<img src="'+photo+'" style="width:56px;height:56px;border-radius:28px;object-fit:cover;flex-shrink:0;border:2px solid rgba(139,92,246,0.35)" onerror="this.style.display=\'none\'">'+
+      '<img src="'+photo+'" style="width:56px;height:56px;border-radius:28px;object-fit:cover;flex-shrink:0;border:2px solid rgba(240,98,153,0.35)" onerror="this.style.display=\'none\'">'+
       '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:3px">'+esc(tidyDayTitle(day.title,di))+'</div>'+
       '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:rgba(255,255,255,0.45)">⏱ '+mins+' мин</span><span style="font-size:11px;color:rgba(255,255,255,0.45)">🔥 ~'+kcal+' ккал</span></div>'+
       '</div><div style="width:30px;height:30px;border-radius:15px;background:'+arrBg+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-weight:800;font-size:13px">→</span></div>'+
@@ -2247,12 +2254,12 @@ function workoutProgramsSection(plan){
     '<div style="display:flex;gap:8px">'+
     '<div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:12px;cursor:pointer" onclick="workoutLocal.showProg=!workoutLocal.showProg;render()">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
-      '<div style="width:34px;height:34px;border-radius:10px;background:rgba(139,92,246,0.2);display:flex;align-items:center;justify-content:center;font-size:17px">'+planIcon+'</div>'+
+      '<div style="width:34px;height:34px;border-radius:10px;background:rgba(240,98,153,0.2);display:flex;align-items:center;justify-content:center;font-size:17px">'+planIcon+'</div>'+
       '<span style="color:rgba(255,255,255,0.4);font-size:16px">›</span></div>'+
       '<div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:2px">'+esc(planName)+'</div>'+
       '<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:8px">'+weeks+' нед • '+level+'</div>'+
-      '<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.1);overflow:hidden;margin-bottom:3px"><div style="height:100%;width:'+Math.round(pct*100)+'%;background:linear-gradient(90deg,#7C3AED,#B968FF)"></div></div>'+
-      '<div style="color:#8B5CF6;font-size:10px;font-weight:700;text-align:right">'+Math.round(pct*100)+'%</div>'+
+      '<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.1);overflow:hidden;margin-bottom:3px"><div style="height:100%;width:'+Math.round(pct*100)+'%;background:linear-gradient(90deg,#ec3b80,#f176a6)"></div></div>'+
+      '<div style="color:#f06299;font-size:10px;font-weight:700;text-align:right">'+Math.round(pct*100)+'%</div>'+
     '</div>'+
     '<div style="flex:1;background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);border-radius:16px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer" onclick="workoutNewProgram()">'+
       '<div style="width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:18px">✨</div>'+
@@ -2472,7 +2479,7 @@ function renderWorkoutLog(){
     '<div style="height:10px;border-radius:5px;background:var(--cardAlt);overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+Math.round(progress*100)+'%;background:'+(progress>=1?'var(--accent)':'var(--primary)')+'"></div></div>';
   wl.ex.forEach(function(e,i){
     var d=exDone(e);
-    h+='<div style="background:var(--cardAlt);border:1px solid '+(d?'var(--accent)':'var(--line)')+';border-radius:16px;padding:12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><img src="'+exerciseImage(e)+'" alt="" style="width:54px;height:54px;border-radius:14px;object-fit:cover;border:1px solid rgba(155,125,255,.35);background:#241c3d"><div style="flex:1;min-width:0;font-size:15px;font-weight:700;line-height:19px">'+(d?'✓ ':'')+esc(e)+'</div><button aria-label="Переименовать упражнение" style="width:32px;height:32px;color:var(--primary)" onclick="wlogStartRename('+i+')">✎</button><button aria-label="Удалить упражнение" style="width:32px;height:32px;color:var(--danger)" onclick="wlogRemoveExercise('+i+')">✕</button></div>'+
+    h+='<div style="background:var(--cardAlt);border:1px solid '+(d?'var(--accent)':'var(--line)')+';border-radius:16px;padding:12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><img src="'+exerciseImage(e)+'" alt="" style="width:54px;height:54px;border-radius:14px;object-fit:cover;border:1px solid rgba(243,137,178,.35);background:#241c3d"><div style="flex:1;min-width:0;font-size:15px;font-weight:700;line-height:19px">'+(d?'✓ ':'')+esc(e)+'</div><button aria-label="Переименовать упражнение" style="width:32px;height:32px;color:var(--primary)" onclick="wlogStartRename('+i+')">✎</button><button aria-label="Удалить упражнение" style="width:32px;height:32px;color:var(--danger)" onclick="wlogRemoveExercise('+i+')">✕</button></div>'+
       (wl.renameIndex===i?'<div style="display:flex;gap:6px;margin-top:9px"><input class="field" style="padding:9px;min-width:0" value="'+esc(wl.renameValue)+'" oninput="ui.wlog.renameValue=this.value" onkeydown="if(event.key===\'Enter\'){event.preventDefault();wlogSaveRename()}"><button class="btn" style="width:auto;padding:9px 12px" onclick="wlogSaveRename()">Сохранить</button></div>':'');
     (wl.log[e]||[]).forEach(function(s,si){
       h+='<div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span class="muted" style="width:18px">'+(si+1)+'.</span>'+
@@ -2483,7 +2490,7 @@ function renderWorkoutLog(){
     });
     h+='<button style="padding:6px 0;color:var(--primary);font-weight:700;font-size:13px" onclick="wlogAddSet('+i+')">＋ подход</button></div>';
   });
-  h+='<div style="border:1px dashed rgba(155,125,255,.5);border-radius:14px;padding:9px;margin:2px 0 8px"><div style="color:var(--primary);font-size:13px;font-weight:800;margin-bottom:6px">Своё упражнение</div><div style="display:flex;gap:6px"><input id="wlog-new-exercise" class="field" style="padding:9px;min-width:0" placeholder="Например, тяга гантели" value="'+esc(wl.newExercise||'')+'" oninput="wlogNewExercise(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();wlogAddExercise()}"><button id="wlog-add-exercise" class="btn" style="width:auto;padding:9px 13px" onclick="wlogAddExercise()" '+((wl.newExercise||'').trim()?'':'disabled')+'>Добавить</button></div></div>'+
+  h+='<div style="border:1px dashed rgba(243,137,178,.5);border-radius:14px;padding:9px;margin:2px 0 8px"><div style="color:var(--primary);font-size:13px;font-weight:800;margin-bottom:6px">Своё упражнение</div><div style="display:flex;gap:6px"><input id="wlog-new-exercise" class="field" style="padding:9px;min-width:0" placeholder="Например, тяга гантели" value="'+esc(wl.newExercise||'')+'" oninput="wlogNewExercise(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();wlogAddExercise()}"><button id="wlog-add-exercise" class="btn" style="width:auto;padding:9px 13px" onclick="wlogAddExercise()" '+((wl.newExercise||'').trim()?'':'disabled')+'>Добавить</button></div></div>'+
   (wl.editingId?'<button class="btn danger" style="margin:4px 0 8px" onclick="workoutAskDelete(\''+wl.editingId+'\')">Удалить эту тренировку</button>':'')+
   '<div class="row g8 mt8"><button class="btn ghost" style="flex:1" onclick="ui.wlog=null;renderModals()">Отмена</button><button class="btn" style="flex:1" onclick="wlogFinish()">Сохранить</button></div></div></div>';
   return h;

@@ -174,7 +174,11 @@ extension WebViewController: WKScriptMessageHandler {
         }
 
         if message.name == "reminders" {
-            importAppleReminders(silent: payload["silent"] as? Bool ?? false)
+            if let id = payload["complete"] as? String {
+                setReminderDone(id: id, done: payload["done"] as? Bool ?? true)
+            } else {
+                importAppleReminders(silent: payload["silent"] as? Bool ?? false)
+            }
             return
         }
         if message.name == "projects" {
@@ -199,6 +203,17 @@ extension WebViewController: WKScriptMessageHandler {
         }
     }
 
+
+    // Marks the Apple reminder behind a planner task done (or not done again).
+    private func setReminderDone(id: String, done: Bool) {
+        let status = EKEventStore.authorizationStatus(for: .reminder)
+        let allowed: Bool
+        if #available(iOS 17.0, *) { allowed = status == .fullAccess } else { allowed = status == .authorized }
+        guard allowed, let reminder = reminderStore.calendarItem(withIdentifier: id) as? EKReminder,
+              reminder.isCompleted != done else { return }
+        reminder.isCompleted = done
+        try? reminderStore.save(reminder, commit: true)
+    }
 
     // Siri reminders dated this week (Mon–Sat) go into the planner, with the time when one is set.
     // silent: the automatic import on app open — no alerts, no prompt after a refusal.
@@ -303,6 +318,12 @@ extension WebViewController: WKScriptMessageHandler {
             DispatchQueue.main.async {
                 self.webView.evaluateJavaScript(javascript) { result, _ in
                     guard (result as? Bool) == true else { return }
+                    // Ticks on reminder-based tasks also close the reminder in Apple Reminders.
+                    for values in toggles.values {
+                        for (id, done) in values where id.hasPrefix("siri:") {
+                            self.setReminderDone(id: String(id.dropFirst(5)), done: done)
+                        }
+                    }
                     // Remove only what was applied; taps made meanwhile stay queued.
                     var currentToggles = defaults.data(forKey: "tasksPendingToggles")
                         .flatMap { try? JSONDecoder().decode([String: [String: Bool]].self, from: $0) } ?? [:]
