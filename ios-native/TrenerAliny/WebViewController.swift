@@ -305,7 +305,7 @@ extension WebViewController: WKScriptMessageHandler {
                         });
                         Object.keys(p.toggles||{}).forEach(function(d){
                             (db[d]||[]).forEach(function(t){
-                                if(Object.prototype.hasOwnProperty.call(p.toggles[d],String(t.id)))t.done=!!p.toggles[d][String(t.id)];
+                                if(Object.prototype.hasOwnProperty.call(p.toggles[d],String(t.id))){t.done=!!p.toggles[d][String(t.id)];var tk=new Date(),tks=tk.getFullYear()+'-'+String(tk.getMonth()+1).padStart(2,'0')+'-'+String(tk.getDate()).padStart(2,'0');if(t.done){if(!t.doneDate)t.doneDate=tks>d?tks:d}else{delete t.doneDate}}
                             });
                         });
                         localStorage.setItem(key,JSON.stringify(db));

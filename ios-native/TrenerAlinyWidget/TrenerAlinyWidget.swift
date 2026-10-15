@@ -412,7 +412,7 @@ struct ToggleRoutineHabitIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let today = RoutineWeek.key(Date())
-        guard dateKey >= "2026-10-15",
+        guard dateKey >= "2026-10-19",
               dateKey <= "2026-11-08", dateKey == today, // finished days are frozen
               let defaults = SharedStore.defaults else { return .result() }
 
@@ -556,7 +556,7 @@ private enum RoutineWeek {
             let day = cal.date(byAdding: .day, value: offset, to: monday) ?? monday
             let key = self.key(day)
             let jsDay = cal.component(.weekday, from: day) - 1
-            let active = key >= "2026-10-15" && key <= "2026-10-31" && jsDay != 0
+            let active = key >= "2026-10-19" && key <= "2026-10-31" && jsDay != 0
             return RoutineWeekDay(date: key, habits: defs.map { def in
                 RoutineWeekHabit(id: def.id, planned: active && def.days.contains(jsDay), done: false)
             })
@@ -865,9 +865,14 @@ private struct DailyTaskItem: Codable, Identifiable {
     let id: String
     let title: String
     var done: Bool
-    let overdue: Bool?
+    var overdue: Bool?
     let time: String?
     var moved: Bool? = nil
+    // From docs/planner-core.js: open | done | overdue | missed, plus the task's own day.
+    var state: String? = nil
+    var note: String? = nil
+    var day: String? = nil
+    var tappable: Bool? = nil
 }
 private struct DailyTaskDay: Codable, Identifiable {
     let date: String
@@ -922,12 +927,24 @@ struct ToggleDailyTaskIntent: AppIntent {
         guard let defaults = SharedStore.defaults,
               let json = defaults.string(forKey: "dailyTasksWidgetPayload"),
               let data = json.data(using: .utf8),
-              var payload = try? JSONDecoder().decode(DailyTaskPayload.self, from: data),
-              let dayIndex = payload.days.firstIndex(where: { $0.date == dateKey }),
-              let taskIndex = payload.days[dayIndex].tasks.firstIndex(where: { $0.id == taskId }) else { return .result() }
+              var payload = try? JSONDecoder().decode(DailyTaskPayload.self, from: data) else { return .result() }
 
-        let newValue = !payload.days[dayIndex].tasks[taskIndex].done
-        payload.days[dayIndex].tasks[taskIndex].done = newValue
+        // The same task can sit in two tiles (its own day as missed, today as overdue);
+        // flip every live entry of it, never the frozen «missed» one.
+        func matches(_ t: DailyTaskItem, tile: String) -> Bool {
+            t.id == taskId && (t.day ?? tile) == dateKey && t.state != "missed" && t.tappable != false
+        }
+        guard let current = payload.days.lazy.compactMap({ d in d.tasks.first(where: { matches($0, tile: d.date) }) }).first,
+              current.tappable != false else { return .result() }
+        let newValue = !current.done
+        for i in payload.days.indices {
+            for j in payload.days[i].tasks.indices where matches(payload.days[i].tasks[j], tile: payload.days[i].date) {
+                payload.days[i].tasks[j].done = newValue
+                let fromPast = (payload.days[i].tasks[j].day ?? payload.days[i].date) < payload.days[i].date
+                payload.days[i].tasks[j].state = newValue ? "done" : (fromPast ? "overdue" : "open")
+                payload.days[i].tasks[j].overdue = !newValue && fromPast
+            }
+        }
         if let encoded = try? JSONEncoder().encode(payload),
            let string = String(data: encoded, encoding: .utf8) {
             defaults.set(string, forKey: "dailyTasksWidgetPayload")
@@ -951,10 +968,11 @@ private struct DailyTasksWidgetView: View {
     private let rose = Color(red: 0.94, green: 0.36, blue: 0.58)
     private let ink = Color(red: 0.11, green: 0.11, blue: 0.13)
     private let faded = Color(red: 0.60, green: 0.60, blue: 0.64)
-    private let ring = Color(red: 0.76, green: 0.76, blue: 0.80)
+    private let ring = Color(red: 0.78, green: 0.78, blue: 0.82)
     private let late = Color(red: 0.90, green: 0.28, blue: 0.30)
-    private let tile = Color(red: 0.99, green: 0.945, blue: 0.96)
-    private let tileLine = Color(red: 0.97, green: 0.86, blue: 0.90)
+    private let tile = Color(red: 0.995, green: 0.955, blue: 0.968)
+    private let pastTile = Color(red: 0.98, green: 0.97, blue: 0.975)
+    private let tileLine = Color(red: 0.96, green: 0.87, blue: 0.91)
     private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
     private var isLarge: Bool { family == .systemLarge }
 
@@ -966,6 +984,13 @@ private struct DailyTasksWidgetView: View {
     }
     private var todayKey: String { Self.key(entry.date) }
     private var isSunday: Bool { Calendar.current.component(.weekday, from: entry.date) == 1 }
+    private var todayTitle: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ru_RU")
+        f.dateFormat = "EEEE, d MMMM"
+        let s = f.string(from: entry.date)
+        return s.prefix(1).uppercased() + s.dropFirst()
+    }
 
     private var days: [DailyTaskDay] {
         let cal = Calendar.current
@@ -985,33 +1010,48 @@ private struct DailyTasksWidgetView: View {
         let start = days.firstIndex(where: { $0.date >= todayKey }) ?? 0
         return Array(days[start...].prefix(3))
     }
-    private var dayNumber: [String: String] {
-        var map: [String: String] = [:]
-        for d in days { map[d.date] = String(Int(d.date.suffix(2)) ?? 0) }
-        return map
+
+    private func state(_ t: DailyTaskItem) -> String {
+        if let s = t.state { return s }
+        return t.done ? "done" : (t.overdue == true ? "overdue" : "open")
     }
 
-    private var all: [DailyTaskItem] { days.flatMap { $0.tasks }.filter { $0.moved != true } }
-    private var doneCount: Int { all.filter { $0.done }.count }
-    private var limit: Int { 3 }
-    private var tileHeight: CGFloat { isLarge ? 148 : 98 }
+    // Week progress: every task counted once, missed entries left out.
+    private var progress: (done: Int, total: Int) {
+        var seen = Set<String>(); var done = 0
+        for d in days {
+            for t in d.tasks where state(t) != "missed" {
+                let k = (t.day ?? d.date) + "|" + t.id
+                if seen.insert(k).inserted, state(t) == "done" { done += 1 }
+            }
+        }
+        return (done, seen.count)
+    }
+
+    private var limit: Int { isLarge ? 4 : 3 }
+    private var tileHeight: CGFloat { isLarge ? 140 : 86 }
 
     private func addURL(_ date: String?) -> URL {
         URL(string: date.map { "treneraliny://open?tab=tasks&day=\($0)" } ?? "treneraliny://open?tab=tasks")!
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 8) {
                 Image(systemName: "checklist")
                     .font(.system(size: isLarge ? 17 : 15, weight: .semibold))
                     .foregroundStyle(rose)
-                Text("Планировщик")
-                    .font(.system(size: isLarge ? 16 : 15, weight: .medium))
-                    .foregroundStyle(ink)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Планировщик")
+                        .font(.system(size: isLarge ? 16 : 15, weight: .semibold))
+                        .foregroundStyle(ink)
+                    Text(todayTitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(faded)
+                }
                 Spacer(minLength: 4)
-                Text("\(doneCount)/\(all.count)")
-                    .font(.system(size: 13).monospacedDigit())
+                Text("\(progress.done)/\(progress.total)")
+                    .font(.system(size: 13, weight: .medium).monospacedDigit())
                     .foregroundStyle(faded)
                 Link(destination: addURL(isSunday ? nil : todayKey)) {
                     Image(systemName: "plus")
@@ -1021,13 +1061,23 @@ private struct DailyTasksWidgetView: View {
                         .background(Circle().fill(rose))
                 }
             }
+            GeometryReader { g in
+                Capsule().fill(rose.opacity(0.12))
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(rose)
+                            .frame(width: progress.total == 0 ? 0 : g.size.width * CGFloat(progress.done) / CGFloat(progress.total))
+                    }
+            }
+            .frame(height: 3)
+            .padding(.top, 7)
+            .padding(.bottom, 8)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                 ForEach(shown) { day in dayTile(day) }
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
-        .padding(.top, isLarge ? 14 : 12)
+        .padding(.top, isLarge ? 13 : 11)
         .padding(.bottom, 8)
         .widgetURL(addURL(nil))
         .containerBackground(for: .widget) {
@@ -1037,72 +1087,50 @@ private struct DailyTasksWidgetView: View {
 
     private func dayTile(_ day: DailyTaskDay) -> some View {
         let isToday = day.date == todayKey
+        let isPast = day.date < todayKey
+        let number = String(Int(day.date.suffix(2)) ?? 0)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 3) {
-                Text(isToday && !isLarge ? "Сегодня" : day.label)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(isToday ? rose : ink)
-                    .lineLimit(1)
-                if !(isToday && !isLarge) {
-                    Text(dayNumber[day.date] ?? "")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(faded)
+                HStack(spacing: 3) {
+                    Text(day.label).font(.system(size: 12, weight: .semibold))
+                    Text(number).font(.system(size: 10.5, weight: .medium))
                 }
+                .foregroundStyle(isToday ? Color.white : (isPast ? faded : ink))
+                .padding(.horizontal, isToday ? 6 : 0)
+                .padding(.vertical, isToday ? 2 : 0)
+                .background(Capsule().fill(isToday ? rose : Color.clear))
                 Spacer(minLength: 0)
-                Link(destination: addURL(day.date)) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 10.5, weight: .bold))
-                        .foregroundStyle(Color(red: 0.78, green: 0.53, blue: 0.62))
-                        .frame(width: 20, height: 18, alignment: .trailing)
+                if !isPast {
+                    Link(destination: addURL(day.date)) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color(red: 0.80, green: 0.55, blue: 0.65))
+                            .frame(width: 20, height: 18, alignment: .trailing)
+                    }
                 }
             }
-            .padding(.bottom, 3)
+            .padding(.bottom, 4)
             if day.tasks.isEmpty {
-                Link(destination: addURL(day.date)) {
-                    Text("свободно")
-                        .font(.system(size: 11))
-                        .foregroundStyle(faded)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+                Spacer(minLength: 0)
+                Text(isPast ? "—" : "пусто")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(faded.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
             } else {
                 ForEach(Array(day.tasks.prefix(limit))) { task in
-                    if task.moved == true {
-                        // Carried to a later day: shown greyed, ticked only where it moved.
-                        HStack(alignment: .top, spacing: 4) {
-                            Text("→").font(.system(size: 10, weight: .semibold)).foregroundStyle(faded.opacity(0.7)).frame(width: 13)
-                            Text(task.title).font(.system(size: 11)).foregroundStyle(faded.opacity(0.8)).lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.vertical, 2)
+                    if task.tappable == false {
+                        row(task)
                     } else {
-                    Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: day.date)) {
-                        HStack(alignment: .top, spacing: 4) {
-                            taskDot(task).padding(.top, 1)
-                            VStack(alignment: .leading, spacing: 0) {
-                                if let time = task.time, !time.isEmpty {
-                                    Text(time)
-                                        .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
-                                        .foregroundStyle(task.done ? faded : rose)
-                                }
-                                (task.overdue == true && !task.done ? Text("! ").foregroundColor(late).bold() : Text(""))
-                                    + Text(task.title)
-                                        .foregroundColor(task.done ? faded : (task.overdue == true ? late : ink))
-                                        .strikethrough(task.done, color: faded)
-                            }
-                            .font(.system(size: 11))
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 0)
+                        Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: task.day ?? day.date)) {
+                            row(task).contentShape(Rectangle())
                         }
-                        .padding(.vertical, 2)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                        .buttonStyle(.plain)
                     }
                 }
                 if day.tasks.count > limit {
                     Text("ещё \(day.tasks.count - limit)")
-                        .font(.system(size: 10))
+                        .font(.system(size: 9.5))
                         .foregroundStyle(faded)
                         .padding(.leading, 17)
                 }
@@ -1111,22 +1139,59 @@ private struct DailyTasksWidgetView: View {
         }
         .padding(7)
         .frame(maxWidth: .infinity, minHeight: tileHeight, maxHeight: tileHeight, alignment: .topLeading)
-        .background(isToday ? Color.white : tile)
+        .background(isToday ? Color.white : (isPast ? pastTile : tile))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(isToday ? rose : tileLine, lineWidth: isToday ? 1.3 : 1)
+                .strokeBorder(isToday ? rose.opacity(0.7) : tileLine, lineWidth: isToday ? 1.3 : 0.8)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func taskDot(_ task: DailyTaskItem) -> some View {
+    private func row(_ task: DailyTaskItem) -> some View {
+        let st = state(task)
+        let titleColor: Color = st == "overdue" ? late : (st == "done" || st == "missed" ? faded : ink)
+        return HStack(alignment: .top, spacing: 4) {
+            mark(st).padding(.top, 1)
+            VStack(alignment: .leading, spacing: 0) {
+                if let time = task.time, !time.isEmpty {
+                    Text(time)
+                        .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(st == "open" ? rose : faded)
+                }
+                Text(task.title)
+                    .font(.system(size: 10.5))
+                    .foregroundColor(titleColor)
+                    .strikethrough(st == "done" || st == "missed", color: st == "missed" ? late.opacity(0.5) : faded)
+                    .lineLimit(st == "missed" ? 1 : 2)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let note = task.note, !note.isEmpty {
+                    Text(note)
+                        .font(.system(size: 8.5, weight: .medium))
+                        .foregroundStyle(st == "done" ? faded : late)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 1.5)
+    }
+
+    private func mark(_ st: String) -> some View {
         ZStack {
-            if task.done {
+            switch st {
+            case "done":
                 Circle().fill(rose)
                 Image(systemName: "checkmark").font(.system(size: 6.5, weight: .bold)).foregroundStyle(.white)
-            } else {
+            case "missed":
                 Circle().fill(Color.white)
-                Circle().strokeBorder(task.overdue == true ? late : ring, lineWidth: 1.3)
+                Circle().strokeBorder(late.opacity(0.35), lineWidth: 1)
+                Image(systemName: "xmark").font(.system(size: 6, weight: .bold)).foregroundStyle(late)
+            case "overdue":
+                Circle().fill(Color.white)
+                Circle().strokeBorder(late, lineWidth: 1.3)
+                Text("!").font(.system(size: 8, weight: .heavy)).foregroundStyle(late)
+            default:
+                Circle().fill(Color.white)
+                Circle().strokeBorder(ring, lineWidth: 1.3)
             }
         }
         .frame(width: 13, height: 13)

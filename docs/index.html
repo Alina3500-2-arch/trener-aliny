@@ -126,6 +126,7 @@ html,body{background:linear-gradient(#fff,#fff6f9) fixed}
 .btn{border-radius:14px}
 .field{border-radius:12px;background:#f7f2f4;border-color:transparent}
 </style>
+<script src="planner-core.js"></script>
 <div id="app"></div>
 <div id="tabbar"></div>
 <div id="modals"></div>
@@ -171,12 +172,12 @@ function buildWidgetPayload(){
     calorieDays.push({date:ds,label:labels[dow(a[0],a[1],a[2])],kcal:incomplete?Math.max(2000,actual):actual,actualKcal:actual,complete:!incomplete});
   }
   var payload={calorieTarget:target,todayKcal:eatenToday(state,today).kcal,calorieDays:calorieDays};
-  // Next workout comes from the workout diary: the «Спортзал» days of My Week, Oct 15–31.
+  // Next workout comes from the workout diary: the «Спортзал» days of My Week, Oct 19–31.
   var gymDays=[1,3,6];
   try{var hl=JSON.parse(localStorage.getItem('alina-habits-v1')||'null');var g=Array.isArray(hl)&&hl.filter(function(h){return h.id==='gym';})[0];if(g&&g.days&&g.days.length)gymDays=g.days.slice().sort(function(x,y){return x-y;});}catch(e){}
   var logs={};try{logs=(JSON.parse(localStorage.getItem('alina-workout-journal-2026-v1')||'{}')||{}).logs||{};}catch(e){}
   var DIARY=[{name:'Ягодицы база',min:54},{name:'Ягодицы шлифовка',min:55},{name:'Кардио',min:30}];
-  var sched=[];for(var sd='2026-10-15';sd<='2026-10-31';sd=addDays(sd,1)){var p=sd.split('-').map(Number);if(gymDays.indexOf(dow(p[0],p[1],p[2]))>=0)sched.push(sd);}
+  var sched=[];for(var sd='2026-10-19';sd<='2026-10-31';sd=addDays(sd,1)){var p=sd.split('-').map(Number);if(gymDays.indexOf(dow(p[0],p[1],p[2]))>=0)sched.push(sd);}
   var nextKey=null;for(var i=0;i<sched.length;i++){if(sched[i]>=today&&!(logs[sched[i]]&&logs[sched[i]].photo)){nextKey=sched[i];break;}}
   if(nextKey){
     var np=nextKey.split('-').map(Number),plan=DIARY[sched.indexOf(nextKey)%3];
@@ -234,55 +235,15 @@ window.addEventListener('message',function(event){
 /* Always refresh planner widget from saved tasks, even if the Tasks tab is closed. */
 function syncSavedTasksToWidget(){
  try{
-  var db=JSON.parse(localStorage.getItem('alina-daily-tasks-v1')||'{}')||{};
-  var now=new Date(), monday=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  monday.setDate(monday.getDate()-((monday.getDay()+6)%7));
-  var names=['Пн','Вт','Ср','Чт','Пт','Сб'], days=[];
-  for(var i=0;i<6;i++){
-   var d=new Date(monday);d.setDate(monday.getDate()+i);
-   var date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-   var dayTasks=(db[date]||[]).map(function(t,n){return {id:String(t.id),title:String(t.title),done:!!t.done,overdue:!!t.overdue,time:t.time||'',moved:!!(t.carriedTo&&!t.done),n:n}});
-   dayTasks.sort(function(a,b){return (a.time?0:1)-(b.time?0:1)||(a.time<b.time?-1:a.time>b.time?1:0)||a.n-b.n});
-   days.push({date:date,label:names[i],tasks:dayTasks.map(function(t){var o={id:t.id,title:t.title,done:t.done,overdue:t.overdue};if(t.time)o.time=t.time;if(t.moved)o.moved=true;return o})});
-  }
-  var payload={days:days};
+  if(!window.PlannerCore)return;
+  var db=PlannerCore.load();
+  if(PlannerCore.migrate(db))PlannerCore.save(db);
+  var payload=PlannerCore.payload(db,todayStr());
   localStorage.setItem('alina-daily-tasks-widget-v1',JSON.stringify(payload));
   if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.tasks)
    window.webkit.messageHandlers.tasks.postMessage(payload);
  }catch(e){console.log('Planner widget refresh skipped',e)}
 }
-/* Siri / Apple Reminders → planner. Native code sends this week's dated reminders here. */
-window.applyAppleReminders=function(items,silent){
- try{
-  if(!Array.isArray(items))return;
-  var key='alina-daily-tasks-v1', db=JSON.parse(localStorage.getItem(key)||'{}')||{};
-  var added=0, changed=false;
-  items.forEach(function(r){
-   if(!r||!r.date||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return;
-   var id='siri:'+r.id, list=db[r.date]=db[r.date]||[];
-   var time=/^\d{2}:\d{2}$/.test(r.time||'')?r.time:'';
-   var old=list.filter(function(t){return t.id===id})[0];
-   if(old){
-    if(old.title!==r.title||(r.done&&!old.done)||(old.time||'')!==time){old.title=String(r.title);old.done=old.done||!!r.done;old.time=time;changed=true}
-   }else{
-    list.push({id:id,title:String(r.title),done:!!r.done,time:time,source:'reminders'});added++;changed=true;
-   }
-  });
-  if(changed){
-   localStorage.setItem(key,JSON.stringify(db));
-   var f=document.getElementById('tasks-frame');
-   if(f&&f.contentWindow)f.contentWindow.location.reload();
-   syncSavedTasksToWidget();
-  }
-  if(!silent)alert(added?'Добавлено дел из Напоминаний: '+added:'Новых дел на эту неделю нет. У напоминания должна быть дата.');
- }catch(e){console.log('Reminders import skipped',e)}
-};
-function autoImportReminders(){
- try{if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.reminders)window.webkit.messageHandlers.reminders.postMessage({silent:true})}catch(e){}
-}
-setTimeout(autoImportReminders,900);
-document.addEventListener('visibilitychange',function(){if(!document.hidden)autoImportReminders()});
-
 window.addEventListener('pageshow',syncSavedTasksToWidget);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)syncSavedTasksToWidget()});
 setTimeout(syncSavedTasksToWidget,600);

@@ -171,15 +171,15 @@ h1,h2,h3,.statnum,.wtitle,strong{font-family:-apple-system,BlinkMacSystemFont,"S
   </section>
 
   <section id="stats" class="panel" aria-label="Прогресс">
-    <div class="eyebrow">Дисциплина видна в цифрах</div><h1 style="margin:9px 0 9px">Мой прогресс</h1><p class="small muted">Спринт 15–31 октября: итоговая цель — 100%.</p>
+    <div class="eyebrow">Дисциплина видна в цифрах</div><h1 style="margin:9px 0 9px">Мой прогресс</h1><p class="small muted">Спринт 19–31 октября: итоговая цель — 100%.</p>
     <div class="statstrip"><div class="stat"><div class="statnum" id="stat-coverage">0%</div><div class="statlabel">Привычки по плану</div></div><div class="stat"><div class="statnum" id="stat-gym">0/12</div><div class="statlabel">Тренировки</div></div><div class="stat"><div class="statnum" id="stat-pages">0</div><div class="statlabel">Прочитано страниц</div></div><div class="stat"><div class="statnum" id="stat-money">0</div><div class="statlabel">Дней с действием для дохода</div></div></div>
-    <section class="section"><div class="sectionhead"><h2>Три недели</h2><span class="tag">Цель 100%</span></div><div class="quarter" id="week-quarters"></div><div class="whitecard" style="margin-top:10px"><div id="week-stats-list"></div></div></section>
-    <section class="section"><div class="sectionhead"><h2>Проверка результата</h2></div><div class="whitecard"><h3>Промежуточный итог — 25 октября</h3><p class="small muted" style="margin:8px 0 15px">Две недели: какие привычки закрепились, что мешает, сколько тренировок было, что принесло движение к доходу.</p><div class="divider"></div><h3>Главный итог — 31 октября</h3><p class="small muted" style="margin-top:8px">Подводим итог спринта 15–31 октября: процент выполнения, все тренировки по плану, прочитанные страницы, результаты агентства и Альбины, какие ИИ-навыки удалось монетизировать.</p></div></section>
+    <section class="section"><div class="sectionhead"><h2>Две недели</h2><span class="tag">Цель 100%</span></div><div class="quarter" id="week-quarters"></div><div class="whitecard" style="margin-top:10px"><div id="week-stats-list"></div></div></section>
+    <section class="section"><div class="sectionhead"><h2>Проверка результата</h2></div><div class="whitecard"><h3>Промежуточный итог — 25 октября</h3><p class="small muted" style="margin:8px 0 15px">Две недели: какие привычки закрепились, что мешает, сколько тренировок было, что принесло движение к доходу.</p><div class="divider"></div><h3>Главный итог — 31 октября</h3><p class="small muted" style="margin-top:8px">Подводим итог спринта 19–31 октября: процент выполнения, все тренировки по плану, прочитанные страницы, результаты агентства и Альбины, какие ИИ-навыки удалось монетизировать.</p></div></section>
     <section class="section"><div class="sectionhead"><h2>Мои данные</h2></div><div class="whitecard"><p class="small muted">Чтобы галочки не потерялись при смене телефона или очистке браузера, сохраняй резервную копию раз в неделю.</p><div class="actionrow" style="margin-top:13px;flex-wrap:wrap"><button id="export-btn" class="btn primary">Сохранить копию ↓</button><button id="import-btn" class="btn outline">Восстановить ↑</button><input id="import-file" type="file" accept="application/json,.json" hidden></div></div></section>
   </section>
 
   <section id="rules" class="panel" aria-label="Мотивация"><div class="eyebrow">Утренний настрой</div><h1 style="margin:8px 0 15px">Мои аффирмации ❤️</h1><div class="whitecard"><div id="affirm-list"></div><button id="affirm-add" class="btn smallbtn" style="margin-top:13px">+ Добавить аффирмацию</button></div></section>
-  <footer class="footer">МОЙ РЕЖИМ · 15.10 — 31.10.2026<br>Ты не обязана быть идеальной. Ты обязана не бросать себя.</footer>
+  <footer class="footer">МОЙ РЕЖИМ · 19.10 — 31.10.2026<br>Ты не обязана быть идеальной. Ты обязана не бросать себя.</footer>
 </div>
 <nav class="tabbar" aria-label="Навигация">
   
@@ -190,7 +190,7 @@ h1,h2,h3,.statnum,.wtitle,strong{font-family:-apple-system,BlinkMacSystemFont,"S
 </nav>
 <script>
 (()=>{'use strict';
-const TEST_START='2026-10-15', START='2026-10-15', END='2026-10-31', KEY='alina-my-routine-v1';
+const TEST_START='2026-10-19', START='2026-10-19', END='2026-10-31', KEY='alina-my-routine-v1';
 const DEFAULT_GOALS=['Я укрепляю тело и тренируюсь 3 раза в неделю','Я создаю стабильный доход благодаря своим навыкам и проектам','Я развиваю навыки ИИ и учусь их монетизировать'];
 const DW=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 const DLF=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
@@ -230,7 +230,7 @@ const SCHEDULE_KEY='alina-schedule-v1';let scheduleCustom={};try{scheduleCustom=
 function storeAffirm(){localStorage.setItem(AFFIRM_KEY,JSON.stringify(affirmations));renderRules();syncNativeRoutine()}
 const FOOD_SYNC_KEY='alina-food-days-v1';let foodDays={};try{foodDays=JSON.parse(localStorage.getItem(FOOD_SYNC_KEY)||'{}')||{}}catch(e){}
 window.addEventListener('storage',e=>{if(e.key==='alina-workout-journal-2026-v1')render()});window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==window.parent||e.data?.type!=='alina-food-sync-v1')return;foodDays=e.data.days||{};try{localStorage.setItem(FOOD_SYNC_KEY,JSON.stringify(foodDays))}catch(err){}render()});
-const FINE_KEY='alina-fines-from-2026-10-15-v1',FINE_CAP=1000;
+const FINE_KEY='alina-fines-from-2026-10-19-v1',FINE_CAP=1000;
 const FINE_RATES={wake:200,affirm:50,read:50,food:100,gym:300,motivation:50,ai:100,money:150};
 let fineLedger={days:{},createdAt:new Date().toISOString()};
 try{const old=JSON.parse(localStorage.getItem(FINE_KEY)||'null');if(old&&old.days&&typeof old.days==='object')fineLedger=old}catch(e){}
@@ -264,7 +264,7 @@ function fineWeekInfo(){
 function renderDebtCard(){
  const el=document.getElementById('debt-card');if(!el)return;
  const i=fineWeekInfo();
- if(iso(new Date())<START&&!i.total){el.innerHTML='<div class="debt-title">Штрафы</div><div class="debt-note">Считаются с 15 октября. Пропущенная привычка — минус из фонда 1 000 ₽.</div>';el.className='debt-card calm';return}
+ if(iso(new Date())<START&&!i.total){el.innerHTML='<div class="debt-title">Штрафы</div><div class="debt-note">Считаются с понедельника, 19 октября. Пропущенная привычка — минус из фонда 1 000 ₽.</div>';el.className='debt-card calm';return}
  const short=d=>DW[parseISO(d).getDay()]+' '+parseISO(d).getDate();
  el.className='debt-card'+(i.total?'':' calm');
  el.innerHTML='<div class="debt-row"><div class="debt-title">Штрафы</div><div class="debt-sum">'+(i.total?'−'+fineMoney(i.total):'0 ₽')+'</div></div>'+
@@ -275,11 +275,11 @@ function renderDebtCard(){
 function renderFineLedger(){
  const target=document.getElementById('sprint-fines');if(!target)return;
  const f=fineSummary();
- target.innerHTML='<div style="font-size:12px;color:#8c7080;font-weight:700;letter-spacing:.06em">СПРИНТ 15–31 ОКТЯБРЯ · ФОНД 1 000 ₽</div>'+
+ target.innerHTML='<div style="font-size:12px;color:#8c7080;font-weight:700;letter-spacing:.06em">СПРИНТ 19–31 ОКТЯБРЯ · ФОНД 1 000 ₽</div>'+
  '<div style="font-size:29px;font-weight:800;color:#9c5872;margin:7px 0">'+f.charged+' ₽ <span style="font-size:13px;font-weight:500;color:#8e8e93">начислено</span></div>'+
  '<div style="font-size:14px;margin-bottom:9px">Вернуть из фонда: <b>'+f.remaining+' ₽</b> · Получатель штрафа: племянница</div>'+
  '<div style="font-size:12px;color:#8e8e93;margin-bottom:12px">Закрытые дни нельзя изменить в интерфейсе. Штрафы начисляются при следующем открытии приложения после полуночи; это локальный журнал, не защищённый сервером от удаления или подмены.</div>'+
- (f.records.length?f.records.slice().reverse().map(r=>'<div style="border-top:1px solid #efdee5;padding:8px 0"><b>'+escapeHtml(r.date)+'</b> · '+(r.paused?'Пауза':r.missed.length?r.missed.map(x=>escapeHtml(x.title)+' — '+x.amount+' ₽').join('; '):'Все обязательства выполнены ✓')+'</div>').join(''):'<div style="color:#8e8e93">Спринт ещё не начался. Первые итоги — 16 октября, после первого дня.</div>');
+ (f.records.length?f.records.slice().reverse().map(r=>'<div style="border-top:1px solid #efdee5;padding:8px 0"><b>'+escapeHtml(r.date)+'</b> · '+(r.paused?'Пауза':r.missed.length?r.missed.map(x=>escapeHtml(x.title)+' — '+x.amount+' ₽').join('; '):'Все обязательства выполнены ✓')+'</div>').join(''):'<div style="color:#8e8e93">Спринт ещё не начался. Первые итоги — 20 октября, после первого дня.</div>');
 }
 
 let state={days:{},goals:[...DEFAULT_GOALS]};
