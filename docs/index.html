@@ -192,9 +192,20 @@ function syncWidget(){
   var payload=buildWidgetPayload();
   // Сохраняем локально для fallback
   try{ localStorage.setItem('widget_payload',JSON.stringify(payload)); }catch(e){}
-  // Отправляем на Worker (виджет получит оттуда)
+  // Отправляем на Worker (виджет получит оттуда).
+  // В том же хранилище лежит поле money — заработок за месяц, который кладёт
+  // приложение «Мои деньги» для цели «Заработать в этом месяце». Своими данными
+  // его не затираем: сначала читаем, что там, и переносим money в новый payload.
   try{
-    fetch(WIDGET_PROXY+'/widget/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+    var keepMoney=null;try{keepMoney=JSON.parse(localStorage.getItem('alina-money-cache-v1')||'null');}catch(e){}
+    fetch(WIDGET_PROXY+'/widget/aline',{cache:'no-store'})
+      .then(function(r){return r.ok?r.json():null;})
+      .catch(function(){return null;})
+      .then(function(prev){
+        var money=(prev&&prev.money)||keepMoney;
+        if(money){payload.money=money;try{localStorage.setItem('alina-money-cache-v1',JSON.stringify(money));}catch(e){}}
+        return fetch(WIDGET_PROXY+'/widget/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      }).catch(function(){});
   }catch(e){}
   // Также отправляем через native bridge, на случай если App Groups всё-таки работает
   try{
