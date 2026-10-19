@@ -28,8 +28,8 @@ const OCTOBER_PLAN={
  ['Проверить гипотезы на заявках и продажах без дополнительных затрат','2026-10-31',45]]}
 };
 const OCTOBER_GOALS=[
- {id:'october-gym-2026',icon:'💪',name:'6 тренировок до конца октября',period:'1 месяц',result:'6 посещений зала до 31 октября',tasks:[]},
- {id:'october-food-2026',icon:'📝',name:'Записывать питание каждый день кроме воскресенья',period:'1 месяц',result:'С 12 по 31 октября — 18 дней записи питания',tasks:[]},
+ {id:'october-gym-2026',kind:'workouts',icon:'\ud83d\udcaa',name:'Тренировки до конца октября',period:'1 месяц',result:'',tasks:[]},
+ {id:'october-food-2026',kind:'meals',icon:'\ud83d\udcdd',name:'Записывать питание каждый день кроме воскресенья',period:'1 месяц',result:'',tasks:[]},
  {id:'october-learning-2026',icon:'🤖',name:'Изучать ИИ и смотреть мотивационные материалы',period:'1 месяц',result:'Практика ИИ и мотивационные материалы 6 дней в неделю',tasks:[]}
 ];
 function seedOctoberPlan(){
@@ -78,6 +78,37 @@ function ensureMoneyGoal(){
  if(changed)localStorage.setItem(KEY,JSON.stringify(db));
  return g}
 ensureMoneyGoal();
+/* ===== ТРЕНИРОВКИ И ПИТАНИЕ СЧИТАЮТСЯ САМИ =====
+   Спринт программы — 19–31 октября, те же данные, что в «Моей неделе»:
+   тренировка засчитана, когда в дневнике есть фото; день питания — когда
+   записаны завтрак, обед и ужин. Цели лежат в том же приложении, поэтому
+   читаем напрямую из localStorage, без интернета. */
+const SPRINT_FROM='2026-10-19',SPRINT_TO='2026-10-31';
+function sprintDays(){const out=[],d=new Date(2026,9,19,12);
+ for(;;){const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(k>SPRINT_TO)break;out.push([k,d.getDay()]);d.setDate(d.getDate()+1)}
+ return out}
+function gymDays(){try{const l=JSON.parse(localStorage.getItem('alina-habits-v1')||'null');const g=Array.isArray(l)&&l.find(h=>h.id==='gym');if(g&&Array.isArray(g.days)&&g.days.length)return g.days}catch(e){}return [1,3,6]}
+function workoutStat(){
+ const gd=gymDays(),plan=sprintDays().filter(d=>gd.indexOf(d[1])>=0).map(d=>d[0]);
+ let logs={};try{logs=(JSON.parse(localStorage.getItem('alina-workout-journal-2026-v1')||'{}')||{}).logs||{}}catch(e){}
+ return {total:plan.length,done:plan.filter(k=>logs[k]&&logs[k].photo).length,unit:'тренировок'}}
+function foodStat(){
+ const plan=sprintDays().filter(d=>d[1]!==0).map(d=>d[0]);
+ let days=null;
+ try{const st=JSON.parse(localStorage.getItem('trener_aliny_state_v1')||'null');
+  if(st&&Array.isArray(st.meals)){days={};st.meals.forEach(m=>{if(!m.date)return;(days[m.date]||(days[m.date]={}))[m.type]=true})}}catch(e){}
+ if(!days){try{days=JSON.parse(localStorage.getItem('alina-food-days-v1')||'{}')||{}}catch(e){days={}}}
+ const full=k=>{const m=days[k];return !!(m&&m.breakfast&&m.lunch&&m.dinner)};
+ return {total:plan.length,done:plan.filter(full).length,unit:'дней'}}
+const autoStat=g=>g.kind==='workouts'?workoutStat():g.kind==='meals'?foodStat():null;
+function ensureAutoGoals(){let changed=false;
+ const w=db.goals.find(g=>g.id==='october-gym-2026');
+ if(w&&w.kind!=='workouts'){w.kind='workouts';w.name='Тренировки до конца октября';w.due=SPRINT_TO;w.result='';changed=true}
+ const f=db.goals.find(g=>g.id==='october-food-2026');
+ if(f&&f.kind!=='meals'){f.kind='meals';f.name='Записывать питание каждый день кроме воскресенья';f.due=SPRINT_TO;f.result='';changed=true}
+ if(changed)localStorage.setItem(KEY,JSON.stringify(db))}
+ensureAutoGoals();
 const moneyEarned=g=>(earned&&earned.month===g.month)?Math.max(0,Math.round(earned.earned||0)):0;
 function pullMoney(){
  fetch(MONEY_SYNC+'/widget/aline',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
@@ -102,12 +133,19 @@ function goalSummary(o){if(mode!=='goals')return '';
  if(isMoney(o)){const d=daysLeft(o.due),fresh=earned&&earned.month===o.month;
   return '<div class="muted">🎯 Цель месяца: '+rub(o.target||DEFAULT_TARGET)+(d>=0?' · осталось '+d+' '+plural(d,'день','дня','дней'):'')+'</div>'
    +'<div class="muted">💳 Из «Моих денег», кроме помощи мужа · '+(fresh&&earned.updatedAt?'обновлено '+new Date(earned.updatedAt).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'жду данные из «Моих денег»')+'</div>'}
- let target=o.id==='october-gym-2026'?'6 тренировок':o.id==='october-food-2026'?'18 дней':o.id==='october-learning-2026'?'6 дней в неделю':'';return target?'<div class="muted">🎯 Ориентир: '+target+' · Итог подведём после завершения периода</div>':''}
+ if(o.kind==='workouts'||o.kind==='meals'){const p=progress(o),d=daysLeft(o.due);
+  return '<div class="muted">🎯 Программа 19–31 октября: '+p.total+' '+p.unit+(d>=0?' · осталось '+d+' '+plural(d,'день','дня','дней'):'')+'</div>'
+   +'<div class="muted">'+(o.kind==='workouts'?'🏋️ Считается сама: тренировка засчитана, когда в дневнике есть фото':'🍽 Считается сам: день засчитан, когда записаны завтрак, обед и ужин')+'</div>'}
+ let target=o.id==='october-learning-2026'?'6 дней в неделю':'';return target?'<div class="muted">🎯 Ориентир: '+target+' · Итог подведём после завершения периода</div>':''}
 function progress(o){
+ const st=autoStat(o);
+ if(st)return {total:st.total,done:Math.min(st.done,st.total),pct:st.total?Math.round(Math.min(st.done,st.total)/st.total*100):0,unit:st.unit};
  if(isMoney(o)){const total=Math.max(1,Number(o.target)||DEFAULT_TARGET),done=moneyEarned(o);
   return {total,done,pct:Math.min(100,Math.round(done/total*100)),money:true}}
  let total=o.tasks.length,done=o.tasks.filter(t=>t.done).length;return {total,done,pct:total?Math.round(done/total*100):0}}
 function progressLine(p){
+ if(p.unit){const left=Math.max(0,p.total-p.done);
+  return p.done+' из '+p.total+' '+p.unit+' · '+p.pct+'%'+(left?' · осталось '+left:' · цель закрыта 🎉')}
  if(!p.money)return p.done+' / '+p.total+' шагов выполнено';
  const left=Math.max(0,p.total-p.done);
  return rub(p.done)+' из '+rub(p.total)+' · '+p.pct+'%'+(left?' · ещё '+rub(left):' · цель закрыта 🎉')}
@@ -122,7 +160,7 @@ else if(editing){let x=editing==='new'?{name:'',due:END,result:'',icon:'🎯'}:o
 if(taskEditing){let t=taskEditing==='new'?{title:'',result:'',test:'',stop:'',limit:25,due:END}:o.tasks.find(x=>x.id===taskEditing);h+='<div class="card"><h2>Конкретный шаг</h2><label class="field">Что сделать?<input id="task-title" maxlength="150" value="'+safe(t.title)+'"></label><label class="field">Ожидаемый результат<textarea id="task-result" placeholder="Что получу после выполнения?">'+safe(t.result||'')+'</textarea></label><label class="field">Самый короткий тест<textarea id="task-test" placeholder="Что проверить без большой подготовки?">'+safe(t.test||'')+'</textarea></label><label class="field">Критерий остановки<textarea id="task-stop" placeholder="Когда достаточно хорошо и можно завершить?">'+safe(t.stop||'')+'</textarea></label><div class="row"><label class="field" style="flex:1">Лимит, минут<input id="task-limit" type="number" min="5" max="480" value="'+safe(t.limit||25)+'"></label><label class="field" style="flex:1">Срок<input id="task-due" type="date" value="'+safe(t.due||END)+'"></label></div><div class="actions"><button class="btn" onclick="saveTask()">Сохранить задачу</button><button class="btn secondary" onclick="cancelTask()">Отмена</button>'+(taskEditing!=='new'?'<button class="btn plain" onclick="deleteTask()">Удалить</button>':'')+'</div></div>'}
 $('root').innerHTML=h;syncWidget()}
 function openItem(id){current=id;editing=null;taskEditing=null;render()}function back(){current=null;editing=null;taskEditing=null;render()}function editItem(){editing=current||'new';render()}function saveMoney(){const o=item();const v=Math.max(0,Math.round(Number($('edit-target').value)||0));if(!v)return alert('Напиши сумму в рублях');o.target=v;editing=null;save();render()}
-function deleteItem(){const o=item();if(isMoney(o))return alert('Денежная цель месяца остаётся всегда — можно поменять только сумму.');if(!o||!confirm('Удалить цель «'+o.name+'»?'))return;db.goals=db.goals.filter(g=>g.id!==o.id);current=null;editing=null;save();render()}function cancelEdit(){editing=null;render()}
+function deleteItem(){const o=item();if(isMoney(o))return alert('Денежная цель месяца остаётся всегда — можно поменять только сумму.');if(autoStat(o))return alert('Эта цель считается сама по программе 19–31 октября — удалять её не нужно.');if(!o||!confirm('Удалить цель «'+o.name+'»?'))return;db.goals=db.goals.filter(g=>g.id!==o.id);current=null;editing=null;save();render()}function cancelEdit(){editing=null;render()}
 function saveItem(){let name=$('edit-name').value.trim();if(!name)return alert('Напиши название');let x=editing==='new'?{id:'goal-'+Date.now(),icon:'🎯',tasks:[]}:item();x.name=name;x.result=$('edit-result').value.trim();if(mode==='goals'){x.due=$('edit-due').value||END;x.period=dueLabel(x);x.icon=$('edit-icon').value.trim()||'🎯'}if(editing==='new'){db.goals.push(x);current=x.id}editing=null;save();render()}
 function editTask(id){taskEditing=id||'new';render()}function cancelTask(){taskEditing=null;render()}
 function saveTask(){let title=$('task-title').value.trim();if(!title)return alert('Напиши конкретное действие');let t=taskEditing==='new'?{id:'task-'+Date.now(),done:false,spent:0,running:false}:item().tasks.find(x=>x.id===taskEditing);t.title=title;t.result=$('task-result').value.trim();t.test=$('task-test').value.trim();t.stop=$('task-stop').value.trim();t.limit=Math.max(5,Math.min(480,Number($('task-limit').value)||25));t.due=$('task-due').value;if(taskEditing==='new')item().tasks.push(t);taskEditing=null;save();render()}
@@ -131,7 +169,8 @@ function toggleTask(id){let t=item().tasks.find(x=>x.id===id);t.done=!t.done;if(
 function timerTask(id){let t=item().tasks.find(x=>x.id===id);if(t.running){t.spent=(t.spent||0)+Math.floor((Date.now()-t.started)/1000);t.running=false}else{t.running=true;t.started=Date.now()}save();render()}
 function clock(t){let secs=(t.spent||0)+(t.running?Math.max(0,Math.floor((Date.now()-t.started)/1000)):0);return String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0')+' / '+t.limit+' мин'}
 pullMoney();setInterval(pullMoney,300000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)pullMoney()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();pullMoney()}});
+window.addEventListener('storage',e=>{if(['alina-workout-journal-2026-v1','trener_aliny_state_v1','alina-food-days-v1','alina-habits-v1'].indexOf(e.key)>=0)render()});
 setInterval(()=>{if(!current)return;let o=item();if(!o)return;for(let t of o.tasks){let el=$('clock-'+t.id);if(el&&t.running)el.textContent=clock(t)}},1000);render();
 </script><script>
 /* Edit forms render below the fold inside the app frame: bring them into view. */
