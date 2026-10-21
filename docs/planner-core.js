@@ -5,7 +5,7 @@
 window.PlannerCore = (function () {
   'use strict';
   var KEY = 'alina-daily-tasks-v1';
-  var NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  var NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
   var SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
   function key(d) {

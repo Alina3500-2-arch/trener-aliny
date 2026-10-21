@@ -973,7 +973,7 @@ private struct DailyTasksWidgetView: View {
     private let tile = Color(red: 0.995, green: 0.955, blue: 0.968)
     private let pastTile = Color(red: 0.98, green: 0.97, blue: 0.975)
     private let tileLine = Color(red: 0.96, green: 0.87, blue: 0.91)
-    private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
+    private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
     private var isLarge: Bool { family == .systemLarge }
 
     private static func key(_ date: Date) -> String {
@@ -983,7 +983,6 @@ private struct DailyTasksWidgetView: View {
         return f.string(from: date)
     }
     private var todayKey: String { Self.key(entry.date) }
-    private var isSunday: Bool { Calendar.current.component(.weekday, from: entry.date) == 1 }
     private var todayTitle: String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "ru_RU")
@@ -996,7 +995,7 @@ private struct DailyTasksWidgetView: View {
         let cal = Calendar.current
         let weekday = cal.component(.weekday, from: entry.date)
         let monday = cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: cal.startOfDay(for: entry.date)) ?? entry.date
-        return (0..<6).map { i in
+        return (0..<7).map { i in
             let date = cal.date(byAdding: .day, value: i, to: monday) ?? monday
             let key = Self.key(date)
             return entry.payload?.days.first(where: { $0.date == key })
@@ -1004,10 +1003,11 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    // Large: the whole week, 3 on top and 3 below. Medium: today and the next two days.
+    // Large: Mon–Sat as 3 + 3 tiles, Sunday as a wide strip below. Medium: today and the next two days.
     private var shown: [DailyTaskDay] {
-        if isLarge { return days }
-        let start = days.firstIndex(where: { $0.date >= todayKey }) ?? 0
+        if isLarge { return Array(days.prefix(6)) }
+        let found = days.firstIndex(where: { $0.date >= todayKey }) ?? 0
+        let start = min(found, days.count - 3)
         return Array(days[start...].prefix(3))
     }
 
@@ -1028,8 +1028,8 @@ private struct DailyTasksWidgetView: View {
         return (done, seen.count)
     }
 
-    private var limit: Int { isLarge ? 4 : 3 }
-    private var tileHeight: CGFloat { isLarge ? 140 : 86 }
+    private var limit: Int { isLarge ? 2 : 3 }
+    private var tileHeight: CGFloat { isLarge ? 102 : 86 }
 
     private func addURL(_ date: String?) -> URL {
         URL(string: date.map { "treneraliny://open?tab=tasks&day=\($0)" } ?? "treneraliny://open?tab=tasks")!
@@ -1053,7 +1053,7 @@ private struct DailyTasksWidgetView: View {
                 Text("\(progress.done)/\(progress.total)")
                     .font(.system(size: 13, weight: .medium).monospacedDigit())
                     .foregroundStyle(faded)
-                Link(destination: addURL(isSunday ? nil : todayKey)) {
+                Link(destination: addURL(todayKey)) {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(.white)
@@ -1074,6 +1074,10 @@ private struct DailyTasksWidgetView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                 ForEach(shown) { day in dayTile(day) }
             }
+            if isLarge, days.count == 7 {
+                dayTile(days[6], height: 66, limit: 2)
+                    .padding(.top, 6)
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
@@ -1085,7 +1089,9 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    private func dayTile(_ day: DailyTaskDay) -> some View {
+    private func dayTile(_ day: DailyTaskDay, height: CGFloat? = nil, limit tileLimit: Int? = nil) -> some View {
+        let limit = tileLimit ?? self.limit
+        let tileHeight = height ?? self.tileHeight
         let isToday = day.date == todayKey
         let isPast = day.date < todayKey
         let number = String(Int(day.date.suffix(2)) ?? 0)
@@ -1204,8 +1210,8 @@ struct TrenerAlinyDailyTasksWidget: Widget {
         StaticConfiguration(kind: kind, provider: DailyTasksProvider()) { entry in
             DailyTasksWidgetView(entry: entry)
         }
-        .configurationDisplayName("Мои дела на 6 дней")
-        .description("Задачи с понедельника по субботу, отметки и переход прямо к делам.")
+        .configurationDisplayName("Мои дела на неделю")
+        .description("Задачи с понедельника по воскресенье, отметки и переход прямо к делам.")
         .supportedFamilies([.systemMedium, .systemLarge])
         .contentMarginsDisabled()
     }
