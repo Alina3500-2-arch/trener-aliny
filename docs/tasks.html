@@ -71,8 +71,25 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .line.overdue .note{color:#e5484d}
 .day.past{background:#faf7f8;border-color:#f1e6ea}
 .empty-past{flex:1;display:grid;place-items:center;color:#d1d1d6;font-size:18px}
+.diary.dayview{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px}
+.cals{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.cal{border:1.4px solid #f8dbe6;background:#fdf1f5;border-radius:16px;padding:8px 0 7px;display:flex;flex-direction:column;align-items:center;gap:1px;font-family:inherit;color:var(--ink)}
+.cal.today:not(.sel){border-color:var(--rose)}
+.cal.sel{background:var(--rose);border-color:var(--rose);color:#fff}
+.cn{font-size:12px;font-weight:600}.cd{font-size:19px;font-weight:700}.cm{font-size:10.5px;opacity:.75;font-variant-numeric:tabular-nums}
+.dcard,.ycard{margin-top:12px;background:#fff;border:1.4px solid #f8dbe6;border-radius:20px;padding:14px 14px 10px}
+.ycard{background:#fffaf0;border-color:#f5e2b8}
+.dtitle{font-size:19px;font-weight:700}.dsub{font-size:13px;color:var(--muted);margin-left:6px;font-weight:500}
+.bar{height:8px;border-radius:99px;background:#f7e1ea;margin:10px 0 8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--rose);border-radius:99px;transition:width .3s}
+.msg{font-size:14px;line-height:1.4;background:#fff3f7;border-radius:14px;padding:10px 12px;margin:0 0 6px;color:#9f4469}
+.msg.good{background:#eaf8ef;color:#2f7a4d}
+.dayview .line{padding:11px 0}.dayview .line:first-child{padding-top:6px}.dayview .dot{width:24px;height:24px;font-size:13px;margin-top:0}.dayview .txt{font-size:16px;line-height:1.35}.dayview .tm{display:inline;margin-right:6px;font-size:13px}.dayview .note{font-size:12px}
+.add-wide{width:100%;margin:6px 0 4px;border:1px dashed #efc3d4;background:transparent;color:#c7869f;border-radius:14px;padding:11px;font-size:15px;font-family:inherit}
+.ytitle{font-size:14px;font-weight:600;line-height:1.35;margin-bottom:6px;color:#8a6a1f}
+.yrow{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #f5e2b8}.yrow:first-of-type{border-top:0}
+.yrow span{flex:1;font-size:15px}.yb{border:0;background:var(--rose);color:#fff;border-radius:12px;padding:9px 13px;font-size:14px;font-weight:600;font-family:inherit}
 .hint-line{flex:none;font-size:11px;color:var(--muted);text-align:center;padding-top:8px}
-</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button></header><div class="diary" id="diary"></div><div class="hint-line">Нажми — отметить · подержи — удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><script src="planner-core.js"></script><script>
+</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="diary" id="diary"></div><div class="hint-line">Нажми — отметить · подержи — удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><script src="planner-core.js"></script><script>
 "use strict";
 const KEY="alina-daily-tasks-v1", $=id=>document.getElementById(id),dateKey=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
 let db={};function reloadDb(){try{db=JSON.parse(localStorage.getItem(KEY)||"{}")||{}}catch(e){db={}}}reloadDb();
@@ -84,12 +101,59 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 if(PlannerCore.migrate(db))localStorage.setItem(KEY,JSON.stringify(db));
 function sync(){let payload=PlannerCore.payload(db,dateKey(new Date()));try{window.webkit?.messageHandlers?.tasks?.postMessage(payload)}catch(e){}try{window.parent.postMessage({type:"dailyTasks",payload},"*")}catch(e){}}
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));sync()}
-function render(){const root=$("diary"),todayKey=dateKey(new Date()),v=PlannerCore.view(db,todayKey,days),c=PlannerCore.counts(v);
+let mode="day",sel=null;try{mode=localStorage.getItem("alina-tasks-mode")==="week"?"week":"day"}catch(e){}
+const RKEY="alina-my-routine-v1",FKEY="alina-fines-from-2026-10-19-v1",SPRINT=["2026-10-19","2026-10-31"];
+const DEF_HABITS=[{id:"wake",title:"Подъём",icon:"🌅",days:[1,2,3,4,5,6]},{id:"affirm",title:"Аффирмации",icon:"🌷",days:[1,2,3,4,5,6]},{id:"ai",title:"Обучение ИИ",icon:"💻",days:[2,4,6]},{id:"motivation",title:"Подкаст",icon:"🎧",days:[1,3,5]},{id:"money",title:"Шаг к доходу",icon:"💰",days:[2,4,6]},{id:"read",title:"Книга 20 стр",icon:"📖",days:[1,2,3,4,5,6]}];
+const keyDate=k=>{const p=k.split("-").map(Number);return new Date(p[0],p[1]-1,p[2],12)};
+const shiftKey=(k,n)=>{const d=keyDate(k);d.setDate(d.getDate()+n);return dateKey(d)};
+const longDate=k=>new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long"}).format(keyDate(k));
+function readJson(k,def){try{const v=JSON.parse(localStorage.getItem(k)||"null");return v==null?def:v}catch(e){return def}}
+// Вчерашние привычки из «Моего режима», которые не отмечены (спортзал и питание считаются сами, их не трогаем).
+function missedHabits(day){
+ if(day<SPRINT[0]||day>SPRINT[1]||keyDate(day).getDay()===0)return [];
+ const st=readJson(RKEY,{}),rec=(st.days||{})[day]||{};if(rec.paused)return [];
+ let hs=readJson("alina-habits-v1",null);hs=Array.isArray(hs)&&hs.length?hs.filter(h=>h&&h.id&&h.title&&Array.isArray(h.days)):DEF_HABITS;
+ const dow=keyDate(day).getDay();
+ return hs.filter(h=>h.id!=="gym"&&h.id!=="food"&&h.days.includes(dow)).filter(h=>h.id==="read"?Number(rec.pages||0)<20:!(rec.checks&&rec.checks[h.id])).map(h=>({id:h.id,title:h.title,icon:h.icon||"✨"}));
+}
+function markHabit(day,id){
+ const st=readJson(RKEY,{days:{}});st.days=st.days||{};const r=st.days[day]=st.days[day]||{checks:{},pages:0,paused:false,moneyNote:"",selfNote:""};r.checks=r.checks||{};
+ if(id==="read")r.pages=Math.max(20,Number(r.pages||0));else r.checks[id]=true;
+ localStorage.setItem(RKEY,JSON.stringify(st));
+ const fl=readJson(FKEY,null);if(fl&&fl.days&&fl.days[day]&&Array.isArray(fl.days[day].missed)){fl.days[day].missed=fl.days[day].missed.filter(x=>x.id!==id);localStorage.setItem(FKEY,JSON.stringify(fl))}
+}
+function render(){mode==="day"?renderDay():renderWeek()}
+function renderDay(){
+ const root=$("diary"),todayKey=dateKey(new Date()),v=PlannerCore.view(db,todayKey,days),c=PlannerCore.counts(v);
+ if(!sel||!days.some(d=>d.date===sel))sel=days.some(d=>d.date===todayKey)?todayKey:days[0].date;
+ const liveOf=d=>d.items.filter(i=>i.state!=="missed"),mark={open:"",done:"✓",overdue:"",missed:"✕"};
+ const strip=v.map(d=>{const l=liveOf(d),n=l.filter(i=>i.state==="done").length;return '<button class="cal'+(d.date===sel?' sel':'')+(d.isToday?' today':'')+'" data-sel="'+d.date+'"><span class="cn">'+d.label+'</span><span class="cd">'+d.num+'</span><span class="cm">'+(l.length?(n===l.length?'✓':n+'/'+l.length):'·')+'</span></button>'}).join('');
+ const D=v.find(d=>d.date===sel),l=liveOf(D),n=l.filter(i=>i.state==="done").length,total=l.length,pct=total?Math.round(100*n/total):0;
+ const when=sel===todayKey?"Сегодня":sel===shiftKey(todayKey,-1)?"Вчера":D.label;
+ let msg="",good=false;
+ if(sel>todayKey){msg=total?"Запланировано дел: "+total+".":"Пока пусто — можно запланировать заранее."}
+ else if(sel<todayKey){if(!total)msg="В этот день дел не было.";else if(n===total){msg="В тот день ты сделала всё 💗";good=true}else msg="Не всё удалось — невыполненное перенеслось на сегодня."}
+ else if(!total)msg="На сегодня дел нет. Наверное, ты ещё не поставила задачу — добавь, пока день не начался 🌷";
+ else if(n===total){msg="Молодец! Всё на сегодня сделано 🎉";good=true}
+ else if(n>0)msg="Уже "+n+" из "+total+" — так держать!";
+ else msg="Начни с самого лёгкого: первая галочка тянет за собой остальные.";
+ const rows=D.items.length?D.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==="overdue"?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span></div>').join(""):"";
+ const y=shiftKey(todayKey,-1),miss=sel===todayKey?missedHabits(y):[];
+ const ycard=miss.length?'<div class="ycard"><div class="ytitle">Вчера, '+longDate(y)+', не отмечено. Если сделала — нажми, я поставлю галочку:</div>'+miss.map(h=>'<div class="yrow"><span>'+esc(h.icon)+' '+esc(h.title)+'</span><button class="yb" data-habit="'+esc(h.id)+'" data-hday="'+y+'">Сделала ✓</button></div>').join("")+'</div>':"";
+ root.className="diary dayview";
+ root.innerHTML='<div class="cals">'+strip+'</div><div class="dcard"><div><span class="dtitle">'+when+'</span><span class="dsub">'+longDate(sel)+'</span></div>'+(total?'<div class="bar"><i style="width:'+pct+'%"></i></div>':'<div style="height:8px"></div>')+'<div class="msg'+(good?' good':'')+'">'+msg+'</div>'+(rows?'<div class="lines" style="overflow:visible">'+rows+'</div>':"")+(sel>=todayKey?'<button class="add-wide" data-add="'+sel+'">+ Добавить дело</button>':"")+'</div>'+ycard;
+ root.querySelectorAll("[data-sel]").forEach(b=>b.onclick=()=>{sel=b.dataset.sel;render()});
+ root.querySelectorAll("[data-habit]").forEach(b=>b.onclick=()=>{markHabit(b.dataset.hday,b.dataset.habit);render()});
+ afterRender(root,c);
+}
+function renderWeek(){const root=$("diary"),todayKey=dateKey(new Date()),v=PlannerCore.view(db,todayKey,days),c=PlannerCore.counts(v);
 const mark={open:'',done:'✓',overdue:'',missed:'✕'};
-root.innerHTML=v.map(d=>{const live=d.items.filter(i=>i.state!=='missed'),dn=live.filter(i=>i.state==='done').length;const past=d.date<todayKey;
+root.className="diary";root.innerHTML=v.map(d=>{const live=d.items.filter(i=>i.state!=='missed'),dn=live.filter(i=>i.state==='done').length;const past=d.date<todayKey;
  return '<section class="day'+(d.isToday?' today':'')+(past?' past':'')+'" data-date="'+d.date+'"><div class="day-head"><span class="dname">'+d.label+'</span><span class="dnum">'+d.num+'</span>'+(live.length?'<span class="dcount">'+dn+'/'+live.length+'</span>':'')+'</div>'+
  (d.items.length?'<div class="lines">'+d.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==='overdue'?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span></div>').join('')+'</div>':'')+
  (past?(d.items.length?'':'<div class="empty-past">—</div>'):(d.items.length?'<button class="add-mini" data-add="'+d.date+'" aria-label="Добавить дело">+</button>':'<button class="add-empty" data-add="'+d.date+'" aria-label="Добавить дело">+</button>'))+'</section>'}).join('');
+afterRender(root,c)}
+function afterRender(root,c){$("mode-toggle").textContent=mode==="day"?"▦ Вся неделя":"▤ Один день";
 $("hcount").textContent=c.done+"/"+c.total;
 root.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openDialog(b.dataset.add));
 root.querySelectorAll(".line").forEach(row=>{let timer=null,held=false;
@@ -101,7 +165,8 @@ root.querySelectorAll(".line").forEach(row=>{let timer=null,held=false;
  row.onclick=()=>{if(held){held=false;return}if(row.classList.contains("frozen"))return;reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(!t)return;PlannerCore.setDone(db,row.dataset.day,row.dataset.id,!t.done,dateKey(new Date()));if(String(t.id).startsWith("siri:"))try{window.webkit?.messageHandlers?.reminders?.postMessage({complete:String(t.id).slice(5),done:!!t.done})}catch(e){}persist();render()};
 });
 }
-$("add-today").onclick=()=>{let k=dateKey(new Date());openDialog(days.some(d=>d.date===k)?k:days[0].date)};
+$("add-today").onclick=()=>{let k=dateKey(new Date());openDialog(mode==="day"&&sel&&sel>=k?sel:days.some(d=>d.date===k)?k:days[0].date)};
+$("mode-toggle").onclick=()=>{mode=mode==="day"?"week":"day";try{localStorage.setItem("alina-tasks-mode",mode)}catch(e){}render()};
 function openDialog(date){selected=date;let d=days.find(x=>x.date===date),goalData={goals:[],projects:[]};try{goalData=JSON.parse(localStorage.getItem("alina-goals-projects-v1")||"{}")}catch(e){}let opts=[...((goalData.projects||[]).map(x=>({id:"project:"+x.id,label:"📁 "+x.name}))),...((goalData.goals||[]).map(x=>({id:"goal:"+x.id,label:"🎯 "+x.name})))];$("dialog-root").innerHTML='<div class="dialog-shade"><form class="dialog" id="task-dialog"><h2>Новое дело · '+d.name+', '+d.num+'</h2><input id="new-title" maxlength="160" placeholder="Что нужно сделать?" required autofocus><div class="tlabel">Время, если нужно</div><input id="new-time" type="time" aria-label="Время, если нужно"><select id="new-link"><option value="">Без проекта и цели</option>'+opts.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join("")+'</select><div class="actions"><button type="button" class="cancel" id="close-dialog">Отмена</button><button type="submit">Добавить</button></div></form></div>';$("close-dialog").onclick=()=>{$("dialog-root").innerHTML="";selected=null;render()};$("task-dialog").onsubmit=e=>{e.preventDefault();let title=$("new-title").value.trim(),link=$("new-link").value,time=/^\d{2}:\d{2}$/.test($("new-time").value)?$("new-time").value:"";if(!title)return;reloadDb();db[date]=db[date]||[];db[date].push(Object.assign({id:String(Date.now())+Math.random().toString(36).slice(2),title,done:false,link},time?{time}:{}));persist();$("dialog-root").innerHTML="";selected=null;render()};setTimeout(()=>$("new-title")?.focus(),50)}
 document.getElementById("siri-import").onclick=()=>{try{window.webkit.messageHandlers.reminders.postMessage({})}catch(e){alert("Синхронизация Siri доступна в установленном приложении для iPhone после обновления.")}};
 window.addEventListener("message",e=>{if(e.data?.type!=="apple-reminders"||!Array.isArray(e.data.items))return;reloadDb();let count=0;for(let t of e.data.items){if(!days.some(d=>d.date===t.date))continue;db[t.date]=db[t.date]||[];let id="siri:"+t.id;let old=db[t.date].find(x=>x.id===id);let time=/^\d{2}:\d{2}$/.test(t.time||"")?t.time:"";if(old){old.title=t.title;if(t.done&&!old.done){old.done=true;old.doneDate=dateKey(new Date())>t.date?dateKey(new Date()):t.date}old.time=time}else{db[t.date].push({id,title:t.title,done:!!t.done,time,source:"reminders"});count++}}persist();render();alert(count?"Добавлено дел из Напоминаний: "+count:"Новых дел на эту неделю нет. У напоминаний должна быть указана дата.")});
