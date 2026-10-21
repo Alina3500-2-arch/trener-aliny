@@ -1071,14 +1071,14 @@ private struct DailyTasksWidgetView: View {
             .frame(height: 3)
             .padding(.top, 7)
             .padding(.bottom, 8)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                ForEach(shown) { day in dayTile(day) }
+            if isLarge {
+                weekList
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                    ForEach(shown) { day in dayTile(day) }
+                }
+                Spacer(minLength: 0)
             }
-            if isLarge, days.count == 7 {
-                dayTile(days[6], height: 66, limit: 2)
-                    .padding(.top, 6)
-            }
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
         .padding(.top, isLarge ? 13 : 11)
@@ -1089,9 +1089,94 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    private func dayTile(_ day: DailyTaskDay, height: CGFloat? = nil, limit tileLimit: Int? = nil) -> some View {
-        let limit = tileLimit ?? self.limit
-        let tileHeight = height ?? self.tileHeight
+    // Large widget: one clean row per day, Monday to Sunday, all the same.
+    private var weekList: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                weekRow(day)
+                if index < days.count - 1 {
+                    Rectangle().fill(tileLine.opacity(0.8)).frame(height: 0.5)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func weekRow(_ day: DailyTaskDay) -> some View {
+        let isToday = day.date == todayKey
+        let isPast = day.date < todayKey
+        let hasTasks = !day.tasks.isEmpty
+        let number = String(Int(day.date.suffix(2)) ?? 0)
+        let numberColor: Color = isToday ? Color.white : (hasTasks ? rose : faded.opacity(0.55))
+        return HStack(alignment: .center, spacing: 8) {
+            VStack(spacing: 1) {
+                Text(day.label)
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(isToday ? rose : faded)
+                Text(number)
+                    .font(.system(size: 14, weight: .bold).monospacedDigit())
+                    .foregroundStyle(numberColor)
+                    .frame(width: 26, height: 22)
+                    .background(Circle().fill(isToday ? rose : Color.clear))
+            }
+            .frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                if hasTasks {
+                    ForEach(Array(day.tasks.prefix(2).enumerated()), id: \.offset) { i, task in
+                        HStack(spacing: 4) {
+                            taskLine(task, day: day)
+                            if i == 1, day.tasks.count > 2 {
+                                Text("+\(day.tasks.count - 2)")
+                                    .font(.system(size: 9.5, weight: .medium))
+                                    .foregroundStyle(faded)
+                            }
+                        }
+                    }
+                } else {
+                    Text(isPast ? "—" : "свободно")
+                        .font(.system(size: 11))
+                        .foregroundStyle(faded.opacity(0.6))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isToday ? rose.opacity(0.08) : Color.clear))
+    }
+
+    @ViewBuilder
+    private func taskLine(_ task: DailyTaskItem, day: DailyTaskDay) -> some View {
+        if task.tappable == false {
+            lineContent(task)
+        } else {
+            Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: task.day ?? day.date)) {
+                lineContent(task).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func lineContent(_ task: DailyTaskItem) -> some View {
+        let st = state(task)
+        let titleColor: Color = st == "overdue" ? late : (st == "done" || st == "missed" ? faded : ink)
+        return HStack(spacing: 5) {
+            mark(st)
+            if let time = task.time, !time.isEmpty {
+                Text(time)
+                    .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(st == "open" ? rose : faded)
+            }
+            Text(task.title)
+                .font(.system(size: 11.5))
+                .foregroundColor(titleColor)
+                .strikethrough(st == "done" || st == "missed", color: st == "missed" ? late.opacity(0.5) : faded)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func dayTile(_ day: DailyTaskDay) -> some View {
         let isToday = day.date == todayKey
         let isPast = day.date < todayKey
         let number = String(Int(day.date.suffix(2)) ?? 0)
