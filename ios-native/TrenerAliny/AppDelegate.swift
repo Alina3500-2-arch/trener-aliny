@@ -142,7 +142,8 @@ enum PlannerTaskParser {
             // Calendar weekday: 1 = Sunday … 7 = Saturday.
             let days: [(String, Int, String)] = [
                 ("понедельник", 2, "на понедельник"), ("вторник", 3, "на вторник"), ("сред[уа]", 4, "на среду"),
-                ("четверг", 5, "на четверг"), ("пятниц[уа]", 6, "на пятницу"), ("суббот[уа]", 7, "на субботу")
+                ("четверг", 5, "на четверг"), ("пятниц[уа]", 6, "на пятницу"), ("суббот[уа]", 7, "на субботу"),
+                ("воскресень[еяю]", 1, "на воскресенье")
             ]
             for (word, weekday, dayLabel) in days {
                 if let m = take("\\s(?:в|во|на)?\\s*\(word)\\s") {
@@ -167,12 +168,6 @@ enum PlannerTaskParser {
                 time = String(format: "%02d:%02d", hour, minute)
                 cut(m)
             }
-        }
-
-        // Sunday is a day off in the planner — move the task to Monday.
-        if cal.component(.weekday, from: date) == 1 {
-            date = cal.date(byAdding: .day, value: 1, to: date) ?? date
-            label = "на понедельник"
         }
 
         var title = text.components(separatedBy: .whitespaces).filter { !$0.isEmpty }.joined(separator: " ")

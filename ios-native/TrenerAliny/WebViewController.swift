@@ -215,7 +215,7 @@ extension WebViewController: WKScriptMessageHandler {
         try? reminderStore.save(reminder, commit: true)
     }
 
-    // Siri reminders dated this week (Mon–Sat) go into the planner, with the time when one is set.
+    // Siri reminders dated this week and the next three (Mon–Sun) go into the planner, with the time when one is set.
     // silent: the automatic import on app open — no alerts, no prompt after a refusal.
     private func importAppleReminders(silent: Bool) {
         let load: () -> Void = { [weak self] in
@@ -226,7 +226,7 @@ extension WebViewController: WKScriptMessageHandler {
                 let start = cal.startOfDay(for: Date())
                 let weekday = (cal.component(.weekday, from: start) + 5) % 7
                 guard let monday = cal.date(byAdding: .day, value: -weekday, to: start),
-                      let end = cal.date(byAdding: .day, value: 6, to: monday) else { return }
+                      let end = cal.date(byAdding: .day, value: 28, to: monday) else { return }
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyy-MM-dd"
                 formatter.locale = Locale(identifier: "en_US_POSIX")
