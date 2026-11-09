@@ -3,6 +3,8 @@ import WebKit
 import UserNotifications
 import WidgetKit
 import EventKit
+import Speech
+import AVFoundation
 
 // Общее хранилище приложения и виджетов (App Group).
 // SideStore при установке переименовывает группу: добавляет к ней ID команды
@@ -51,6 +53,7 @@ final class WebViewController: UIViewController {
     private var skipNextActiveReload = false
     private var lastDeepLink: URL?
     private var lastDeepLinkAt = Date.distantPast
+    private let dictation = SpeechDictation()
 
     static func registerNotificationCategories() {
         let record = UNNotificationAction(
@@ -88,6 +91,7 @@ final class WebViewController: UIViewController {
         controller.add(self, name: "tasks")
         controller.add(self, name: "projects")
         controller.add(self, name: "reminders")
+        controller.add(self, name: "voice")
         config.userContentController = controller
 
         // Разрешить inline-воспроизведение и не требовать жеста пользователя для
@@ -135,9 +139,27 @@ final class WebViewController: UIViewController {
         openDeepLink("tab:workout")
     }
 
-    func openTabFromWidget(_ tab: String, day: String? = nil) {
+    func openTabFromWidget(_ tab: String, day: String? = nil, voice: Bool = false) {
         let target = ["today", "workout", "routine", "tasks", "goals", "projects", "result", "progress", "settings"].contains(tab) ? tab : "routine"
-        openDeepLink("tab:\(target)", day: day)
+        openDeepLink("tab:\(target)", day: day, voice: voice)
+    }
+
+    // Planner dictation: tasks.html asks to start/stop, the text goes back into the tasks iframe.
+    private func handleVoice(_ payload: [String: Any]) {
+        let action = payload["action"] as? String ?? ""
+        if action == "stop" { dictation.stop(); return }
+        if action == "cancel" { dictation.cancel(); return }
+        guard action == "start" else { return }
+        dictation.onEvent = { [weak self] event in
+            var message = event
+            message["type"] = "voice"
+            guard let self = self,
+                  let data = try? JSONSerialization.data(withJSONObject: message),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            let js = "var f=document.getElementById('tasks-frame');if(f&&f.contentWindow)f.contentWindow.postMessage(\(json),'*')"
+            self.webView.evaluateJavaScript(js, completionHandler: nil)
+        }
+        dictation.start()
     }
 }
 
@@ -162,6 +184,11 @@ extension WebViewController: WKScriptMessageHandler {
         didReceive message: WKScriptMessage
     ) {
         guard let payload = message.body as? [String: Any] else { return }
+
+        if message.name == "voice" {
+            handleVoice(payload)
+            return
+        }
 
         if message.name == "widget" {
             updateWidget(payload)
@@ -656,7 +683,7 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         }
     }
 
-    private func openDeepLink(_ target: String, day: String? = nil) {
+    private func openDeepLink(_ target: String, day: String? = nil, voice: Bool = false) {
         // query-параметр, не #fragment: переход, отличающийся только якорем,
         // WKWebView (как и большинство браузеров) может посчитать навигацией
         // внутри документа и не перезагрузить страницу — тогда JS отработавший
@@ -665,6 +692,7 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         comps.queryItems = [URLQueryItem(name: "open", value: target)]
         if target == "tab:tasks", let day = day, day.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
             comps.queryItems?.append(URLQueryItem(name: "day", value: day))
+            if voice { comps.queryItems?.append(URLQueryItem(name: "voice", value: "1")) }
         }
         guard let url = comps.url else { return }
         // При холодном старте iOS отдаёт ссылку дважды (launchOptions и open url) —
@@ -675,5 +703,117 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         lastDeepLinkAt = now
         skipNextActiveReload = true
         webView.load(URLRequest(url: url))
+    }
+}
+
+// MARK: - Голосовой ввод дел (распознавание речи на телефоне, русский)
+final class SpeechDictation {
+    var onEvent: (([String: Any]) -> Void)?
+    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ru-RU"))
+    private let engine = AVAudioEngine()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var task: SFSpeechRecognitionTask?
+    private var silence: DispatchWorkItem?
+    private var running = false
+
+    func start() {
+        cancel()
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                guard status == .authorized else {
+                    self.onEvent?(["event": "error", "message": "Разреши распознавание речи: Настройки → Планировщик"])
+                    return
+                }
+                AVAudioSession.sharedInstance().requestRecordPermission { ok in
+                    DispatchQueue.main.async {
+                        guard ok else {
+                            self.onEvent?(["event": "error", "message": "Разреши микрофон: Настройки → Планировщик"])
+                            return
+                        }
+                        self.begin()
+                    }
+                }
+            }
+        }
+    }
+
+    private func begin() {
+        guard let recognizer = recognizer, recognizer.isAvailable else {
+            onEvent?(["event": "error", "message": "Распознавание речи сейчас недоступно"])
+            return
+        }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            let request = SFSpeechAudioBufferRecognitionRequest()
+            request.shouldReportPartialResults = true
+            self.request = request
+            let input = engine.inputNode
+            input.removeTap(onBus: 0)
+            input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in
+                request.append(buffer)
+            }
+            engine.prepare()
+            try engine.start()
+            running = true
+            onEvent?(["event": "listening"])
+            waitForSilence(after: 8)
+            task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                DispatchQueue.main.async {
+                    guard let self = self, self.running else { return }
+                    if let result = result {
+                        self.onEvent?(["event": "text", "text": result.bestTranscription.formattedString, "final": result.isFinal])
+                        if !result.isFinal { self.waitForSilence(after: 2) }
+                    }
+                    if error != nil || result?.isFinal == true { self.finish() }
+                }
+            }
+        } catch {
+            stopAudio()
+            onEvent?(["event": "error", "message": "Не получилось включить микрофон"])
+        }
+    }
+
+    // A pause in speech ends the recording by itself.
+    private func waitForSilence(after seconds: Double) {
+        silence?.cancel()
+        let item = DispatchWorkItem { [weak self] in self?.stop() }
+        silence = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+    }
+
+    func stop() {
+        guard running else { return }
+        silence?.cancel()
+        stopAudio()
+        request?.endAudio()
+        // The final result arrives through the task callback; make sure we end even if it doesn't.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.finish() }
+    }
+
+    func cancel() {
+        task?.cancel()
+        running = false
+        silence?.cancel()
+        stopAudio()
+        request = nil
+        task = nil
+    }
+
+    private func stopAudio() {
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    private func finish() {
+        guard running else { return }
+        running = false
+        silence?.cancel()
+        stopAudio()
+        request = nil
+        task = nil
+        onEvent?(["event": "end"])
     }
 }

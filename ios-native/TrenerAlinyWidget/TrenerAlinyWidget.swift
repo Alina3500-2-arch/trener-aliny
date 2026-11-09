@@ -1035,6 +1035,21 @@ private struct DailyTasksWidgetView: View {
         URL(string: date.map { "treneraliny://open?tab=tasks&day=\($0)" } ?? "treneraliny://open?tab=tasks")!
     }
 
+    // Widgets can't record sound: the mic opens the app on that day with dictation already on.
+    private func voiceURL(_ date: String) -> URL {
+        URL(string: "treneraliny://open?tab=tasks&day=\(date)&voice=1")!
+    }
+
+    private func micLink(_ date: String, size: CGFloat) -> some View {
+        Link(destination: voiceURL(date)) {
+            Image(systemName: "mic.fill")
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(rose)
+                .frame(width: size + 14, height: size + 10)
+                .background(Circle().fill(rose.opacity(0.12)))
+        }
+    }
+
     var body: some View {
         if isLarge {
             notebook
@@ -1169,18 +1184,23 @@ private struct DailyTasksWidgetView: View {
         let cap = compact ? 1 : 2
         let titleColor: Color = isToday || isWeekend ? rose : (isPast ? faded : ink)
         return VStack(alignment: .leading, spacing: 4) {
-            Link(destination: addURL(day.date)) {
-                if compact {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("\(day.label) \(number)").font(.system(size: 14, weight: .bold)).foregroundStyle(titleColor)
-                        Text(tasksWord(count)).font(.system(size: 11)).foregroundStyle(faded)
-                    }
-                } else {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(day.label) \(number)").font(.system(size: 15, weight: .bold)).foregroundStyle(titleColor)
-                        Text("· " + tasksWord(count)).font(.system(size: 11.5)).foregroundStyle(faded)
+            HStack(alignment: .top, spacing: 2) {
+                Link(destination: addURL(day.date)) {
+                    if compact {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("\(day.label) \(number)").font(.system(size: 14, weight: .bold)).foregroundStyle(titleColor)
+                            Text(tasksWord(count)).font(.system(size: 11)).foregroundStyle(faded)
+                        }
+                    } else {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("\(day.label) \(number)").font(.system(size: 15, weight: .bold)).foregroundStyle(titleColor)
+                            Text("· " + tasksWord(count)).font(.system(size: 11.5)).foregroundStyle(faded)
+                                .lineLimit(1)
+                        }
                     }
                 }
+                Spacer(minLength: 0)
+                if !isPast { micLink(day.date, size: compact ? 9 : 10) }
             }
             if count == 0 {
                 Text(isPast ? "—" : "свободно")
@@ -1257,12 +1277,7 @@ private struct DailyTasksWidgetView: View {
                 .background(Capsule().fill(isToday ? rose : Color.clear))
                 Spacer(minLength: 0)
                 if !isPast {
-                    Link(destination: addURL(day.date)) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color(red: 0.80, green: 0.55, blue: 0.65))
-                            .frame(width: 20, height: 18, alignment: .trailing)
-                    }
+                    micLink(day.date, size: 8)
                 }
             }
             .padding(.bottom, 4)

@@ -40,7 +40,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Разреши доступ к камере, чтобы сфотографировать блюдо для подсчёта калорий.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Разреши доступ к микрофону, чтобы записывать еду голосом.</string>
+	<string>Разреши доступ к микрофону, чтобы записывать еду и дела голосом.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Разреши распознавание речи, чтобы надиктовывать дела в планировщик.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>
