@@ -18,7 +18,7 @@ const PLAN=[
 ['Горизонтальная тяга блока сидя узким хватом','3×12 · 10 кг','💪',3,12,10,''],
 ['Разведение рук в тренажёре','3×15 · 10 кг','💪',3,15,10,'']]},
 {name:'Кардио',emoji:'🏃‍♀️',time:30,ex:[['Беговая дорожка','30 мин · комфортный темп','🏃‍♀️',1,30,'','Минуты вместо повторений']]}];
-const START='2026-11-09',END='2026-11-21',KEY='alina-workout-journal-2026-v1';
+const START='2026-11-09',END='2026-11-30',KEY='alina-workout-journal-2026-v1';
 const DAY_NAMES=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 const GYM_DAYS=(()=>{try{const list=JSON.parse(localStorage.getItem('alina-habits-v1')||'null');const g=Array.isArray(list)&&list.find(h=>h.id==='gym');if(g&&Array.isArray(g.days)&&g.days.length)return g.days.slice().sort()}catch(e){}return [1,3,6]})();
 const schedule=(()=>{const out=[];const d=new Date(2026,10,9,12);while(true){const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(k>END)break;if(GYM_DAYS.includes(d.getDay()))out.push(k);d.setDate(d.getDate()+1)}return out})();

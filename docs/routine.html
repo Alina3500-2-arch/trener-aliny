@@ -174,7 +174,7 @@ h1,h2,h3,.statnum,.wtitle,strong{font-family:-apple-system,BlinkMacSystemFont,"S
   </section>
 
   <section id="stats" class="panel" aria-label="Прогресс">
-    <div class="eyebrow">Дисциплина видна в цифрах</div><h1 style="margin:9px 0 9px">Мой прогресс</h1><p class="small muted">Спринт 9–21 ноября: итоговая цель — 100%.</p>
+    <div class="eyebrow">Дисциплина видна в цифрах</div><h1 style="margin:9px 0 9px">Мой прогресс</h1><p class="small muted">Спринт 9–30 ноября: итоговая цель — 100%.</p>
     <div class="statstrip"><div class="stat"><div class="statnum" id="stat-coverage">0%</div><div class="statlabel">Привычки по плану</div></div><div class="stat"><div class="statnum" id="stat-gym">0/12</div><div class="statlabel">Тренировки</div></div><div class="stat"><div class="statnum" id="stat-pages">0</div><div class="statlabel">Прочитано страниц</div></div><div class="stat"><div class="statnum" id="stat-money">0</div><div class="statlabel">Дней с действием для дохода</div></div></div>
     <section class="section"><div class="sectionhead"><h2>Две недели</h2><span class="tag">Цель 100%</span></div><div class="quarter" id="week-quarters"></div><div class="whitecard" style="margin-top:10px"><div id="week-stats-list"></div></div></section>
     <section class="section"><div class="sectionhead"><h2>Проверка результата</h2></div><div class="whitecard"><h3>Промежуточный итог — 25 октября</h3><p class="small muted" style="margin:8px 0 15px">Две недели: какие привычки закрепились, что мешает, сколько тренировок было, что принесло движение к доходу.</p><div class="divider"></div><h3>Главный итог — 31 октября</h3><p class="small muted" style="margin-top:8px">Подводим итог спринта 19–31 октября: процент выполнения, все тренировки по плану, прочитанные страницы, результаты агентства и Альбины, какие ИИ-навыки удалось монетизировать.</p></div></section>
@@ -193,7 +193,7 @@ h1,h2,h3,.statnum,.wtitle,strong{font-family:-apple-system,BlinkMacSystemFont,"S
 </nav>
 <script>
 (()=>{'use strict';
-const TEST_START='2026-11-09', START='2026-11-09', END='2026-11-21', KEY='alina-my-routine-v2';
+const TEST_START='2026-11-09', START='2026-11-09', END='2026-11-30', KEY='alina-my-routine-v2';
 const DEFAULT_GOALS=['Я укрепляю тело и тренируюсь 3 раза в неделю','Я создаю стабильный доход благодаря своим навыкам и проектам','Я развиваю навыки ИИ и учусь их монетизировать'];
 const DW=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 const DLF=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
@@ -280,7 +280,7 @@ function renderDebtCard(){
 function renderFineLedger(){
  const target=document.getElementById('sprint-fines');if(!target)return;
  const f=fineSummary();
- target.innerHTML='<div style="font-size:12px;color:#8c7080;font-weight:700;letter-spacing:.06em">СПРИНТ 9–21 НОЯБРЯ · ФОНД 1 000 ₽</div>'+
+ target.innerHTML='<div style="font-size:12px;color:#8c7080;font-weight:700;letter-spacing:.06em">СПРИНТ 9–30 НОЯБРЯ · ФОНД 1 000 ₽</div>'+
  '<div style="font-size:29px;font-weight:800;color:#9c5872;margin:7px 0">'+f.charged+' ₽ <span style="font-size:13px;font-weight:500;color:#8e8e93">начислено</span></div>'+
  '<div style="font-size:14px;margin-bottom:9px">Вернуть из фонда: <b>'+f.remaining+' ₽</b> · Получатель штрафа: племянница</div>'+
  '<div style="font-size:12px;color:#8e8e93;margin-bottom:12px">Закрытые дни нельзя изменить в интерфейсе. Штрафы начисляются при следующем открытии приложения после полуночи; это локальный журнал, не защищённый сервером от удаления или подмены.</div>'+
