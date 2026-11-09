@@ -177,7 +177,7 @@ function buildWidgetPayload(){
   try{var hl=JSON.parse(localStorage.getItem('alina-habits-v1')||'null');var g=Array.isArray(hl)&&hl.filter(function(h){return h.id==='gym';})[0];if(g&&g.days&&g.days.length)gymDays=g.days.slice().sort(function(x,y){return x-y;});}catch(e){}
   var logs={};try{logs=(JSON.parse(localStorage.getItem('alina-workout-journal-2026-v1')||'{}')||{}).logs||{};}catch(e){}
   var DIARY=[{name:'Ягодицы база',min:54},{name:'Ягодицы шлифовка',min:55},{name:'Кардио',min:30}];
-  var sched=[];for(var sd='2026-10-19';sd<='2026-10-31';sd=addDays(sd,1)){var p=sd.split('-').map(Number);if(gymDays.indexOf(dow(p[0],p[1],p[2]))>=0)sched.push(sd);}
+  var sched=[];for(var sd='2026-11-09';sd<='2026-11-21';sd=addDays(sd,1)){var p=sd.split('-').map(Number);if(gymDays.indexOf(dow(p[0],p[1],p[2]))>=0)sched.push(sd);}
   var nextKey=null;for(var i=0;i<sched.length;i++){if(sched[i]>=today&&!(logs[sched[i]]&&logs[sched[i]].photo)){nextKey=sched[i];break;}}
   if(nextKey){
     var np=nextKey.split('-').map(Number),plan=DIARY[sched.indexOf(nextKey)%3];

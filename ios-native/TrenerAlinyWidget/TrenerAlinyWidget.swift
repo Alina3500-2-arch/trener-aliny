@@ -412,8 +412,8 @@ struct ToggleRoutineHabitIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let today = RoutineWeek.key(Date())
-        guard dateKey >= "2026-10-19",
-              dateKey <= "2026-11-08", dateKey == today, // finished days are frozen
+        guard dateKey >= "2026-11-09",
+              dateKey <= "2026-11-21", dateKey == today, // finished days are frozen
               let defaults = SharedStore.defaults else { return .result() }
 
         var payload = defaults.string(forKey: "routineWidgetPayload")
@@ -556,7 +556,7 @@ private enum RoutineWeek {
             let day = cal.date(byAdding: .day, value: offset, to: monday) ?? monday
             let key = self.key(day)
             let jsDay = cal.component(.weekday, from: day) - 1
-            let active = key >= "2026-10-19" && key <= "2026-10-31" && jsDay != 0
+            let active = key >= "2026-11-09" && key <= "2026-11-21" && jsDay != 0
             return RoutineWeekDay(date: key, habits: defs.map { def in
                 RoutineWeekHabit(id: def.id, planned: active && def.days.contains(jsDay), done: false)
             })

@@ -113,7 +113,7 @@ if(PlannerCore.migrate(db))localStorage.setItem(KEY,JSON.stringify(db));
 function sync(){let payload=PlannerCore.payload(db,dateKey(new Date()));try{window.webkit?.messageHandlers?.tasks?.postMessage(payload)}catch(e){}try{window.parent.postMessage({type:"dailyTasks",payload},"*")}catch(e){}}
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));sync()}
 let mode="day",sel=null;try{mode=localStorage.getItem("alina-tasks-mode")==="week"?"week":"day"}catch(e){}
-const RKEY="alina-my-routine-v1",FKEY="alina-fines-from-2026-10-19-v1",SPRINT=["2026-10-19","2026-10-31"];
+const RKEY="alina-my-routine-v2",FKEY="alina-fines-from-2026-11-09-v1",SPRINT=["2026-11-09","2026-11-21"];
 const DEF_HABITS=[{id:"wake",title:"Подъём",icon:"🌅",days:[1,2,3,4,5,6]},{id:"affirm",title:"Аффирмации",icon:"🌷",days:[1,2,3,4,5,6]},{id:"ai",title:"Обучение ИИ",icon:"💻",days:[2,4,6]},{id:"motivation",title:"Подкаст",icon:"🎧",days:[1,3,5]},{id:"money",title:"Шаг к доходу",icon:"💰",days:[2,4,6]},{id:"read",title:"Книга 20 стр",icon:"📖",days:[1,2,3,4,5,6]}];
 const keyDate=k=>{const p=k.split("-").map(Number);return new Date(p[0],p[1]-1,p[2],12)};
 const shiftKey=(k,n)=>{const d=keyDate(k);d.setDate(d.getDate()+n);return dateKey(d)};
