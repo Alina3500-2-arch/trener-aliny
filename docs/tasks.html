@@ -28,6 +28,17 @@ h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.2px}
 
 
 
+.swrap{position:relative;overflow:hidden}.swrap:first-child .line{border-top:0;padding-top:2px}.dayview .swrap:first-child .line{padding-top:6px}
+.swrap .line{position:relative;background:#fff;touch-action:pan-y}
+.sbg{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:#fff;opacity:0}
+.sbg.left{opacity:1;background:var(--rose)}.sbg.right{opacity:1;background:#e5484d}
+.sbg span{padding:0 16px}.sbg.left .sr,.sbg.right .sl{visibility:hidden}
+.dialog.compact{padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
+.dialog.compact .trow{display:flex;gap:8px;margin-bottom:10px}.dialog.compact .trow input,.dialog.compact .trow select{margin:0;flex:1;min-width:0;box-sizing:border-box}
+.dialog.compact .trow input[type=time]{flex:0 0 118px;text-align:center}
+.dialog.compact input{box-sizing:border-box}
+.dialog.compact .vrow{margin-bottom:8px}.dialog.compact .vrow input{margin:0}
+.dialog.compact .go{width:100%;padding:12px}
 .dialog-shade{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:30;display:flex;align-items:flex-end;justify-content:center}
 .dialog{background:#fff;border-radius:22px 22px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));width:100%;max-width:520px;box-shadow:0 -8px 30px rgba(0,0,0,.08)}
 .dialog h2{font-size:18px;font-weight:600;margin:0 0 12px}
@@ -110,7 +121,7 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .vmini{flex:none;border:0;background:transparent;color:#c7869f;padding:0;width:24px;height:20px;display:grid;place-items:center;margin-left:4px}.vmini svg{width:16px;height:16px}
 .addrow{display:flex;gap:8px;align-items:stretch}.addrow .add-wide{flex:1}
 .add-voice{flex:none;width:52px;margin:6px 0 4px;border:1px dashed #efc3d4;background:transparent;color:var(--rose);border-radius:14px;display:grid;place-items:center}
-</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Нажми — отметить · ✎ — изменить, время, удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><script src="planner-core.js"></script><script>
+</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Нажми — отметить · смахни вправо — изменить, влево — удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><script src="planner-core.js"></script><script>
 "use strict";
 const MIC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const KEY="alina-daily-tasks-v1", $=id=>document.getElementById(id),dateKey=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
@@ -163,7 +174,7 @@ function renderDay(){
  else if(n===total){msg="Молодец! Всё на сегодня сделано 🎉";good=true}
  else if(n>0)msg="Уже "+n+" из "+total+" — так держать!";
  else msg="Начни с самого лёгкого: первая галочка тянет за собой остальные.";
- const rows=D.items.length?D.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==="overdue"?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span><button class="edit" data-edit aria-label="Изменить">✎</button></div>').join(""):"";
+ const rows=D.items.length?D.items.map(i=>'<div class="swrap"><div class="sbg"><span class="sl">Изменить</span><span class="sr">Удалить</span></div><div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==="overdue"?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span></div></div>').join(""):"";
  const y=shiftKey(todayKey,-1),miss=sel===todayKey?missedHabits(y):[];
  const ycard=miss.length?'<div class="ycard"><div class="ytitle">Вчера, '+longDate(y)+', не отмечено. Если сделала — нажми, я поставлю галочку:</div>'+miss.map(h=>'<div class="yrow"><span>'+esc(h.icon)+' '+esc(h.title)+'</span><button class="yb" data-habit="'+esc(h.id)+'" data-hday="'+y+'">Сделала ✓</button></div>').join("")+'</div>':"";
  root.className="diary dayview";
@@ -176,7 +187,7 @@ function renderWeek(){const root=$("diary"),todayKey=dateKey(new Date()),v=Plann
 const mark={open:'',done:'✓',overdue:'',missed:'✕'};
 root.className="diary";root.innerHTML=v.map(d=>{const live=d.items.filter(i=>i.state!=='missed'),dn=live.filter(i=>i.state==='done').length;const past=d.date<todayKey;
  return '<section class="day'+(d.isToday?' today':'')+(past?' past':'')+'" data-date="'+d.date+'"><div class="day-head"><span class="dname">'+d.label+'</span><span class="dnum">'+d.num+'</span>'+(live.length?'<span class="dcount">'+dn+'/'+live.length+'</span>':'')+(past?'':'<button class="vmini" data-voice="'+d.date+'" aria-label="Надиктовать дело">'+MIC+'</button>')+'</div>'+
- (d.items.length?'<div class="lines">'+d.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==='overdue'?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span><button class="edit" data-edit aria-label="Изменить">✎</button></div>').join('')+'</div>':'')+
+ (d.items.length?'<div class="lines">'+d.items.map(i=>'<div class="swrap"><div class="sbg"><span class="sl">Изменить</span><span class="sr">Удалить</span></div><div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==='overdue'?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span></div></div>').join('')+'</div>':'')+
  (past?(d.items.length?'':'<div class="empty-past">—</div>'):(d.items.length?'<button class="add-mini" data-add="'+d.date+'" aria-label="Добавить дело">+</button>':'<button class="add-empty" data-add="'+d.date+'" aria-label="Добавить дело">+</button>'))+'</section>'}).join('');
 afterRender(root,c)}
 function afterRender(root,c){$("wk-title").textContent=weekTitle();
@@ -184,7 +195,10 @@ $("mode-toggle").textContent=mode==="day"?"▦ Вся неделя":"▤ Оди�
 $("hcount").textContent=c.done+"/"+c.total;
 root.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openDialog(b.dataset.add));root.querySelectorAll("[data-voice]").forEach(b=>b.onclick=()=>openDialog(b.dataset.voice,true));
 root.querySelectorAll(".line").forEach(row=>{let timer=null,held=false;
- const eb=row.querySelector("[data-edit]");if(eb){["touchstart","mousedown","touchend","mouseup"].forEach(ev=>eb.addEventListener(ev,e=>e.stopPropagation()));eb.onclick=e=>{e.stopPropagation();held=false;openDialog(row.dataset.day,false,row.dataset.id)}}
+ let sx=0,sy=0,dx=0,sw=false;const bg=row.previousElementSibling;
+ row.addEventListener("touchstart",e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;dx=0;sw=false;row.style.transition="none"},{passive:true});
+ row.addEventListener("touchmove",e=>{const t=e.touches[0],x=t.clientX-sx,y=t.clientY-sy;if(!sw&&Math.abs(x)>10&&Math.abs(x)>Math.abs(y)*1.5)sw=true;if(!sw)return;clearTimeout(timer);held=true;dx=Math.max(-120,Math.min(120,x));row.style.transform="translateX("+dx+"px)";if(bg){bg.classList.toggle("left",dx>0);bg.classList.toggle("right",dx<0)}},{passive:true});
+ row.addEventListener("touchend",()=>{if(!sw)return;row.style.transition="transform .2s";row.style.transform="";const d=dx;dx=0;setTimeout(()=>{held=false},50);if(d>=70)openDialog(row.dataset.day,false,row.dataset.id);else if(d<=-70){reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(t)removeTask(row.dataset.day,t)}else if(bg){bg.classList.remove("left","right")}});
  const start=()=>{held=false;timer=setTimeout(()=>{held=true;reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(t&&confirm("Удалить «"+t.title+"»?"))removeTask(row.dataset.day,t)},550)};
  const stop=()=>{clearTimeout(timer)};
  row.addEventListener("touchstart",start,{passive:true});row.addEventListener("touchend",stop);row.addEventListener("touchmove",stop,{passive:true});
@@ -199,11 +213,10 @@ $("wk-prev").onclick=()=>shiftWeek(-1);$("wk-next").onclick=()=>shiftWeek(1);
 $("wk-title").onclick=()=>{if(weekOffset){weekOffset=0;days=buildDays();sel=dateKey(new Date());render()}};
 $("mode-toggle").onclick=()=>{mode=mode==="day"?"week":"day";try{localStorage.setItem("alina-tasks-mode",mode)}catch(e){}render()};
 function openDialog(date,voice,editId){selected=date;let d=days.find(x=>x.date===date)||{name:"",num:keyDate(date).getDate()};reloadDb();const cur=editId?PlannerCore.find(db,date,editId):null;if(editId&&!cur)return;let goalData={goals:[],projects:[]};try{goalData=JSON.parse(localStorage.getItem("alina-goals-projects-v1")||"{}")}catch(e){}let opts=[...((goalData.projects||[]).map(x=>({id:"project:"+x.id,label:"📁 "+x.name}))),...((goalData.goals||[]).map(x=>({id:"goal:"+x.id,label:"🎯 "+x.name})))];
-$("dialog-root").innerHTML='<div class="dialog-shade"><form class="dialog" id="task-dialog"><h2>'+(cur?'Изменить дело':'Новое дело · '+d.name+', '+d.num)+'</h2><div class="vrow"><input id="new-title" maxlength="160" placeholder="Что нужно сделать?" required><button type="button" class="mic" id="mic" aria-label="Надиктовать">'+MIC+'</button></div><div class="rec" id="rec"><i></i>Идёт запись — говори</div><div class="vstatus" id="vstatus"></div><div class="tlabel">Время, если нужно (можно сказать голосом: «в 15:30», «в семь вечера»)</div><input id="new-time" type="time" aria-label="Время, если нужно"><select id="new-link"><option value="">Без проекта и цели</option>'+opts.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join("")+'</select><div class="actions">'+(cur?'<button type="button" class="del" id="del-task">Удалить</button>':'<button type="button" class="cancel" id="close-dialog">Отмена</button>')+'<button type="submit">'+(cur?'Сохранить':'Добавить')+'</button></div>'+(cur?'<div class="actions"><button type="button" class="cancel" id="close-dialog">Отмена</button></div>':'')+'</form></div>';
+$("dialog-root").innerHTML='<div class="dialog-shade" id="shade"><form class="dialog compact" id="task-dialog"><div class="vrow"><input id="new-title" maxlength="160" placeholder="'+(cur?'Дело':'Что нужно сделать?')+'" required><button type="button" class="mic" id="mic" aria-label="Надиктовать">'+MIC+'</button></div><div class="rec" id="rec"><i></i>Идёт запись — скажи дело и время</div><div class="trow"><input id="new-time" type="time" aria-label="Время">'+(opts.length?'<select id="new-link"><option value="">Без проекта и цели</option>'+opts.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join("")+'</select>':'<input id="new-link" type="hidden">')+'</div><div class="vstatus" id="vstatus"></div><button type="submit" class="go">'+(cur?'Сохранить':'Добавить')+'</button></form></div>';
 if(cur){$("new-title").value=cur.title||"";$("new-time").value=/^\d{2}:\d{2}$/.test(cur.time||"")?cur.time:"";$("new-link").value=cur.link||""}
 const closeIt=()=>{stopVoice(true);$("dialog-root").innerHTML="";selected=null;render()};
-$("mic").onclick=()=>voiceOn?stopVoice(false):startVoice();$("close-dialog").onclick=closeIt;
-if(cur)$("del-task").onclick=()=>{if(confirm("Удалить «"+cur.title+"»?")){stopVoice(true);$("dialog-root").innerHTML="";selected=null;removeTask(date,cur)}};
+$("mic").onclick=()=>voiceOn?stopVoice(false):startVoice();$("shade").onclick=e=>{if(e.target.id==="shade")closeIt()};
 $("task-dialog").onsubmit=e=>{e.preventDefault();stopVoice(true);let title=$("new-title").value.trim(),link=$("new-link").value,time=/^\d{2}:\d{2}$/.test($("new-time").value)?$("new-time").value:"";if(!title)return;reloadDb();
  if(cur){const t=PlannerCore.find(db,date,editId);if(t){t.title=title;t.link=link;if(time)t.time=time;else delete t.time}}
  else{db[date]=db[date]||[];db[date].push(Object.assign({id:String(Date.now())+Math.random().toString(36).slice(2),title,done:false,link},time?{time}:{}))}
@@ -240,16 +253,16 @@ function voiceText(t){const i=$("new-title");t=String(t||"").trim();if(!i||!t)re
 let actx=null;function beep(up){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);o.frequency.value=up?880:520;g.gain.value=.15;o.start();o.stop(actx.currentTime+.14)}catch(e){}}
 function startVoice(){
  const native=window.webkit?.messageHandlers?.voice;
- if(native){native.postMessage({action:"start"});voiceUI(true,"Скажи дело и время, например: «позвонить маме в 15:30»");return}
+ if(native){native.postMessage({action:"start"});voiceUI(true,"");return}
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!SR){voiceUI(false,"Голос заработает после обновления приложения. Пока можно нажать 🎤 на клавиатуре.");$("new-title")?.focus();return}
  webRec=new SR();webRec.lang="ru-RU";webRec.interimResults=true;
  webRec.onresult=e=>{let t="";for(const r of e.results)t+=r[0].transcript;voiceText(t)};
  webRec.onend=()=>{webRec=null;beep(false);voiceDone()};webRec.onerror=()=>{};
- try{webRec.start();beep(true);voiceUI(true,"Скажи дело и время, например: «позвонить маме в 15:30»")}catch(e){voiceUI(false,"")}
+ try{webRec.start();beep(true);voiceUI(true,"")}catch(e){voiceUI(false,"")}
 }
 function stopVoice(cancel){if(voiceOn)try{window.webkit?.messageHandlers?.voice?.postMessage({action:cancel?"cancel":"stop"})}catch(e){}if(webRec){try{webRec.stop()}catch(e){}}if(cancel)voiceUI(false,"")}
-function voiceDone(){if(!$("mic"))return;voiceUI(false,$("new-title")?.value?"Записала. Проверь дело и время, поправь, если нужно, и нажми кнопку внизу":"Ничего не слышно — нажми микрофон ещё раз")}
+function voiceDone(){if(!$("mic"))return;voiceUI(false,$("new-title")?.value?"Записала. Проверь и нажми кнопку":"Ничего не слышно — нажми микрофон ещё раз")}
 window.addEventListener("message",e=>{const d=e.data;if(d?.type!=="voice")return;
  if(d.event==="text")voiceText(d.text);else if(d.event==="end")voiceDone();else if(d.event==="error")voiceUI(false,d.message||"Не получилось включить микрофон")});
 document.getElementById("siri-import").onclick=()=>{try{window.webkit.messageHandlers.reminders.postMessage({})}catch(e){alert("Синхронизация Siri доступна в установленном приложении для iPhone после обновления.")}};
