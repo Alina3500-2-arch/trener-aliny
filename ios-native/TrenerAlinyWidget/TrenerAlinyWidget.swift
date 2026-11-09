@@ -1036,6 +1036,18 @@ private struct DailyTasksWidgetView: View {
     }
 
     var body: some View {
+        if isLarge {
+            notebook
+                .widgetURL(addURL(nil))
+                .containerBackground(for: .widget) {
+                    LinearGradient(colors: [Color(red: 0.99, green: 0.95, blue: 0.97), Color(red: 0.97, green: 0.91, blue: 0.94)], startPoint: .top, endPoint: .bottom)
+                }
+        } else {
+            mediumBody
+        }
+    }
+
+    private var mediumBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 8) {
                 Image(systemName: "checklist")
@@ -1071,14 +1083,10 @@ private struct DailyTasksWidgetView: View {
             .frame(height: 3)
             .padding(.top, 7)
             .padding(.bottom, 8)
-            if isLarge {
-                weekList
-            } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                    ForEach(shown) { day in dayTile(day) }
-                }
-                Spacer(minLength: 0)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                ForEach(shown) { day in dayTile(day) }
             }
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
         .padding(.top, isLarge ? 13 : 11)
@@ -1089,86 +1097,143 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    // Large widget: one clean row per day, Monday to Sunday, all the same.
-    private var weekList: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                weekRow(day)
-                if index < days.count - 1 {
-                    Rectangle().fill(tileLine.opacity(0.8)).frame(height: 0.5)
+    // Large widget: an open notebook — Mon–Wed on the left page, Thu, Fri and the weekend on the right.
+    private var notebook: some View {
+        let d = days
+        return HStack(spacing: 0) {
+            page {
+                section(d[0]); pageLine; section(d[1]); pageLine; section(d[2])
+            }
+            spine
+            page {
+                section(d[3]); pageLine; section(d[4]); pageLine
+                HStack(spacing: 0) {
+                    section(d[5], compact: true)
+                    Rectangle().fill(tileLine).frame(width: 0.5).padding(.vertical, 6)
+                    section(d[6], compact: true)
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 9)
+        .padding(.top, 9)
+        .padding(.bottom, 13)
     }
 
-    private func weekRow(_ day: DailyTaskDay) -> some View {
+    private func page<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .padding(4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                ZStack {
+                    // Stacked page edges peeking out underneath.
+                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(red: 0.95, green: 0.80, blue: 0.86)).offset(y: 4)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(red: 0.99, green: 0.90, blue: 0.93)).offset(y: 2)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white)
+                        .shadow(color: rose.opacity(0.10), radius: 3, y: 1)
+                }
+            )
+    }
+
+    private var pageLine: some View {
+        Rectangle().fill(tileLine).frame(height: 0.5).padding(.horizontal, 6)
+    }
+
+    private var spine: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<3, id: \.self) { _ in
+                Spacer(minLength: 0)
+                Capsule()
+                    .strokeBorder(Color(red: 0.72, green: 0.72, blue: 0.76), lineWidth: 1.4)
+                    .frame(width: 14, height: 6)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(width: 6)
+        .zIndex(1)
+    }
+
+    private func tasksWord(_ n: Int) -> String {
+        if n == 0 { return "нет дел" }
+        let m10 = n % 10, m100 = n % 100
+        if m10 == 1 && m100 != 11 { return "\(n) дело" }
+        if (2...4).contains(m10) && !(12...14).contains(m100) { return "\(n) дела" }
+        return "\(n) дел"
+    }
+
+    private func section(_ day: DailyTaskDay, compact: Bool = false) -> some View {
         let isToday = day.date == todayKey
         let isPast = day.date < todayKey
-        let hasTasks = !day.tasks.isEmpty
+        let isWeekend = day.label == "Сб" || day.label == "Вс"
         let number = String(Int(day.date.suffix(2)) ?? 0)
-        let numberColor: Color = isToday ? Color.white : (hasTasks ? rose : faded.opacity(0.55))
-        return HStack(alignment: .center, spacing: 8) {
-            VStack(spacing: 1) {
-                Text(day.label)
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundStyle(isToday ? rose : faded)
-                Text(number)
-                    .font(.system(size: 14, weight: .bold).monospacedDigit())
-                    .foregroundStyle(numberColor)
-                    .frame(width: 26, height: 22)
-                    .background(Circle().fill(isToday ? rose : Color.clear))
-            }
-            .frame(width: 30)
-            VStack(alignment: .leading, spacing: 2) {
-                if hasTasks {
-                    ForEach(Array(day.tasks.prefix(2).enumerated()), id: \.offset) { i, task in
-                        HStack(spacing: 4) {
-                            taskLine(task, day: day)
-                            if i == 1, day.tasks.count > 2 {
-                                Text("+\(day.tasks.count - 2)")
-                                    .font(.system(size: 9.5, weight: .medium))
-                                    .foregroundStyle(faded)
-                            }
-                        }
+        let count = day.tasks.count
+        let cap = compact ? 1 : 2
+        let titleColor: Color = isToday || isWeekend ? rose : (isPast ? faded : ink)
+        return VStack(alignment: .leading, spacing: 4) {
+            Link(destination: addURL(day.date)) {
+                if compact {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("\(day.label) \(number)").font(.system(size: 14, weight: .bold)).foregroundStyle(titleColor)
+                        Text(tasksWord(count)).font(.system(size: 11)).foregroundStyle(faded)
                     }
                 } else {
-                    Text(isPast ? "—" : "свободно")
-                        .font(.system(size: 11))
-                        .foregroundStyle(faded.opacity(0.6))
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(day.label) \(number)").font(.system(size: 15, weight: .bold)).foregroundStyle(titleColor)
+                        Text("· " + tasksWord(count)).font(.system(size: 11.5)).foregroundStyle(faded)
+                    }
+                }
+            }
+            if count == 0 {
+                Text(isPast ? "—" : "свободно")
+                    .font(.system(size: 11))
+                    .foregroundStyle(faded.opacity(0.6))
+            } else {
+                ForEach(Array(day.tasks.prefix(cap))) { task in
+                    taskLine(task, day: day, small: compact)
+                }
+                if count > cap {
+                    Link(destination: addURL(day.date)) {
+                        Text("+\(count - cap) ещё")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(rose)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(rose.opacity(0.12)))
+                    }
+                    .padding(.leading, compact ? 0 : 16)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 6)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(isToday ? rose.opacity(0.08) : Color.clear))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(isToday ? rose.opacity(0.14) : Color.clear))
     }
 
     @ViewBuilder
-    private func taskLine(_ task: DailyTaskItem, day: DailyTaskDay) -> some View {
+    private func taskLine(_ task: DailyTaskItem, day: DailyTaskDay, small: Bool = false) -> some View {
         if task.tappable == false {
-            lineContent(task)
+            lineContent(task, small: small)
         } else {
             Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: task.day ?? day.date)) {
-                lineContent(task).contentShape(Rectangle())
+                lineContent(task, small: small).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
     }
 
-    private func lineContent(_ task: DailyTaskItem) -> some View {
+    private func lineContent(_ task: DailyTaskItem, small: Bool = false) -> some View {
         let st = state(task)
         let titleColor: Color = st == "overdue" ? late : (st == "done" || st == "missed" ? faded : ink)
-        return HStack(spacing: 5) {
+        return HStack(spacing: small ? 3 : 5) {
             mark(st)
-            if let time = task.time, !time.isEmpty {
+            if !small, let time = task.time, !time.isEmpty {
                 Text(time)
                     .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
                     .foregroundStyle(st == "open" ? rose : faded)
             }
             Text(task.title)
-                .font(.system(size: 11.5))
+                .font(.system(size: small ? 10 : 12))
                 .foregroundColor(titleColor)
                 .strikethrough(st == "done" || st == "missed", color: st == "missed" ? late.opacity(0.5) : faded)
                 .lineLimit(1)
