@@ -5,6 +5,7 @@ import WidgetKit
 import EventKit
 import Speech
 import AVFoundation
+import AudioToolbox
 
 // Общее хранилище приложения и виджетов (App Group).
 // SideStore при установке переименовывает группу: добавляет к ней ID команды
@@ -744,7 +745,7 @@ final class SpeechDictation {
         }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
@@ -757,6 +758,7 @@ final class SpeechDictation {
             engine.prepare()
             try engine.start()
             running = true
+            beep(start: true)
             onEvent?(["event": "listening"])
             waitForSilence(after: 8)
             task = recognizer.recognitionTask(with: request) { [weak self] result, error in
@@ -786,6 +788,7 @@ final class SpeechDictation {
     func stop() {
         guard running else { return }
         silence?.cancel()
+        beep(start: false)
         stopAudio()
         request?.endAudio()
         // The final result arrives through the task callback; make sure we end even if it doesn't.
@@ -799,6 +802,12 @@ final class SpeechDictation {
         stopAudio()
         request = nil
         task = nil
+    }
+
+    // Звук и вибрация: слышно, что запись началась и закончилась.
+    private func beep(start: Bool) {
+        AudioServicesPlaySystemSound(start ? 1113 : 1114)
+        UIImpactFeedbackGenerator(style: start ? .medium : .light).impactOccurred()
     }
 
     private func stopAudio() {

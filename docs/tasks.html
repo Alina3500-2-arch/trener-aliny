@@ -101,11 +101,16 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .dialog .mic svg,.vmini svg,.add-voice svg{width:22px;height:22px}
 .dialog .mic.on{background:var(--rose);color:#fff;animation:vpulse 1.2s infinite}
 @keyframes vpulse{0%{box-shadow:0 0 0 0 rgba(240,92,148,.45)}100%{box-shadow:0 0 0 14px rgba(240,92,148,0)}}
+.line .edit{flex:none;align-self:center;border:0;background:transparent;color:#c7869f;width:30px;height:30px;padding:0;font-size:17px;line-height:1;margin-left:auto}
+.dialog .del{background:#fdecef;color:#e5484d}
+.dialog .rec{display:none;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#e5484d;margin:2px 2px 6px}
+.dialog .rec.on{display:flex}.dialog .rec i{width:12px;height:12px;border-radius:50%;background:#e5484d;animation:recblink 1s infinite}
+@keyframes recblink{50%{opacity:.25}}
 .vstatus{font-size:12.5px;color:var(--rose);min-height:17px;margin:4px 2px 8px}
 .vmini{flex:none;border:0;background:transparent;color:#c7869f;padding:0;width:24px;height:20px;display:grid;place-items:center;margin-left:4px}.vmini svg{width:16px;height:16px}
 .addrow{display:flex;gap:8px;align-items:stretch}.addrow .add-wide{flex:1}
 .add-voice{flex:none;width:52px;margin:6px 0 4px;border:1px dashed #efc3d4;background:transparent;color:var(--rose);border-radius:14px;display:grid;place-items:center}
-</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Нажми — отметить · подержи — удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><script src="planner-core.js"></script><script>
+</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Нажми — отметить · ✎ — изменить, время, удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><script src="planner-core.js"></script><script>
 "use strict";
 const MIC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const KEY="alina-daily-tasks-v1", $=id=>document.getElementById(id),dateKey=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
@@ -158,7 +163,7 @@ function renderDay(){
  else if(n===total){msg="Молодец! Всё на сегодня сделано 🎉";good=true}
  else if(n>0)msg="Уже "+n+" из "+total+" — так держать!";
  else msg="Начни с самого лёгкого: первая галочка тянет за собой остальные.";
- const rows=D.items.length?D.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==="overdue"?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span></div>').join(""):"";
+ const rows=D.items.length?D.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==="overdue"?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span><button class="edit" data-edit aria-label="Изменить">✎</button></div>').join(""):"";
  const y=shiftKey(todayKey,-1),miss=sel===todayKey?missedHabits(y):[];
  const ycard=miss.length?'<div class="ycard"><div class="ytitle">Вчера, '+longDate(y)+', не отмечено. Если сделала — нажми, я поставлю галочку:</div>'+miss.map(h=>'<div class="yrow"><span>'+esc(h.icon)+' '+esc(h.title)+'</span><button class="yb" data-habit="'+esc(h.id)+'" data-hday="'+y+'">Сделала ✓</button></div>').join("")+'</div>':"";
  root.className="diary dayview";
@@ -171,7 +176,7 @@ function renderWeek(){const root=$("diary"),todayKey=dateKey(new Date()),v=Plann
 const mark={open:'',done:'✓',overdue:'',missed:'✕'};
 root.className="diary";root.innerHTML=v.map(d=>{const live=d.items.filter(i=>i.state!=='missed'),dn=live.filter(i=>i.state==='done').length;const past=d.date<todayKey;
  return '<section class="day'+(d.isToday?' today':'')+(past?' past':'')+'" data-date="'+d.date+'"><div class="day-head"><span class="dname">'+d.label+'</span><span class="dnum">'+d.num+'</span>'+(live.length?'<span class="dcount">'+dn+'/'+live.length+'</span>':'')+(past?'':'<button class="vmini" data-voice="'+d.date+'" aria-label="Надиктовать дело">'+MIC+'</button>')+'</div>'+
- (d.items.length?'<div class="lines">'+d.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==='overdue'?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span></div>').join('')+'</div>':'')+
+ (d.items.length?'<div class="lines">'+d.items.map(i=>'<div class="line '+i.state+(i.tappable?'':' frozen')+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+mark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==='overdue'?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span><button class="edit" data-edit aria-label="Изменить">✎</button></div>').join('')+'</div>':'')+
  (past?(d.items.length?'':'<div class="empty-past">—</div>'):(d.items.length?'<button class="add-mini" data-add="'+d.date+'" aria-label="Добавить дело">+</button>':'<button class="add-empty" data-add="'+d.date+'" aria-label="Добавить дело">+</button>'))+'</section>'}).join('');
 afterRender(root,c)}
 function afterRender(root,c){$("wk-title").textContent=weekTitle();
@@ -179,7 +184,8 @@ $("mode-toggle").textContent=mode==="day"?"▦ Вся неделя":"▤ Оди�
 $("hcount").textContent=c.done+"/"+c.total;
 root.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openDialog(b.dataset.add));root.querySelectorAll("[data-voice]").forEach(b=>b.onclick=()=>openDialog(b.dataset.voice,true));
 root.querySelectorAll(".line").forEach(row=>{let timer=null,held=false;
- const start=()=>{held=false;timer=setTimeout(()=>{held=true;reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(t&&confirm("Удалить «"+t.title+"»?")){if(String(t.id).startsWith("siri:")){const g=siriDeleted();g.push(String(t.id));try{localStorage.setItem(DELKEY,JSON.stringify(g))}catch(x){}}db[row.dataset.day]=(db[row.dataset.day]||[]).filter(x=>String(x.id)!==row.dataset.id);persist();render()}},550)};
+ const eb=row.querySelector("[data-edit]");if(eb){["touchstart","mousedown","touchend","mouseup"].forEach(ev=>eb.addEventListener(ev,e=>e.stopPropagation()));eb.onclick=e=>{e.stopPropagation();held=false;openDialog(row.dataset.day,false,row.dataset.id)}}
+ const start=()=>{held=false;timer=setTimeout(()=>{held=true;reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(t&&confirm("Удалить «"+t.title+"»?"))removeTask(row.dataset.day,t)},550)};
  const stop=()=>{clearTimeout(timer)};
  row.addEventListener("touchstart",start,{passive:true});row.addEventListener("touchend",stop);row.addEventListener("touchmove",stop,{passive:true});
  row.addEventListener("mousedown",start);row.addEventListener("mouseup",stop);row.addEventListener("mouseleave",stop);
@@ -187,27 +193,63 @@ root.querySelectorAll(".line").forEach(row=>{let timer=null,held=false;
  row.onclick=()=>{if(held){held=false;return}if(row.classList.contains("frozen"))return;reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(!t)return;PlannerCore.setDone(db,row.dataset.day,row.dataset.id,!t.done,dateKey(new Date()));if(String(t.id).startsWith("siri:"))try{window.webkit?.messageHandlers?.reminders?.postMessage({complete:String(t.id).slice(5),done:!!t.done})}catch(e){}persist();render()};
 });
 }
+function removeTask(day,t){if(String(t.id).startsWith("siri:")){const g=siriDeleted();g.push(String(t.id));try{localStorage.setItem(DELKEY,JSON.stringify(g))}catch(x){}}db[day]=(db[day]||[]).filter(x=>String(x.id)!==String(t.id));persist();render()}
 $("add-today").onclick=()=>{let k=dateKey(new Date());openDialog(mode==="day"&&sel&&sel>=k?sel:(days.find(d=>d.date>=k)||days[0]).date)};
 $("wk-prev").onclick=()=>shiftWeek(-1);$("wk-next").onclick=()=>shiftWeek(1);
 $("wk-title").onclick=()=>{if(weekOffset){weekOffset=0;days=buildDays();sel=dateKey(new Date());render()}};
 $("mode-toggle").onclick=()=>{mode=mode==="day"?"week":"day";try{localStorage.setItem("alina-tasks-mode",mode)}catch(e){}render()};
-function openDialog(date,voice){selected=date;let d=days.find(x=>x.date===date),goalData={goals:[],projects:[]};try{goalData=JSON.parse(localStorage.getItem("alina-goals-projects-v1")||"{}")}catch(e){}let opts=[...((goalData.projects||[]).map(x=>({id:"project:"+x.id,label:"📁 "+x.name}))),...((goalData.goals||[]).map(x=>({id:"goal:"+x.id,label:"🎯 "+x.name})))];$("dialog-root").innerHTML='<div class="dialog-shade"><form class="dialog" id="task-dialog"><h2>Новое дело · '+d.name+', '+d.num+'</h2><div class="vrow"><input id="new-title" maxlength="160" placeholder="Что нужно сделать?" required><button type="button" class="mic" id="mic" aria-label="Надиктовать">'+MIC+'</button></div><div class="vstatus" id="vstatus"></div><div class="tlabel">Время, если нужно</div><input id="new-time" type="time" aria-label="Время, если нужно"><select id="new-link"><option value="">Без проекта и цели</option>'+opts.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join("")+'</select><div class="actions"><button type="button" class="cancel" id="close-dialog">Отмена</button><button type="submit">Добавить</button></div></form></div>';$("mic").onclick=()=>voiceOn?stopVoice(false):startVoice();$("close-dialog").onclick=()=>{stopVoice(true);$("dialog-root").innerHTML="";selected=null;render()};$("task-dialog").onsubmit=e=>{e.preventDefault();stopVoice(true);let title=$("new-title").value.trim(),link=$("new-link").value,time=/^\d{2}:\d{2}$/.test($("new-time").value)?$("new-time").value:"";if(!title)return;reloadDb();db[date]=db[date]||[];db[date].push(Object.assign({id:String(Date.now())+Math.random().toString(36).slice(2),title,done:false,link},time?{time}:{}));persist();$("dialog-root").innerHTML="";selected=null;render()};if(voice)setTimeout(startVoice,150);else setTimeout(()=>$("new-title")?.focus(),50)}
+function openDialog(date,voice,editId){selected=date;let d=days.find(x=>x.date===date)||{name:"",num:keyDate(date).getDate()};reloadDb();const cur=editId?PlannerCore.find(db,date,editId):null;if(editId&&!cur)return;let goalData={goals:[],projects:[]};try{goalData=JSON.parse(localStorage.getItem("alina-goals-projects-v1")||"{}")}catch(e){}let opts=[...((goalData.projects||[]).map(x=>({id:"project:"+x.id,label:"📁 "+x.name}))),...((goalData.goals||[]).map(x=>({id:"goal:"+x.id,label:"🎯 "+x.name})))];
+$("dialog-root").innerHTML='<div class="dialog-shade"><form class="dialog" id="task-dialog"><h2>'+(cur?'Изменить дело':'Новое дело · '+d.name+', '+d.num)+'</h2><div class="vrow"><input id="new-title" maxlength="160" placeholder="Что нужно сделать?" required><button type="button" class="mic" id="mic" aria-label="Надиктовать">'+MIC+'</button></div><div class="rec" id="rec"><i></i>Идёт запись — говори</div><div class="vstatus" id="vstatus"></div><div class="tlabel">Время, если нужно (можно сказать голосом: «в 15:30», «в семь вечера»)</div><input id="new-time" type="time" aria-label="Время, если нужно"><select id="new-link"><option value="">Без проекта и цели</option>'+opts.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.label)+'</option>').join("")+'</select><div class="actions">'+(cur?'<button type="button" class="del" id="del-task">Удалить</button>':'<button type="button" class="cancel" id="close-dialog">Отмена</button>')+'<button type="submit">'+(cur?'Сохранить':'Добавить')+'</button></div>'+(cur?'<div class="actions"><button type="button" class="cancel" id="close-dialog">Отмена</button></div>':'')+'</form></div>';
+if(cur){$("new-title").value=cur.title||"";$("new-time").value=/^\d{2}:\d{2}$/.test(cur.time||"")?cur.time:"";$("new-link").value=cur.link||""}
+const closeIt=()=>{stopVoice(true);$("dialog-root").innerHTML="";selected=null;render()};
+$("mic").onclick=()=>voiceOn?stopVoice(false):startVoice();$("close-dialog").onclick=closeIt;
+if(cur)$("del-task").onclick=()=>{if(confirm("Удалить «"+cur.title+"»?")){stopVoice(true);$("dialog-root").innerHTML="";selected=null;removeTask(date,cur)}};
+$("task-dialog").onsubmit=e=>{e.preventDefault();stopVoice(true);let title=$("new-title").value.trim(),link=$("new-link").value,time=/^\d{2}:\d{2}$/.test($("new-time").value)?$("new-time").value:"";if(!title)return;reloadDb();
+ if(cur){const t=PlannerCore.find(db,date,editId);if(t){t.title=title;t.link=link;if(time)t.time=time;else delete t.time}}
+ else{db[date]=db[date]||[];db[date].push(Object.assign({id:String(Date.now())+Math.random().toString(36).slice(2),title,done:false,link},time?{time}:{}))}
+ persist();$("dialog-root").innerHTML="";selected=null;render()};
+if(voice)setTimeout(startVoice,150);else if(!cur)setTimeout(()=>$("new-title")?.focus(),50)}
 // Голосом: в приложении — распознавание на телефоне (messageHandlers.voice), в браузере — Web Speech, если есть.
 let voiceOn=false,webRec=null;
-function voiceUI(on,msg){voiceOn=on;$("mic")?.classList.toggle("on",on);const st=$("vstatus");if(st)st.textContent=msg||""}
-function voiceText(t){const i=$("new-title");t=String(t||"").trim();if(!i||!t)return;i.value=t.charAt(0).toUpperCase()+t.slice(1)}
+function voiceUI(on,msg){voiceOn=on;$("mic")?.classList.toggle("on",on);$("rec")?.classList.toggle("on",on);const st=$("vstatus");if(st)st.textContent=msg||""}
+// Время из речи: «в 15:30», «в 3 часа дня», «в семь вечера», «в полдень». Находим, ставим в поле времени, из названия убираем.
+const NW={ноль:0,один:1,одна:1,два:2,две:2,три:3,четыре:4,пять:5,шесть:6,семь:7,восемь:8,девять:9,десять:10,одиннадцать:11,двенадцать:12,тринадцать:13,четырнадцать:14,пятнадцать:15,шестнадцать:16,семнадцать:17,восемнадцать:18,девятнадцать:19,двадцать:20,тридцать:30,сорок:40,пятьдесят:50};
+function numWords(text){const tk=text.split(/\s+/),out=[];let inT=false,prev=null;
+ for(const w of tk){const lw=w.toLowerCase().replace(/[.,!?]/g,"");
+  if(lw==="в"||lw==="к"){inT=true;prev=null;out.push(w);continue}
+  if(inT&&lw in NW){const n=NW[lw];if(prev!==null&&prev>=20&&prev%10===0&&n>0&&n<10){out[out.length-1]=String(prev+n);prev=prev+n}else{out.push(String(n));prev=n}continue}
+  inT=/^час(а|ов)?$/.test(lw);prev=null;out.push(w)}
+ return out.join(" ")}
+function parseSpoken(raw){
+ let t=numWords(String(raw||"").trim()).replace(/\s+/g," "),h=null,m=0,hit=null,per="";
+ const P="(утра|дня|вечера|ночи)";
+ let r;
+ if(r=t.match(/(?:^|\s)(?:в\s+|к\s+)?(\d{1,2})[:.](\d{2})(?=\s|[.,!?]|$)/)){h=+r[1];m=+r[2];hit=r[0]}
+ else if(r=t.match(new RegExp("(?:^|\\s)в\\s+(\\d{1,2})\\s+(\\d{2})(?:\\s*"+P+")?(?=\\s|[.,!?]|$)"))){h=+r[1];m=+r[2];per=r[3]||"";hit=r[0]}
+ else if(r=t.match(new RegExp("(?:^|\\s)в\\s+(\\d{1,2})\\s*час(?:а|ов)?(?:\\s+(\\d{1,2})(?:\\s*мин\\S*)?)?(?:\\s*"+P+")?(?=\\s|[.,!?]|$)"))){h=+r[1];m=r[2]?+r[2]:0;per=r[3]||"";hit=r[0]}
+ else if(r=t.match(new RegExp("(?:^|\\s)в\\s+(\\d{1,2})\\s+"+P+"(?=\\s|[.,!?]|$)"))){h=+r[1];m=0;per=r[2];hit=r[0]}
+ else if(r=t.match(/(?:^|\s)в\s+(\d{1,2})(?=[.,!?]*$)/)){h=+r[1];m=0;hit=r[0]}
+ else if(r=t.match(/(?:^|\s)в\s+полдень(?=\s|[.,!?]|$)/i)){h=12;m=0;hit=r[0]}
+ if(h===null)return{title:String(raw||"").trim(),time:""};
+ if(per==="вечера"||per==="дня"){if(h<12)h+=12;if(per==="дня"&&h===24)h=12}else if(per==="ночи"){if(h===12)h=0;else if(h>=6&&h<12)h+=12}else if(per==="утра"&&h===12)h=0;
+ if(h>23||m>59)return{title:String(raw||"").trim(),time:""};
+ const title=t.replace(hit," ").replace(/\s+/g," ").replace(/[\s,]+$/,"").replace(/^[\s,]+/,"");
+ return{title,time:String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")}}
+function voiceText(t){const i=$("new-title");t=String(t||"").trim();if(!i||!t)return;const p=parseSpoken(t),v=p.title||t;i.value=v.charAt(0).toUpperCase()+v.slice(1);const tm=$("new-time");if(tm&&p.time)tm.value=p.time}
+// Звук «запись пошла / закончилась» — в приложении его играет телефон, в браузере — пищалка.
+let actx=null;function beep(up){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);o.frequency.value=up?880:520;g.gain.value=.15;o.start();o.stop(actx.currentTime+.14)}catch(e){}}
 function startVoice(){
  const native=window.webkit?.messageHandlers?.voice;
- if(native){native.postMessage({action:"start"});voiceUI(true,"Слушаю… скажи дело");return}
+ if(native){native.postMessage({action:"start"});voiceUI(true,"Скажи дело и время, например: «позвонить маме в 15:30»");return}
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!SR){voiceUI(false,"Голос заработает после обновления приложения. Пока можно нажать 🎤 на клавиатуре.");$("new-title")?.focus();return}
  webRec=new SR();webRec.lang="ru-RU";webRec.interimResults=true;
  webRec.onresult=e=>{let t="";for(const r of e.results)t+=r[0].transcript;voiceText(t)};
- webRec.onend=()=>{webRec=null;voiceDone()};webRec.onerror=()=>{};
- try{webRec.start();voiceUI(true,"Слушаю… скажи дело")}catch(e){voiceUI(false,"")}
+ webRec.onend=()=>{webRec=null;beep(false);voiceDone()};webRec.onerror=()=>{};
+ try{webRec.start();beep(true);voiceUI(true,"Скажи дело и время, например: «позвонить маме в 15:30»")}catch(e){voiceUI(false,"")}
 }
 function stopVoice(cancel){if(voiceOn)try{window.webkit?.messageHandlers?.voice?.postMessage({action:cancel?"cancel":"stop"})}catch(e){}if(webRec){try{webRec.stop()}catch(e){}}if(cancel)voiceUI(false,"")}
-function voiceDone(){if(!$("mic"))return;voiceUI(false,$("new-title")?.value?"Записала. Выбери время, если нужно, и нажми «Добавить»":"Ничего не слышно — нажми микрофон ещё раз")}
+function voiceDone(){if(!$("mic"))return;voiceUI(false,$("new-title")?.value?"Записала. Проверь дело и время, поправь, если нужно, и нажми кнопку внизу":"Ничего не слышно — нажми микрофон ещё раз")}
 window.addEventListener("message",e=>{const d=e.data;if(d?.type!=="voice")return;
  if(d.event==="text")voiceText(d.text);else if(d.event==="end")voiceDone();else if(d.event==="error")voiceUI(false,d.message||"Не получилось включить микрофон")});
 document.getElementById("siri-import").onclick=()=>{try{window.webkit.messageHandlers.reminders.postMessage({})}catch(e){alert("Синхронизация Siri доступна в установленном приложении для iPhone после обновления.")}};
