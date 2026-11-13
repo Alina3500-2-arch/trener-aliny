@@ -904,24 +904,47 @@ private enum PlannerWidgetDate {
         return f.string(from: date)
     }
 }
+private let plannerSelectedDayKey = "dailyTasksWidgetSelectedDay"
+
 private struct DailyTasksEntry: TimelineEntry {
     let date: Date
     let payload: DailyTaskPayload?
+    var selectedDay: String? = nil
 }
 private struct DailyTasksProvider: TimelineProvider {
+    private func entry(_ date: Date, payload: DailyTaskPayload?) -> DailyTasksEntry {
+        let selectedDay = SharedStore.defaults?.dictionary(forKey: plannerSelectedDayKey)?[PlannerWidgetDate.key(date)] as? String
+        return DailyTasksEntry(date: date, payload: payload, selectedDay: selectedDay)
+    }
+
     func placeholder(in context: Context) -> DailyTasksEntry { DailyTasksEntry(date: .now, payload: nil) }
     func getSnapshot(in context: Context, completion: @escaping (DailyTasksEntry) -> Void) {
-        completion(DailyTasksEntry(date: .now, payload: DailyTaskPayload.load()))
+        completion(entry(.now, payload: DailyTaskPayload.load()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<DailyTasksEntry>) -> Void) {
-        // An extra entry at midnight so "today" moves on time.
         let now = Date()
         let payload = DailyTaskPayload.load()
-        let midnight = Calendar.current.startOfDay(for: now.addingTimeInterval(86400))
-        let next = min(Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800), midnight)
-        var entries = [DailyTasksEntry(date: now, payload: payload)]
-        if next >= midnight { entries.append(DailyTasksEntry(date: midnight, payload: payload)) }
+        let calendar = Calendar.current
+        let midnight = calendar.dateInterval(of: .day, for: now)?.end ?? now.addingTimeInterval(86400)
+        let next = min(now.addingTimeInterval(1800), midnight)
+        var entries = [entry(now, payload: payload)]
+        if next >= midnight { entries.append(entry(midnight, payload: payload)) }
         completion(Timeline(entries: entries, policy: .after(next)))
+    }
+}
+
+struct SelectPlannerDayIntent: AppIntent {
+    static var title: LocalizedStringResource = "Показать дела на день"
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Дата") var dateKey: String
+
+    init() {}
+    init(dateKey: String) { self.dateKey = dateKey }
+
+    func perform() async throws -> some IntentResult {
+        SharedStore.defaults?.set([PlannerWidgetDate.key(.now): dateKey], forKey: plannerSelectedDayKey)
+        return .result()
     }
 }
 
@@ -1127,19 +1150,6 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    private struct WeekRow: Identifiable {
-        let task: DailyTaskItem
-        let date: String
-        let label: String
-        var id: String { date + "|" + task.id }
-    }
-
-    private var todayRows: [WeekRow] {
-        (days.first(where: { $0.date == todayKey })?.tasks ?? [])
-            .filter { state($0) != "missed" }
-            .map { WeekRow(task: $0, date: todayKey, label: "Сегодня") }
-    }
-
     private var weekRange: String {
         let cal = Calendar.current
         let from = monday
@@ -1157,86 +1167,91 @@ private struct DailyTasksWidgetView: View {
     }
 
     private func weekList(height: CGFloat) -> some View {
-        let today = todayRows
-        let repeated = today.filter { $0.task.recurring == true }
-        let recurring = repeated.filter { !$0.task.done } + repeated.filter { $0.task.done }
-        let singleToday = today.filter { $0.task.recurring != true }
-        let upcoming = days.filter { $0.date > todayKey }.flatMap { day in
-            day.tasks.filter { $0.recurring != true }
-                .map { WeekRow(task: $0, date: day.date, label: day.label) }
-        }
-        let oneOff = singleToday + upcoming
-        let single = oneOff.filter { !$0.task.done } + oneOff.filter { $0.task.done }
-        // Reserve room for both sections. Empty sections use one row for their status.
-        let capacity = max(2, min(9, Int((height - 158) / 23)))
+        let week = days
+        let day = week.first(where: { $0.date == entry.selectedDay }) ?? week.first(where: { $0.date == todayKey })
+        let date = day?.date ?? todayKey
+        // The day list shows tasks scheduled for that date, even if another day has overdue work.
+        let tasks = day?.tasks.filter { ($0.day ?? date) == date } ?? []
+        let ordered = tasks.filter { !$0.done } + tasks.filter { $0.done }
+        let recurring = ordered.filter { $0.recurring == true }
+        let single = ordered.filter { $0.recurring != true }
+        let done = tasks.filter(\.done).count
+        // Reserve space for the footer, day strip, and both section headings.
+        let capacity = max(2, min(9, Int((height - 190) / 23)))
         let repeatLimit = min(max(1, recurring.count), max(1, capacity - min(max(1, single.count), max(1, capacity / 2))))
         let singleLimit = capacity - repeatLimit
-        let todayProgress = progress
 
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                Text("Моя неделя").font(.system(size: 22, weight: .bold)).foregroundStyle(ink)
+                Text("Моя неделя").font(.system(size: 22, weight: .regular, design: .serif)).foregroundStyle(ink)
                     .minimumScaleFactor(0.8).lineLimit(1)
                 Spacer(minLength: 4)
                 Text(weekRange).font(.system(size: 12, weight: .medium)).foregroundStyle(faded).lineLimit(1)
-                micLink(todayKey, size: 15).accessibilityLabel("Надиктовать дело на сегодня")
             }
             HStack(spacing: 8) {
-                progressBar
-                Text("\(todayProgress.done)/\(todayProgress.total)")
+                ProgressView(value: Double(done), total: Double(max(1, tasks.count)))
+                    .tint(rose)
+                    .accessibilityLabel("Выполнено \(done) из \(tasks.count)")
+                Text("\(done)/\(tasks.count)")
                     .font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(rose)
-                    .accessibilityLabel("Дела на сегодня")
+                    .accessibilityHidden(true)
             }
             HStack(spacing: 3) {
-                ForEach(days) { day in weekDate(day) }
+                ForEach(week) { day in weekDate(day, selected: day.date == date) }
             }
             Rectangle().fill(tileLine).frame(height: 1)
-            weekSection("Повторяющиеся дела", rows: recurring, limit: repeatLimit, empty: "На сегодня повторов нет")
+            weekSection("Повторяющиеся дела", tasks: recurring, date: date, limit: repeatLimit, empty: "Повторов нет")
             Rectangle().fill(tileLine).frame(height: 1)
-            weekSection("Разовые дела", rows: single, limit: singleLimit, empty: "На остаток недели дел нет")
+            weekSection("Разовые дела", tasks: single, date: date, limit: singleLimit, empty: "Разовых дел нет")
             Spacer(minLength: 0)
+            HStack {
+                Spacer()
+                micLink(date, size: 18).accessibilityLabel("Надиктовать дело на выбранный день")
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
     }
 
-    private func weekDate(_ day: DailyTaskDay) -> some View {
-        let selected = day.date == todayKey
-        return Link(destination: dayURL(day.date)) {
+    private func weekDate(_ day: DailyTaskDay, selected: Bool) -> some View {
+        Button(intent: SelectPlannerDayIntent(dateKey: day.date)) {
             VStack(spacing: 0) {
                 Text(day.label).font(.system(size: 10, weight: .semibold))
                 Text(String(Int(day.date.suffix(2)) ?? 0)).font(.system(size: 14, weight: .bold))
-                Circle().fill(day.tasks.isEmpty ? Color.clear : rose).frame(width: 3, height: 3)
+                Circle().fill(day.tasks.contains { ($0.day ?? day.date) == day.date } ? rose : Color.clear).frame(width: 3, height: 3)
             }
             .foregroundStyle(selected ? rose : ink)
             .frame(maxWidth: .infinity, minHeight: 35)
             .background(RoundedRectangle(cornerRadius: 10).fill(selected ? rose.opacity(0.13) : Color.clear))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityLabel("\(day.label), \(Int(day.date.suffix(2)) ?? 0)")
     }
 
-    private func weekSection(_ title: String, rows: [WeekRow], limit: Int, empty: String) -> some View {
+    private func weekSection(_ title: String, tasks: [DailyTaskItem], date: String, limit: Int, empty: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(title.uppercased()).font(.system(size: 10.5, weight: .bold)).foregroundStyle(rose)
+                Text(title.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(1.2).foregroundStyle(rose)
                 Spacer()
-                if rows.count > limit {
-                    Link(destination: dayURL(rows[limit].date)) {
-                        Text("+\(rows.count - limit) ещё")
+                if tasks.count > limit {
+                    Link(destination: dayURL(date)) {
+                        Text("+\(tasks.count - limit) ещё")
                             .font(.system(size: 11, weight: .semibold)).foregroundStyle(rose)
                     }
                 }
             }
             .frame(height: 15)
-            if rows.isEmpty {
-                Text(empty).font(.system(size: 12)).foregroundStyle(faded).frame(height: 23)
+            if tasks.isEmpty {
+                Text(empty).font(.system(size: 13, design: .serif)).foregroundStyle(faded).frame(height: 23)
             } else {
-                ForEach(Array(rows.prefix(limit))) { item in
-                    if item.task.tappable == false {
-                        weekTask(item)
+                ForEach(Array(tasks.prefix(limit))) { task in
+                    if date < todayKey || task.tappable == false {
+                        weekTask(task)
                     } else {
-                        Button(intent: ToggleDailyTaskIntent(taskId: item.task.id, dateKey: item.task.day ?? item.date)) {
-                            weekTask(item).contentShape(Rectangle())
+                        Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: date)) {
+                            weekTask(task).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -1245,20 +1260,19 @@ private struct DailyTasksWidgetView: View {
         }
     }
 
-    private func weekTask(_ item: WeekRow) -> some View {
-        let task = item.task
+    private func weekTask(_ task: DailyTaskItem) -> some View {
         let status = state(task)
-        let detail = task.schedule ?? (item.date == todayKey ? task.note ?? task.time ?? item.label : item.label)
+        let detail = task.schedule ?? task.time
         return HStack(spacing: 7) {
             mark(status)
             Text(task.title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(task.done ? faded : ink)
+                .font(.system(size: 14, weight: .regular, design: .serif))
+                .foregroundStyle(task.done || status == "missed" ? faded : ink)
                 .strikethrough(task.done)
                 .lineLimit(1)
                 .layoutPriority(1)
             Spacer(minLength: 1)
-            Text(detail).font(.system(size: 10.5)).foregroundStyle(faded).lineLimit(1)
+            if let detail { Text(detail).font(.system(size: 10.5)).foregroundStyle(faded).lineLimit(1) }
         }
         .frame(height: 23)
     }
