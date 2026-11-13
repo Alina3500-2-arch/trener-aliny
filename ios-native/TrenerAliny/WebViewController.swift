@@ -55,6 +55,7 @@ final class WebViewController: UIViewController {
     private var lastDeepLink: URL?
     private var lastDeepLinkAt = Date.distantPast
     private let dictation = SpeechDictation()
+    private var applyingTaskCommands = false
 
     static func registerNotificationCategories() {
         let record = UNNotificationAction(
@@ -141,7 +142,7 @@ final class WebViewController: UIViewController {
     }
 
     func openTabFromWidget(_ tab: String, day: String? = nil, voice: Bool = false) {
-        let target = ["today", "workout", "routine", "tasks", "goals", "projects", "result", "progress", "settings"].contains(tab) ? tab : "routine"
+        let target = ["today", "workout", "routine", "tasks", "goals", "projects", "notes", "result", "progress", "settings"].contains(tab) ? tab : "routine"
         openDeepLink("tab:\(target)", day: day, voice: voice)
     }
 
@@ -316,13 +317,14 @@ extension WebViewController: WKScriptMessageHandler {
         let toggles = defaults.data(forKey: "tasksPendingToggles")
             .flatMap { try? JSONDecoder().decode([String: [String: Bool]].self, from: $0) } ?? [:]
         let adds = defaults.array(forKey: "tasksPendingAdds") as? [[String: Any]] ?? []
+        guard !applyingTaskCommands else { return }
         if !toggles.isEmpty || !adds.isEmpty {
             guard let commands = try? JSONSerialization.data(withJSONObject: ["toggles": toggles, "adds": adds]),
                   let commandString = String(data: commands, encoding: .utf8) else { return }
                     let javascript = """
                     (function(p){
-                        var key='alina-daily-tasks-v1', db={};
-                        try{db=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
+                        if(!window.PlannerCore)return false;
+                        var db=PlannerCore.load(), today=PlannerCore.key(new Date());
                         (p.adds||[]).forEach(function(a){
                             if(!a||!a.date||!a.id)return;
                             var list=db[a.date]=db[a.date]||[];
@@ -331,20 +333,21 @@ extension WebViewController: WKScriptMessageHandler {
                             if(a.time)t.time=a.time;
                             list.push(t);
                         });
-                        Object.keys(p.toggles||{}).forEach(function(d){
-                            (db[d]||[]).forEach(function(t){
-                                if(Object.prototype.hasOwnProperty.call(p.toggles[d],String(t.id))){t.done=!!p.toggles[d][String(t.id)];var tk=new Date(),tks=tk.getFullYear()+'-'+String(tk.getMonth()+1).padStart(2,'0')+'-'+String(tk.getDate()).padStart(2,'0');if(t.done){if(!t.doneDate)t.doneDate=tks>d?tks:d}else{delete t.doneDate}}
+                        Object.entries(p.toggles||{}).forEach(function(entry){
+                            var day=entry[0];
+                            Object.entries(entry[1]).forEach(function(toggle){
+                                var task=PlannerCore.find(db,day,toggle[0]);
+                                if(task&&!!task.done!==toggle[1])PlannerCore.setDone(db,day,toggle[0],toggle[1],today);
                             });
                         });
-                        localStorage.setItem(key,JSON.stringify(db));
-                        var f=document.getElementById('tasks-frame');
-                        if(f&&f.contentWindow)f.contentWindow.location.reload();
-                        if(typeof syncSavedTasksToWidget==='function')syncSavedTasksToWidget();
+                        PlannerCore.save(db);
                         return true;
                     })(\(commandString));
                     """
+            applyingTaskCommands = true
             DispatchQueue.main.async {
                 self.webView.evaluateJavaScript(javascript) { result, _ in
+                    self.applyingTaskCommands = false
                     guard (result as? Bool) == true else { return }
                     // Ticks on reminder-based tasks also close the reminder in Apple Reminders.
                     for values in toggles.values {
@@ -374,12 +377,14 @@ extension WebViewController: WKScriptMessageHandler {
                     } else {
                         defaults.set(rest, forKey: "tasksPendingAdds")
                     }
+                    self.webView.evaluateJavaScript("if(typeof syncSavedTasksToWidget==='function')syncSavedTasksToWidget();", completionHandler: nil)
                 }
             }
             return
         }
         defaults.set(json, forKey: "dailyTasksWidgetPayload")
         WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyDailyTasksWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TrenerAlinyNoteWidget")
     }
 
     private func updateWidget(_ payload: [String: Any]) {

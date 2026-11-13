@@ -59,7 +59,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .queryItems?
             .first(where: { $0.name == "tab" })?
             .value
-        return ["today", "workout", "routine", "tasks", "goals", "projects", "result", "progress", "settings"].contains(tab ?? "") ? tab! : "routine"
+        return ["today", "workout", "routine", "tasks", "goals", "projects", "notes", "result", "progress", "settings"].contains(tab ?? "") ? tab! : "routine"
     }
 }
 
@@ -210,6 +210,9 @@ enum PlannerTaskStore {
             widgetItem["overdue"] = false
             tasks.append(widgetItem)
             tasks = tasks.enumerated().sorted { a, b in
+                let repeatedA = a.element["recurring"] as? Bool ?? false
+                let repeatedB = b.element["recurring"] as? Bool ?? false
+                if repeatedA != repeatedB { return repeatedA }
                 let ta = a.element["time"] as? String ?? "", tb = b.element["time"] as? String ?? ""
                 if ta.isEmpty != tb.isEmpty { return !ta.isEmpty }
                 if ta != tb { return ta < tb }

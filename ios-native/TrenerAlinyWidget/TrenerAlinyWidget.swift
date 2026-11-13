@@ -873,6 +873,7 @@ private struct DailyTaskItem: Codable, Identifiable {
     var note: String? = nil
     var day: String? = nil
     var tappable: Bool? = nil
+    var recurring: Bool? = nil
 }
 private struct DailyTaskDay: Codable, Identifiable {
     let date: String
@@ -880,27 +881,41 @@ private struct DailyTaskDay: Codable, Identifiable {
     var tasks: [DailyTaskItem]
     var id: String { date }
 }
+private struct PinnedPlannerNote: Codable {
+    let title: String
+    let body: String
+}
 private struct DailyTaskPayload: Codable {
     var days: [DailyTaskDay]
+    var pinnedNote: PinnedPlannerNote?
+
+    static func load() -> Self? {
+        guard let json = SharedStore.defaults?.string(forKey: "dailyTasksWidgetPayload"),
+              let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(Self.self, from: data)
+    }
+}
+private enum PlannerWidgetDate {
+    static func key(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f.string(from: date)
+    }
 }
 private struct DailyTasksEntry: TimelineEntry {
     let date: Date
     let payload: DailyTaskPayload?
 }
 private struct DailyTasksProvider: TimelineProvider {
-    private func load() -> DailyTaskPayload? {
-        guard let json = SharedStore.defaults?.string(forKey: "dailyTasksWidgetPayload"),
-              let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(DailyTaskPayload.self, from: data)
-    }
     func placeholder(in context: Context) -> DailyTasksEntry { DailyTasksEntry(date: .now, payload: nil) }
     func getSnapshot(in context: Context, completion: @escaping (DailyTasksEntry) -> Void) {
-        completion(DailyTasksEntry(date: .now, payload: load()))
+        completion(DailyTasksEntry(date: .now, payload: DailyTaskPayload.load()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<DailyTasksEntry>) -> Void) {
         // An extra entry at midnight so "today" moves on time.
         let now = Date()
-        let payload = load()
+        let payload = DailyTaskPayload.load()
         let midnight = Calendar.current.startOfDay(for: now.addingTimeInterval(86400))
         let next = min(Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(1800), midnight)
         var entries = [DailyTasksEntry(date: now, payload: payload)]
@@ -931,8 +946,10 @@ struct ToggleDailyTaskIntent: AppIntent {
 
         // The same task can sit in two tiles (its own day as missed, today as overdue);
         // flip every live entry of it, never the frozen «missed» one.
+        let today = PlannerWidgetDate.key(.now)
         func matches(_ t: DailyTaskItem, tile: String) -> Bool {
             t.id == taskId && (t.day ?? tile) == dateKey && t.state != "missed" && t.tappable != false
+                && (t.recurring != true || dateKey >= today)
         }
         guard let current = payload.days.lazy.compactMap({ d in d.tasks.first(where: { matches($0, tile: d.date) }) }).first,
               current.tappable != false else { return .result() }
@@ -976,13 +993,7 @@ private struct DailyTasksWidgetView: View {
     private let names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
     private var isLarge: Bool { family == .systemLarge }
 
-    private static func key(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f.string(from: date)
-    }
-    private var todayKey: String { Self.key(entry.date) }
+    private var todayKey: String { PlannerWidgetDate.key(entry.date) }
     private var todayTitle: String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "ru_RU")
@@ -997,9 +1008,16 @@ private struct DailyTasksWidgetView: View {
         let monday = cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: cal.startOfDay(for: entry.date)) ?? entry.date
         return (0..<7).map { i in
             let date = cal.date(byAdding: .day, value: i, to: monday) ?? monday
-            let key = Self.key(date)
-            return entry.payload?.days.first(where: { $0.date == key })
+            let key = PlannerWidgetDate.key(date)
+            var day = entry.payload?.days.first(where: { $0.date == key })
                 ?? DailyTaskDay(date: key, label: names[i], tasks: [])
+            if key < todayKey {
+                for index in day.tasks.indices where day.tasks[index].recurring == true {
+                    day.tasks[index].tappable = false
+                    if !day.tasks[index].done { day.tasks[index].state = "missed" }
+                }
+            }
+            return day
         }
     }
 
@@ -1016,16 +1034,16 @@ private struct DailyTasksWidgetView: View {
         return t.done ? "done" : (t.overdue == true ? "overdue" : "open")
     }
 
-    // Week progress: every task counted once, missed entries left out.
     private var progress: (done: Int, total: Int) {
-        var seen = Set<String>(); var done = 0
-        for d in days {
-            for t in d.tasks where state(t) != "missed" {
-                let k = (t.day ?? d.date) + "|" + t.id
-                if seen.insert(k).inserted, state(t) == "done" { done += 1 }
-            }
-        }
-        return (done, seen.count)
+        let tasks = days.first(where: { $0.date == todayKey })?.tasks ?? []
+        let active = tasks.filter { state($0) != "missed" }
+        return (active.filter { state($0) == "done" }.count, active.count)
+    }
+
+    private var progressBar: some View {
+        ProgressView(value: Double(progress.done), total: Double(max(1, progress.total)))
+            .tint(rose)
+            .accessibilityLabel("Выполнено \(progress.done) из \(progress.total)")
     }
 
     private var limit: Int { isLarge ? 2 : 3 }
@@ -1052,7 +1070,18 @@ private struct DailyTasksWidgetView: View {
 
     var body: some View {
         if isLarge {
-            notebook
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Сегодня").font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Text("\(progress.done)/\(progress.total)").monospacedDigit()
+                }
+                .font(.system(size: 12))
+                progressBar
+                notebook
+            }
+                .padding(.horizontal, 9)
+                .padding(.top, 8)
                 .widgetURL(addURL(nil))
                 .containerBackground(for: .widget) {
                     LinearGradient(colors: [Color(red: 0.99, green: 0.95, blue: 0.97), Color(red: 0.97, green: 0.91, blue: 0.94)], startPoint: .top, endPoint: .bottom)
@@ -1088,16 +1117,7 @@ private struct DailyTasksWidgetView: View {
                         .background(Circle().fill(rose))
                 }
             }
-            GeometryReader { g in
-                Capsule().fill(rose.opacity(0.12))
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(rose)
-                            .frame(width: progress.total == 0 ? 0 : g.size.width * CGFloat(progress.done) / CGFloat(progress.total))
-                    }
-            }
-            .frame(height: 3)
-            .padding(.top, 7)
-            .padding(.bottom, 8)
+            progressBar.padding(.vertical, 6)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                 ForEach(shown) { day in dayTile(day) }
             }
@@ -1323,6 +1343,9 @@ private struct DailyTasksWidgetView: View {
         let titleColor: Color = st == "overdue" ? late : (st == "done" || st == "missed" ? faded : ink)
         return HStack(alignment: .top, spacing: 4) {
             mark(st).padding(.top, 1)
+            if task.recurring == true {
+                Image(systemName: "repeat").font(.system(size: 8, weight: .semibold)).foregroundStyle(rose)
+            }
             VStack(alignment: .leading, spacing: 0) {
                 if let time = task.time, !time.isEmpty {
                     Text(time)
@@ -1379,6 +1402,36 @@ struct TrenerAlinyDailyTasksWidget: Widget {
         .description("Задачи с понедельника по воскресенье, отметки и переход прямо к делам.")
         .supportedFamilies([.systemMedium, .systemLarge])
         .contentMarginsDisabled()
+    }
+}
+
+
+struct TrenerAlinyNoteWidget: Widget {
+    let kind = "TrenerAlinyNoteWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: DailyTasksProvider()) { entry in
+            VStack(alignment: .leading, spacing: 7) {
+                Label("Заметка", systemImage: "note.text")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(red: 0.68, green: 0.21, blue: 0.39))
+                if let note = entry.payload?.pinnedNote {
+                    Text(note.title).font(.subheadline.bold()).lineLimit(2)
+                    if !note.body.isEmpty && note.body != note.title {
+                        Text(note.body).font(.footnote).foregroundStyle(.secondary).lineLimit(3)
+                    }
+                } else {
+                    Text("Закрепи заметку в приложении").font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .containerBackground(for: .widget) { Color(red: 1, green: 0.96, blue: 0.98) }
+            .widgetURL(URL(string: "treneraliny://open?tab=notes"))
+        }
+        .configurationDisplayName("Заметка")
+        .description("Закреплённая заметка из Планировщика.")
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 
@@ -1775,6 +1828,7 @@ struct TrenerAlinyWidgetBundle: WidgetBundle {
         TrenerAlinyCaloriesWidget()
         TrenerAlinyRoutineWidget()
         TrenerAlinyDailyTasksWidget()
+        TrenerAlinyNoteWidget()
         TrenerAlinyAffirmationWidget()
         TrenerAlinyProjectsWidget()
         TrenerAlinyGoalsWidget()

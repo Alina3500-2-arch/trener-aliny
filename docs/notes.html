@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Заметки</title>
+<style>
+:root{color-scheme:light;--rose:#f05c94;--ink:#1c1c1e;--muted:#756976;--line:#f0dfe7}
+*{box-sizing:border-box}
+body{margin:0;padding:14px 13px 24px;background:linear-gradient(#fff,#fff6f9);min-height:100dvh;color:var(--ink);font:15px -apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{font-size:22px;margin:0}
+button,input,textarea,select{font:inherit;color:inherit}
+button{border:0;cursor:pointer}
+.primary{background:var(--rose);color:#fff;border-radius:12px;padding:10px 14px;font-weight:650}
+#add{font-size:23px;line-height:1;width:35px;height:35px;border-radius:50%;padding:0}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;font-size:16px}
+.filters{display:flex;gap:7px;margin:8px 0 15px}
+.filters select{flex:1;min-width:0}
+.secondary{background:#fbedf3;color:#8c3f62;border-radius:11px;padding:9px 12px}
+.cards{display:grid;gap:7px}
+.card{width:100%;text-align:left;border-radius:14px;border:1px solid var(--line);background:#fff;padding:12px;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start}
+.icon{display:grid;place-items:center;width:34px;height:34px;background:#fbedf3;border-radius:10px;color:#a23965}
+.icon svg{width:18px;height:18px}
+.card strong,.card small,.meta{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card small,.meta,.empty{color:var(--muted)}
+.card small{margin-top:4px}
+.meta{font-size:11px;margin-top:5px}
+dialog{width:min(calc(100% - 22px),500px);max-height:calc(100% - 24px);border:1px solid var(--line);border-radius:18px;padding:15px;color:var(--ink);background:#fff}
+dialog::backdrop{background:#24172055}
+form{display:grid;gap:9px}
+textarea{min-height:130px;resize:vertical}
+.actions{display:flex;flex-wrap:wrap;gap:6px}
+.pin{display:flex;gap:7px;align-items:center;font-size:14px}
+.pin input{width:auto;accent-color:var(--rose)}
+.danger{color:#ab283e;background:#fcecef}
+</style>
+</head>
+<body>
+<header><h1>Заметки</h1><button class="primary" id="add" aria-label="Добавить заметку">+</button></header>
+<input id="search" type="search" placeholder="Поиск заметок" aria-label="Поиск заметок">
+<div class="filters">
+  <select id="filter" aria-label="Папка"></select>
+  <button class="secondary" id="add-folder">+ Папка</button>
+</div>
+<div id="cards" class="cards"></div>
+<dialog id="editor">
+  <form id="note-form">
+    <input id="title" aria-label="Заголовок" placeholder="Заголовок" maxlength="120">
+    <textarea id="body" aria-label="Текст заметки" placeholder="Текст заметки"></textarea>
+    <select id="folder" aria-label="Папка заметки"></select>
+    <label class="pin"><input id="pin" type="checkbox"> Показать на виджете «Заметка»</label>
+    <div class="actions">
+      <button class="primary" type="submit">Сохранить</button>
+      <button class="secondary" id="cancel" type="button">Отмена</button>
+      <button class="secondary danger" id="delete" type="button">Удалить</button>
+    </div>
+  </form>
+</dialog>
+<script src="planner-core.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const editor=$("editor"), filter=$("filter"), cards=$("cards");
+let editing=null;
+const noteIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7"/></svg>';
+
+function options(select, data, firstLabel, value){
+ select.replaceChildren(new Option(firstLabel,""));
+ data.folders.forEach(folder=>select.add(new Option(folder.name,folder.id)));
+ select.value=value;
+}
+function render(){
+ const data=PlannerCore.notes();
+ options(filter,data,"Все папки",filter.value);
+ const query=$("search").value.trim().toLocaleLowerCase("ru");
+ const found=data.notes.filter(n=>(!filter.value||filter.value===n.folder)&&
+  (n.title+" "+n.body).toLocaleLowerCase("ru").includes(query));
+ found.sort((a,b)=>Number(b.id===data.pinned)-Number(a.id===data.pinned)||b.updated-a.updated);
+ cards.replaceChildren();
+ for(const note of found){
+  const card=document.createElement("button");
+  card.className="card";
+  card.innerHTML='<span class="icon">'+noteIcon+'</span><span><strong></strong><small></small><span class="meta"></span></span>';
+  card.querySelector("strong").textContent=note.title||note.body.split("\n")[0];
+  card.querySelector("small").textContent=note.body;
+  const folder=data.folders.find(f=>f.id===note.folder);
+  const date=new Date(note.updated).toLocaleDateString("ru-RU",{day:"numeric",month:"short"});
+  card.querySelector(".meta").textContent=[note.id===data.pinned?"На виджете":"",folder?.name,date].filter(Boolean).join(" · ");
+  card.onclick=()=>openNote(note);
+  cards.append(card);
+ }
+ if(!found.length){
+  const empty=document.createElement("p");empty.className="empty";
+  empty.textContent=query?"По этому запросу ничего нет":"В этой папке пока нет заметок";
+  cards.append(empty);
+ }
+}
+function save(data){
+ localStorage.setItem(PlannerCore.NOTES_KEY,JSON.stringify(data));
+ window.parent.postMessage({type:"alina-notes-updated"},location.origin);
+ render();
+}
+function openNote(note){
+ const data=PlannerCore.notes();
+ editing=note?.id||null;
+ $("title").value=note?.title||"";
+ $("body").value=note?.body||"";
+ options($("folder"),data,"Без папки",note?.folder||filter.value);
+ $("pin").checked=!!editing&&data.pinned===editing;
+ $("delete").hidden=!editing;
+ editor.showModal();
+}
+$("add").onclick=()=>openNote();
+$("cancel").onclick=()=>editor.close();
+$("search").oninput=render;
+filter.onchange=render;
+$("add-folder").onclick=()=>{
+ const name=prompt("Название папки")?.trim().slice(0,60);
+ if(!name)return;
+ const data=PlannerCore.notes();
+ const existing=data.folders.find(f=>f.name.toLocaleLowerCase("ru")===name.toLocaleLowerCase("ru"));
+ if(existing){filter.value=existing.id;render();return}
+ const id=crypto.randomUUID();
+ data.folders.push({id,name});save(data);filter.value=id;render();
+};
+$("note-form").onsubmit=e=>{
+ e.preventDefault();
+ const title=$("title").value.trim(),body=$("body").value.trim();
+ if(!title&&!body){$("body").focus();return}
+ const data=PlannerCore.notes(),id=editing||crypto.randomUUID();
+ const note={id,title,body,folder:$("folder").value,updated:Date.now()};
+ data.notes=data.notes.filter(n=>n.id!==id);data.notes.push(note);
+ if($("pin").checked)data.pinned=id;
+ else if(data.pinned===id)data.pinned=null;
+ if(filter.value&&filter.value!==note.folder)filter.value="";
+ save(data);editor.close();
+};
+$("delete").onclick=()=>{
+ if(!editing||!confirm("Удалить заметку?"))return;
+ const data=PlannerCore.notes();
+ data.notes=data.notes.filter(n=>n.id!==editing);
+ if(data.pinned===editing)data.pinned=null;
+ save(data);editor.close();
+};
+window.addEventListener("storage",e=>{if(e.key===PlannerCore.NOTES_KEY)render()});
+render();
+</script>
+</body>
+</html>

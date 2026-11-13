@@ -92,14 +92,14 @@ input:focus,textarea:focus{outline:none;}
 /* Unified light planner theme; preserve existing trainer records and logic */
 html,body{color-scheme:light!important;background:#ffffff!important;color:#1c1c1e!important}#tabbar{background:#fff!important;border-top:1px solid #ececf0!important}#tabbar .tab{color:#877a83!important}#tabbar .tab.on{color:#f05c94!important}.card{background:#fff!important;color:#1c1c1e!important;border-color:#ececf0!important}.field,input,textarea{color:#1c1c1e;background:#fff;border-color:#eadfe4}#app iframe{border:0;width:100%}
 
-#tabbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}#tabbar::-webkit-scrollbar{display:none}#tabbar .tab{flex:1 1 0;min-width:0;font-size:10px}#app.screen-result{padding:0;min-height:0;height:100dvh;background:#ffffff}#result-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab))!important;border:0;background:#ffffff}
+#tabbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}#tabbar::-webkit-scrollbar{display:none}#tabbar .tab{flex:1 0 auto;min-width:45px;padding-inline:4px;font-size:10px}#app.screen-result{padding:0;min-height:0;height:100dvh;background:#ffffff}#result-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab))!important;border:0;background:#ffffff}
 
 /* Unified light appearance for nutrition, workouts and coach advice */
 body,html,#app{background:#ffffff!important;color:#1c1c1e!important;color-scheme:light!important}
 #app .card,#app .panel,#app .meal-card,#app .coach-card,#app .workout-card{background:#fff!important;color:#1c1c1e!important;border-color:#efdee5!important}
 #app [style*="background:#171"],#app [style*="background:#211"],#app [style*="background:#0b"],#app [style*="background:#0B"],#app [style*="background:#1A"],#app [style*="background:#202"]{background:#fff!important;color:#1c1c1e!important}
 #app [style*="color:#fff"],#app [style*="color:#FFF"],#app [style*="color:white"]{color:#1c1c1e!important}
-#tasks-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#ffffff}
+#tasks-frame,#notes-frame{position:fixed;top:var(--sat);left:0;width:100%;height:calc(100dvh - var(--sat) - 62px - var(--sab));border:0;background:#ffffff}
 
 /* October sprint: readable light cards and safe area for iPhone */
 #app.screen-today .body-pad,#app.screen-workout .body-pad{padding-top:max(22px,calc(env(safe-area-inset-top) + 18px))!important}
@@ -255,6 +255,10 @@ function syncSavedTasksToWidget(){
    window.webkit.messageHandlers.tasks.postMessage(payload);
  }catch(e){console.log('Planner widget refresh skipped',e)}
 }
+window.addEventListener('message',function(event){
+  var frame=document.getElementById('notes-frame');
+  if(event.origin===location.origin&&frame&&event.source===frame.contentWindow&&event.data?.type==='alina-notes-updated')syncSavedTasksToWidget();
+});
 window.addEventListener('pageshow',syncSavedTasksToWidget);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)syncSavedTasksToWidget()});
 setTimeout(syncSavedTasksToWidget,600);
@@ -643,6 +647,7 @@ var TABS=[
   {key:'projects',label:'Проекты',ico:'📁'},
   {key:'today',label:'Питание',ico:'🍽️'},
   {key:'workout',label:'Тренировки',ico:'💪'},
+  {key:'notes',label:'Заметки',ico:'📝'},
   
 ];
 function openSettings(from){ui.settingsFrom=from||ui.tab;setTab('settings');}
@@ -663,6 +668,7 @@ function tabIcon(key){
     routine:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 3v3M16 3v3M7 14l3 3 6-6"/>',
     tasks:'<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 3v3M16 3v3M8 15l2 2 4-4"/>',
     goals:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    notes:'<path d="M5 3h10l4 4v14H5zM14 3v5h5M8 12h8M8 16h8"/>',
     projects:'<rect x="2" y="6" width="20" height="15" rx="3"/><path d="M2 9V5a2 2 0 0 1 2-2h5l3 3"/>',
     result:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'
   };
@@ -673,6 +679,12 @@ function renderTabBar(){
   if(!state.onboarded){ tb.style.display='none'; return; }
   tb.style.display='flex';
   tb.innerHTML=TABS.map(function(t){ return '<button class="tab'+((ui.tab==='settings'?(ui.settingsFrom||'workout'):ui.tab==='progress'?'today':ui.tab)===t.key?' on':'')+'" onclick="setTab(\''+t.key+'\')"><span class="ico">'+tabIcon(t.key)+'</span>'+t.label+'</button>'; }).join('');
+  var selected=tb.querySelector('.tab.on');
+  if(selected){
+    var left=selected.offsetLeft,right=left+selected.offsetWidth;
+    if(left<tb.scrollLeft)tb.scrollLeft=left;
+    else if(right>tb.scrollLeft+tb.clientWidth)tb.scrollLeft=right-tb.clientWidth;
+  }
 }
 function calorieRingSVG(eaten,target,size,stroke,color,centerColor){
   size=size||200; stroke=stroke||14; centerColor=centerColor||'#FFFFFF';
@@ -736,6 +748,7 @@ function render(){
     else if(ui.tab==='goals') html='<iframe title="Цели" src="goals-projects.html?view=goals" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#ffffff"></iframe>';
     else if(ui.tab==='projects') html='<iframe title="Проекты" src="goals-projects.html?view=projects" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#ffffff"></iframe>';
     else if(ui.tab==='tasks') html='<iframe title="Мои дела на день" src="tasks.html'+(new URLSearchParams(location.search).get("day")?"?day="+encodeURIComponent(new URLSearchParams(location.search).get("day"))+(new URLSearchParams(location.search).get("voice")==="1"?"&voice=1":""):"")+'" id="tasks-frame" loading="eager"></iframe>';
+    else if(ui.tab==='notes') html='<iframe title="Заметки" src="notes.html" id="notes-frame" loading="eager"></iframe>';
     else if(ui.tab==='result') html='<iframe title="Режим результата" src="result.html" id="result-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#ffffff"></iframe>';
     app.innerHTML=html;
     renderTabBar();
