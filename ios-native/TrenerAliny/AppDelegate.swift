@@ -31,7 +31,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         self.window = window
 
         if let url = launchOptions?[.url] as? URL {
-            webViewController.openTabFromWidget(Self.widgetTab(from: url), day: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "day" })?.value, voice: Self.wantsVoice(url))
+            webViewController.openTabFromWidget(Self.widgetTab(from: url), day: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "day" })?.value, voice: Self.wantsVoice(url), showDay: Self.wantsDayView(url))
         }
         return true
     }
@@ -42,12 +42,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
         guard url.scheme == "treneraliny" else { return false }
-        (window?.rootViewController as? WebViewController)?.openTabFromWidget(Self.widgetTab(from: url), day: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "day" })?.value, voice: Self.wantsVoice(url))
+        (window?.rootViewController as? WebViewController)?.openTabFromWidget(Self.widgetTab(from: url), day: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "day" })?.value, voice: Self.wantsVoice(url), showDay: Self.wantsDayView(url))
         return true
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private static func wantsDayView(_ url: URL) -> Bool {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "view" })?.value == "day"
     }
 
     private static func wantsVoice(_ url: URL) -> Bool {

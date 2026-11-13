@@ -375,7 +375,11 @@ window.addEventListener("message",e=>{if(e.data?.type!=="apple-reminders"||!Arra
   else{(db[t.date]=db[t.date]||[]).push({id,title:t.title,done:!!t.done,time,source:"reminders"});count++;changed=true}}
  if(changed){persist();render()}
  if(!quiet)alert(count?"Добавлено дел из Напоминаний: "+count:"Новых дел из Напоминаний нет. У напоминания должна быть указана дата.")});
-const deepDay=new URLSearchParams(location.search).get("day");if(deepDay&&days.some(d=>d.date===deepDay)){setTimeout(()=>openDialog(deepDay,new URLSearchParams(location.search).get("voice")==="1"),120)}
+const deepParams=new URLSearchParams(location.search),deepDay=deepParams.get("day");
+if(deepDay&&days.some(d=>d.date===deepDay)){
+ if(deepParams.get("view")==="day"){mode="day";sel=deepDay}
+ else setTimeout(()=>openDialog(deepDay,deepParams.get("voice")==="1"),120);
+}
 render();sync();
 const refresh=()=>{reloadDb();if(PlannerCore.migrate(db))PlannerCore.save(db);render();sync()};
 window.addEventListener("focus",()=>{refresh();autoReminders()});

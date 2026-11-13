@@ -131,7 +131,9 @@ window.PlannerCore = (function () {
         var t = occurrence(rule, D.date);
         if (!t) return null;
         var state = t.done ? 'done' : D.date < today ? 'missed' : 'open';
-        return { ...item(D.date, t, state, '', D.date >= today), recurring: true };
+        var schedule = rule.weekdays.length === 7 ? 'Каждый день' :
+          NAMES.filter(function (_, i) { return rule.weekdays.includes((i + 1) % 7); }).join(' · ');
+        return { ...item(D.date, t, state, '', D.date >= today), recurring: true, schedule: schedule };
       }).filter(Boolean);
       var items = [];
       (db[D.date] || []).forEach(function (t) {
@@ -205,6 +207,7 @@ window.PlannerCore = (function () {
             var o = { id: i.id, title: i.title, done: i.state === 'done', overdue: i.state === 'overdue', state: i.state, day: i.day, tappable: i.tappable, recurring: !!i.recurring };
             if (i.time) o.time = i.time;
             if (i.note) o.note = i.note;
+            if (i.schedule) o.schedule = i.schedule;
             return o;
           })
         };

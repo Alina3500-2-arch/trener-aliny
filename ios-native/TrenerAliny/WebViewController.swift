@@ -141,9 +141,9 @@ final class WebViewController: UIViewController {
         openDeepLink("tab:workout")
     }
 
-    func openTabFromWidget(_ tab: String, day: String? = nil, voice: Bool = false) {
+    func openTabFromWidget(_ tab: String, day: String? = nil, voice: Bool = false, showDay: Bool = false) {
         let target = ["today", "workout", "routine", "tasks", "goals", "projects", "notes", "result", "progress", "settings"].contains(tab) ? tab : "routine"
-        openDeepLink("tab:\(target)", day: day, voice: voice)
+        openDeepLink("tab:\(target)", day: day, voice: voice, showDay: showDay)
     }
 
     // Planner dictation: tasks.html asks to start/stop, the text goes back into the tasks iframe.
@@ -689,7 +689,7 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         }
     }
 
-    private func openDeepLink(_ target: String, day: String? = nil, voice: Bool = false) {
+    private func openDeepLink(_ target: String, day: String? = nil, voice: Bool = false, showDay: Bool = false) {
         // query-параметр, не #fragment: переход, отличающийся только якорем,
         // WKWebView (как и большинство браузеров) может посчитать навигацией
         // внутри документа и не перезагрузить страницу — тогда JS отработавший
@@ -699,6 +699,7 @@ extension WebViewController: UNUserNotificationCenterDelegate {
         if target == "tab:tasks", let day = day, day.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
             comps.queryItems?.append(URLQueryItem(name: "day", value: day))
             if voice { comps.queryItems?.append(URLQueryItem(name: "voice", value: "1")) }
+            if showDay { comps.queryItems?.append(URLQueryItem(name: "view", value: "day")) }
         }
         guard let url = comps.url else { return }
         // При холодном старте iOS отдаёт ссылку дважды (launchOptions и open url) —
