@@ -1103,7 +1103,9 @@ private struct DailyTasksWidgetView: View {
                 weekList(height: geometry.size.height)
             }
             .widgetURL(addURL(nil))
-            .containerBackground(for: .widget) { Color.white }
+            .containerBackground(for: .widget) {
+                LinearGradient(colors: [.white, plannerTint], startPoint: .top, endPoint: .bottom)
+            }
         } else {
             mediumBody
         }
@@ -1166,107 +1168,160 @@ private struct DailyTasksWidgetView: View {
         URL(string: "treneraliny://open?tab=tasks&day=\(date)&view=day")!
     }
 
+    private let plannerPink = Color(red: 0.87, green: 0.37, blue: 0.56)
+    private let plannerBorder = Color(red: 0.93, green: 0.87, blue: 0.90)
+    private let plannerTint = Color(red: 0.99, green: 0.94, blue: 0.96)
+
     private func weekList(height: CGFloat) -> some View {
         let week = days
         let day = week.first(where: { $0.date == entry.selectedDay }) ?? week.first(where: { $0.date == todayKey })
         let date = day?.date ?? todayKey
-        // The day list shows tasks scheduled for that date, even if another day has overdue work.
-        let tasks = day?.tasks.filter { ($0.day ?? date) == date } ?? []
-        let ordered = tasks.filter { !$0.done } + tasks.filter { $0.done }
+        // The app includes carried one-off tasks in today's list. Future tasks stay on their date.
+        let tasks = day?.tasks ?? []
+        let recurring = tasks.filter { $0.recurring == true }
+        let oneOff = tasks.filter { $0.recurring != true }
         let done = tasks.filter(\.done).count
-        let capacity = max(2, min(9, Int((height - 156) / 29)))
+        let capacity = max(2, Int((height - 223) / 39))
+        let recurringLimit = min(recurring.count, max(capacity / 2, capacity - oneOff.count))
+        let oneOffLimit = capacity - recurringLimit
 
         return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Text("Моя неделя").font(.system(size: 22, weight: .regular, design: .serif)).foregroundStyle(ink)
-                    .minimumScaleFactor(0.8).lineLimit(1)
-                Spacer(minLength: 4)
-                Text(weekRange).font(.system(size: 12, weight: .medium)).foregroundStyle(faded).lineLimit(1)
+            HStack(spacing: 6) {
+                Image(systemName: "checklist").font(.system(size: 17, weight: .semibold)).foregroundStyle(plannerPink)
+                Text("Планировщик").font(.system(size: 20, weight: .semibold)).foregroundStyle(ink)
+                    .lineLimit(1).minimumScaleFactor(0.82)
+                Spacer(minLength: 3)
+                Text("\(done)/\(tasks.count)").font(.system(size: 14)).monospacedDigit().foregroundStyle(faded)
+                Link(destination: addURL(date)) {
+                    Image(systemName: "plus").font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white).frame(width: 26, height: 26)
+                        .background(Circle().fill(plannerPink))
+                }
+                .accessibilityLabel("Добавить дело")
             }
-            HStack(spacing: 3) {
+            Text(weekRange).font(.system(size: 12, weight: .semibold)).foregroundStyle(ink)
+                .frame(maxWidth: .infinity).frame(height: 19)
+                .background(RoundedRectangle(cornerRadius: 8).fill(plannerTint))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(plannerBorder))
+            HStack(spacing: 4) {
                 ForEach(week) { day in weekDate(day, selected: day.date == date) }
             }
-            HStack(spacing: 8) {
-                ProgressView(value: Double(done), total: Double(max(1, tasks.count)))
-                    .tint(rose)
-                    .accessibilityLabel("Выполнено \(done) из \(tasks.count)")
-                Text("\(done)/\(tasks.count)")
-                    .font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(rose)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(date == todayKey ? "Сегодня" : (day?.label ?? "")).font(.system(size: 17, weight: .bold)).foregroundStyle(ink)
+                    Text(dayMonth(date)).font(.system(size: 12, weight: .medium)).foregroundStyle(faded)
+                    Spacer(minLength: 2)
+                    Text("\(done) из \(tasks.count)").font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color(red: 0.58, green: 0.24, blue: 0.40)).lineLimit(1)
+                }
+                GeometryReader { geometry in
+                    Capsule().fill(plannerBorder)
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(plannerPink)
+                                .frame(width: geometry.size.width * CGFloat(done) / CGFloat(max(1, tasks.count)))
+                        }
+                }
+                .frame(height: 5)
+                .accessibilityLabel("Выполнено \(done) из \(tasks.count)")
+
+                widgetTaskSection("Ежедневные задачи", tasks: recurring, date: date, limit: recurringLimit)
+                widgetTaskSection("Отдельные задачи", tasks: oneOff, date: date, limit: oneOffLimit)
             }
-            Rectangle().fill(tileLine).frame(height: 1)
-            if ordered.isEmpty {
-                Text("На этот день дел нет").font(.system(size: 14, design: .serif)).foregroundStyle(faded)
-                    .padding(.vertical, 7)
+            .padding(6)
+            .background(RoundedRectangle(cornerRadius: 13).fill(.white))
+            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(plannerBorder))
+            Spacer(minLength: 0)
+            HStack {
+                Spacer()
+                micLink(date, size: 20.7).accessibilityLabel("Надиктовать дело на выбранный день")
+            }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+    }
+
+    private func dayMonth(_ key: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: key) else { return "" }
+        formatter.dateFormat = "d MMMM"
+        return formatter.string(from: date)
+    }
+
+    private func weekDate(_ day: DailyTaskDay, selected: Bool) -> some View {
+        let done = day.tasks.filter(\.done).count
+        let count = day.tasks.count
+        let empty = count == 0
+        return Button(intent: SelectPlannerDayIntent(dateKey: day.date)) {
+            VStack(spacing: 0) {
+                Text(day.label).font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(selected ? .white : empty ? faded : ink)
+                Text(String(Int(day.date.suffix(2)) ?? 0)).font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(selected ? .white : empty ? faded : plannerPink)
+                Text(empty ? "·" : done == count ? "✓" : "\(done)/\(count)")
+                    .font(.system(size: 9)).monospacedDigit().foregroundStyle(selected ? .white : faded)
+            }
+            .frame(maxWidth: .infinity, minHeight: 43)
+            .background(RoundedRectangle(cornerRadius: 12).fill(selected ? plannerPink : empty ? Color(white: 0.96) : plannerTint))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selected ? Color.clear : plannerBorder))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityLabel("\(day.label), \(Int(day.date.suffix(2)) ?? 0), выполнено \(done) из \(count)")
+    }
+
+    private func widgetTaskSection(_ title: String, tasks: [DailyTaskItem], date: String, limit: Int) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(title).font(.system(size: 14, weight: .bold)).foregroundStyle(ink).lineLimit(1)
+                Spacer(minLength: 2)
+                if tasks.count > limit {
+                    Link(destination: dayURL(date)) {
+                        Text("Ещё \(tasks.count - limit)").font(.system(size: 10, weight: .semibold)).foregroundStyle(plannerPink)
+                    }
+                }
+            }
+            if tasks.isEmpty {
+                Text("Нет задач").font(.system(size: 11)).foregroundStyle(faded)
             } else {
-                ForEach(Array(ordered.prefix(capacity))) { task in
+                ForEach(Array(tasks.prefix(limit))) { task in
                     if date < todayKey || task.tappable == false {
                         weekTask(task)
                     } else {
-                        Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: date)) {
+                        Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: task.day ?? date)) {
                             weekTask(task).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
                 }
             }
-            Spacer(minLength: 0)
-            HStack {
-                if ordered.count > capacity {
-                    Link(destination: dayURL(date)) {
-                        Text("Ещё \(ordered.count - capacity)").font(.system(size: 12, weight: .semibold)).foregroundStyle(rose)
-                    }
-                }
-                Spacer()
-                micLink(date, size: 20.7).accessibilityLabel("Надиктовать дело на выбранный день")
-            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-    }
-
-    private func weekDate(_ day: DailyTaskDay, selected: Bool) -> some View {
-        Button(intent: SelectPlannerDayIntent(dateKey: day.date)) {
-            VStack(spacing: 0) {
-                Text(day.label).font(.system(size: 10, weight: .semibold))
-                Text(String(Int(day.date.suffix(2)) ?? 0)).font(.system(size: 14, weight: .bold))
-                dayCount(day, selected: selected)
-            }
-            .foregroundStyle(selected ? Color.white : ink)
-            .frame(maxWidth: .infinity, minHeight: 43)
-            .background(RoundedRectangle(cornerRadius: 10).fill(selected ? rose : tile))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityLabel("\(day.label), \(Int(day.date.suffix(2)) ?? 0)")
-    }
-
-    private func dayCount(_ day: DailyTaskDay, selected: Bool) -> some View {
-        let tasks = day.tasks.filter { ($0.day ?? day.date) == day.date }
-        let done = tasks.filter(\.done).count
-        return Text(tasks.isEmpty ? "·" : "\(done)/\(tasks.count)")
-            .font(.system(size: 9, weight: .medium)).monospacedDigit()
-            .foregroundStyle(selected ? Color.white : faded)
+        .padding(.top, 2)
     }
 
     private func weekTask(_ task: DailyTaskItem) -> some View {
         let status = state(task)
-        let detail = task.time
-        return HStack(spacing: 7) {
-            mark(status)
-            Text(task.title)
-                .font(.system(size: 14, weight: .regular, design: .serif))
-                .foregroundStyle(task.done || status == "missed" ? faded : ink)
-                .strikethrough(task.done)
-                .lineLimit(1)
-                .layoutPriority(1)
-            Spacer(minLength: 1)
-            if let detail { Text(detail).font(.system(size: 10.5)).foregroundStyle(faded).lineLimit(1) }
+        let inactive = task.done || status == "missed"
+        return HStack(spacing: 8) {
+            mark(status, size: 18, accent: plannerPink)
+            VStack(alignment: .leading, spacing: 0) {
+                if let time = task.time, !time.isEmpty {
+                    Text(time).font(.system(size: 10, weight: .semibold)).monospacedDigit()
+                        .foregroundStyle(inactive ? faded : plannerPink).lineLimit(1)
+                }
+                Text(task.title).font(.system(size: 13))
+                    .foregroundStyle(inactive ? faded : ink)
+                    .lineLimit(task.time?.isEmpty != false ? 2 : 1)
+            }
+            .strikethrough(task.done)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 7)
-        .frame(height: 25)
-        .background(RoundedRectangle(cornerRadius: 8).strokeBorder(tileLine, lineWidth: 1))
+        .padding(.horizontal, 8)
+        .frame(height: 36)
+        .background(RoundedRectangle(cornerRadius: 10).fill(.white))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(plannerBorder))
     }
 
     private func dayTile(_ day: DailyTaskDay) -> some View {
@@ -1357,12 +1412,12 @@ private struct DailyTasksWidgetView: View {
         .padding(.vertical, 1.5)
     }
 
-    private func mark(_ st: String) -> some View {
+    private func mark(_ st: String, size: CGFloat = 13, accent: Color? = nil) -> some View {
         ZStack {
             switch st {
             case "done":
-                Circle().fill(rose)
-                Image(systemName: "checkmark").font(.system(size: 6.5, weight: .bold)).foregroundStyle(.white)
+                Circle().fill(accent ?? rose)
+                Image(systemName: "checkmark").font(.system(size: size / 2, weight: .bold)).foregroundStyle(.white)
             case "missed":
                 Circle().fill(Color.white)
                 Circle().strokeBorder(late.opacity(0.35), lineWidth: 1)
@@ -1376,7 +1431,7 @@ private struct DailyTasksWidgetView: View {
                 Circle().strokeBorder(ring, lineWidth: 1.3)
             }
         }
-        .frame(width: 13, height: 13)
+        .frame(width: size, height: size)
     }
 }
 
