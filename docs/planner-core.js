@@ -57,6 +57,7 @@ window.PlannerCore = (function () {
     if (day <= rule.from) delete rules[id];
     else rule.until = day;
     var newId = startSeries(db, day, task, weekdays, done);
+    rules[newId].historyId = rule.historyId || rule.id;
     rules[newId].skipped = skipped;
     rules[newId].until = until;
   }
@@ -70,6 +71,20 @@ window.PlannerCore = (function () {
     } else {
       (rule.skipped ||= {})[day] = true;
     }
+  }
+
+  function monthHistory(db, id, month, today) {
+    var rule = series(db)[id];
+    if (!rule) return [];
+    var historyId = rule.historyId || rule.id;
+    var versions = Object.values(series(db)).filter(function (r) { return (r.historyId || r.id) === historyId; });
+    var first = parse(month + '-01');
+    var length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    return Array.from({ length: length }, function (_, index) {
+      var day = month + '-' + String(index + 1).padStart(2, '0');
+      var task = versions.map(function (version) { return occurrence(version, day); }).find(Boolean);
+      return { date: day, state: !task ? 'none' : task.done ? 'done' : day < today ? 'missed' : 'open' };
+    });
   }
 
   function notes() {
@@ -215,5 +230,5 @@ window.PlannerCore = (function () {
     };
   }
 
-  return { KEY: KEY, NOTES_KEY: NOTES_KEY, notes: notes, key: key, short: short, weekDays: weekDays, load: load, save: save, migrate: migrate, taskDates: taskDates, view: view, counts: counts, find: find, series: series, startSeries: startSeries, reviseSeries: reviseSeries, removeOccurrence: removeOccurrence, setDone: setDone, payload: payload };
+  return { KEY: KEY, NOTES_KEY: NOTES_KEY, notes: notes, key: key, short: short, weekDays: weekDays, load: load, save: save, migrate: migrate, taskDates: taskDates, view: view, counts: counts, find: find, series: series, monthHistory: monthHistory, startSeries: startSeries, reviseSeries: reviseSeries, removeOccurrence: removeOccurrence, setDone: setDone, payload: payload };
 })();

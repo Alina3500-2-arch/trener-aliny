@@ -146,7 +146,24 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .repeat-options input:checked+span{background:#f9dce8;color:#892d54;font-weight:700}
 .repeat-options input:focus-visible+span{outline:2px solid #892d54}
 .dialog .del{width:100%;padding:10px;margin-top:7px}
-</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Нажми — отметить · смахни вправо — изменить, влево — удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><script src="planner-core.js"></script><script>
+
+.task-status,.task-history{background:transparent;color:inherit;border:0;padding:0;text-align:left;font:inherit}
+.task-status{align-self:stretch;display:grid;place-items:center;flex:none;min-width:28px}
+.task-history{cursor:pointer}
+.month-dialog{width:min(calc(100% - 24px),430px);max-height:calc(100% - 24px);overflow:auto;border:1px solid #f1dfe7;border-radius:20px;padding:16px;background:#fff;color:var(--ink)}
+.month-dialog::backdrop{background:#20151d55}
+.month-dialog h2{font-size:18px;margin:0 0 12px;overflow-wrap:anywhere}
+.month-nav{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.month-nav button,.month-close{border:0;border-radius:10px;background:#fbedf3;color:#9f4469;font:inherit;padding:8px 13px}
+.month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:10px 0}
+.month-cell,.month-weekday{display:grid;justify-items:center;align-content:center;border-radius:8px;min-height:34px;font-size:12px;background:#f8f5f7}
+.month-weekday{background:transparent;min-height:18px;color:#786b75}
+.month-cell.done{background:#fbe1ec;color:#9e305e}
+.month-cell.missed{background:#fdecef;color:#b82f47}
+.month-cell.open{background:#fff;border:1px solid #efc3d4;color:#9f4469}
+.month-cell.none{color:#857985}
+.month-count{color:#786b75;font-size:13px;line-height:1.4;margin:8px 0 12px}
+</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Кружок — отметить · название ежедневной задачи — история · свайп — изменить или удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><dialog class="month-dialog" id="month-history" aria-labelledby="month-task"></dialog><script src="planner-core.js"></script><script>
 "use strict";
 const MIC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const KEY=PlannerCore.KEY, $=id=>document.getElementById(id),dateKey=PlannerCore.key;
@@ -198,7 +215,47 @@ function render(){
 }
 const taskMark={open:"",done:"✓",overdue:"",missed:"✕"};
 function taskRow(i){
- return '<div class="swrap"><div class="sbg"><span class="sl">Изменить</span><span class="sr">Удалить</span></div><div class="line '+i.state+(i.tappable?'':' frozen')+'" role="button" tabindex="0" aria-label="'+esc(i.title+(i.state==="done"?" · выполнено":""))+'" data-day="'+i.day+'" data-id="'+esc(i.id)+'"><span class="dot">'+taskMark[i.state]+'</span><span class="txt">'+(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+(i.state==="overdue"?'<span class="late">!</span>':'')+esc(i.title)+(i.note?'<span class="note"> '+esc(i.note)+'</span>':'')+'</span></div></div>';
+ const label=esc(i.title+(i.state==="done"?" · выполнено":""));
+ const dot='<span class="dot" aria-hidden="true">'+taskMark[i.state]+'</span>';
+ const content=(i.time?'<span class="tm">'+esc(i.time)+'</span>':'')+
+  (i.state==="overdue"?'<span class="late">!</span>':'')+esc(i.title)+
+  (i.note?'<span class="note"> '+esc(i.note)+'</span>':'');
+ const mark=i.recurring&&i.tappable?'<button type="button" class="task-status" aria-pressed="'+(i.state==="done")+'" aria-label="'+label+'">'+dot+'</button>':dot;
+ const title=i.recurring?'<button type="button" class="txt task-history" aria-label="История: '+esc(i.title)+'">'+content+'</button>':'<span class="txt">'+content+'</span>';
+ const role=!i.recurring&&i.tappable?' role="button" tabindex="0" aria-label="'+label+'"':'';
+ return '<div class="swrap"><div class="sbg"><span class="sl">Изменить</span><span class="sr">Удалить</span></div>'+
+  '<div class="line '+i.state+(i.tappable?'':' frozen')+'"'+role+' data-day="'+i.day+'" data-id="'+esc(i.id)+'">'+mark+title+'</div></div>';
+}
+function showMonthHistory(id,date){
+ const dialog=$("month-history");
+ let month=date.slice(0,7);
+ function draw(){
+  reloadDb();
+  const rule=PlannerCore.series(db)[id];
+  if(!rule){if(dialog.open)dialog.close();return}
+  const first=keyDate(month+"-01");
+  const cells=PlannerCore.monthHistory(db,id,month,dateKey(new Date()));
+  const states={done:["✓","выполнено"],missed:["✕","пропущено"],open:["○","запланировано"],none:["","нет задачи"]};
+  const count=state=>cells.filter(c=>c.state===state).length;
+  dialog.innerHTML='<h2 id="month-task">'+esc(rule.title)+'</h2><div class="month-nav">'+
+   '<button id="month-prev" aria-label="Предыдущий месяц">‹</button><strong>'+esc(first.toLocaleDateString("ru-RU",{month:"long",year:"numeric"}))+
+   '</strong><button id="month-next" aria-label="Следующий месяц">›</button></div><div class="month-grid">'+
+   names.map(n=>'<span class="month-weekday">'+n+'</span>').join("")+'<span aria-hidden="true"></span>'.repeat((first.getDay()+6)%7)+
+   cells.map(c=>'<span class="month-cell '+c.state+'" aria-label="'+longDate(c.date)+' · '+states[c.state][1]+'"><span>'+Number(c.date.slice(-2))+
+    '</span><b aria-hidden="true">'+states[c.state][0]+'</b></span>').join("")+'</div>'+
+   '<p class="month-count">✓ Выполнено '+count("done")+' · ✕ Пропущено '+count("missed")+' · ○ Запланировано '+count("open")+'</p>'+
+   '<button class="month-close" id="month-close">Закрыть</button>';
+  function shiftMonth(delta,button){
+   first.setMonth(first.getMonth()+delta);
+   month=dateKey(first).slice(0,7);
+   draw();$(button)?.focus();
+  }
+  $("month-prev").onclick=()=>shiftMonth(-1,"month-prev");
+  $("month-next").onclick=()=>shiftMonth(1,"month-next");
+  $("month-close").onclick=()=>dialog.close();
+ }
+ draw();
+ if($("month-task"))dialog.showModal();
 }
 function taskSection(title,items,empty){
  return '<section class="task-section"><h2>'+title+'</h2>'+
@@ -247,8 +304,8 @@ root.querySelectorAll(".line").forEach(row=>{let timer=null,held=false;
  row.addEventListener("touchstart",start,{passive:true});row.addEventListener("touchend",stop);row.addEventListener("touchmove",stop,{passive:true});
  row.addEventListener("mousedown",start);row.addEventListener("mouseup",stop);row.addEventListener("mouseleave",stop);
  row.addEventListener("contextmenu",e=>e.preventDefault());
- row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();row.click()}};
- row.onclick=()=>{if(held){held=false;return}if(row.classList.contains("frozen"))return;reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(!t)return;PlannerCore.setDone(db,row.dataset.day,row.dataset.id,!t.done,dateKey(new Date()));if(String(t.id).startsWith("siri:"))try{window.webkit?.messageHandlers?.reminders?.postMessage({complete:String(t.id).slice(5),done:!!t.done})}catch(e){}persist();render()};
+ row.onkeydown=e=>{if(e.target!==row)return;if(e.key==="Enter"||e.key===" "){e.preventDefault();row.click()}};
+ row.onclick=e=>{if(held){held=false;return}if(e.target.closest(".task-history")){showMonthHistory(row.dataset.id,row.dataset.day);return}if(row.classList.contains("frozen"))return;reloadDb();const t=PlannerCore.find(db,row.dataset.day,row.dataset.id);if(!t)return;PlannerCore.setDone(db,row.dataset.day,row.dataset.id,!t.done,dateKey(new Date()));if(String(t.id).startsWith("siri:"))try{window.webkit?.messageHandlers?.reminders?.postMessage({complete:String(t.id).slice(5),done:!!t.done})}catch(e){}persist();render()};
 });
 }
 function removeTask(day,t){
