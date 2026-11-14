@@ -905,16 +905,22 @@ private enum PlannerWidgetDate {
     }
 }
 private let plannerSelectedDayKey = "dailyTasksWidgetSelectedDay"
+private let plannerTaskPageKey = "dailyTasksWidgetPage"
 
 private struct DailyTasksEntry: TimelineEntry {
     let date: Date
     let payload: DailyTaskPayload?
     var selectedDay: String? = nil
+    var taskPage: Int = 0
 }
 private struct DailyTasksProvider: TimelineProvider {
     private func entry(_ date: Date, payload: DailyTaskPayload?) -> DailyTasksEntry {
-        let selectedDay = SharedStore.defaults?.dictionary(forKey: plannerSelectedDayKey)?[PlannerWidgetDate.key(date)] as? String
-        return DailyTasksEntry(date: date, payload: payload, selectedDay: selectedDay)
+        let today = PlannerWidgetDate.key(date)
+        let defaults = SharedStore.defaults
+        let selectedDay = defaults?.dictionary(forKey: plannerSelectedDayKey)?[today] as? String
+        let dateKey = selectedDay ?? today
+        let page = defaults?.dictionary(forKey: plannerTaskPageKey)?[today + "|" + dateKey] as? Int ?? 0
+        return DailyTasksEntry(date: date, payload: payload, selectedDay: selectedDay, taskPage: page)
     }
 
     func placeholder(in context: Context) -> DailyTasksEntry { DailyTasksEntry(date: .now, payload: nil) }
@@ -943,7 +949,29 @@ struct SelectPlannerDayIntent: AppIntent {
     init(dateKey: String) { self.dateKey = dateKey }
 
     func perform() async throws -> some IntentResult {
-        SharedStore.defaults?.set([PlannerWidgetDate.key(.now): dateKey], forKey: plannerSelectedDayKey)
+        let defaults = SharedStore.defaults
+        defaults?.set([PlannerWidgetDate.key(.now): dateKey], forKey: plannerSelectedDayKey)
+        defaults?.removeObject(forKey: plannerTaskPageKey)
+        return .result()
+    }
+}
+
+struct SelectPlannerTaskPageIntent: AppIntent {
+    static var title: LocalizedStringResource = "Листать список дел"
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Дата") var dateKey: String
+    @Parameter(title: "Страница") var page: Int
+
+    init() {}
+    init(dateKey: String, page: Int) {
+        self.dateKey = dateKey
+        self.page = page
+    }
+
+    func perform() async throws -> some IntentResult {
+        let today = PlannerWidgetDate.key(.now)
+        SharedStore.defaults?.set([today + "|" + dateKey: max(0, page)], forKey: plannerTaskPageKey)
         return .result()
     }
 }
@@ -1164,10 +1192,6 @@ private struct DailyTasksWidgetView: View {
         return start + "–" + format.string(from: to)
     }
 
-    private func dayURL(_ date: String) -> URL {
-        URL(string: "treneraliny://open?tab=tasks&day=\(date)&view=day")!
-    }
-
     private let plannerPink = Color(red: 0.87, green: 0.37, blue: 0.56)
     private let plannerBorder = Color(red: 0.93, green: 0.87, blue: 0.90)
     private let plannerTint = Color(red: 0.99, green: 0.94, blue: 0.96)
@@ -1178,17 +1202,18 @@ private struct DailyTasksWidgetView: View {
         let date = day?.date ?? todayKey
         // The app includes carried one-off tasks in today's list. Future tasks stay on their date.
         let tasks = day?.tasks ?? []
-        let recurring = tasks.filter { $0.recurring == true }
-        let oneOff = tasks.filter { $0.recurring != true }
         let done = tasks.filter(\.done).count
-        let capacity = max(2, Int((height - 223) / 39))
-        let recurringLimit = min(recurring.count, max(capacity / 2, capacity - oneOff.count))
-        let oneOffLimit = capacity - recurringLimit
+        let rowHeight: CGFloat = 43
+        // Header, calendar, day summary and footer use the remaining fixed height.
+        let capacity = max(1, Int((height - 198) / (rowHeight + 4)))
+        let pageCount = max(1, (tasks.count + capacity - 1) / capacity)
+        let page = min(max(0, entry.taskPage), pageCount - 1)
+        let visibleTasks = Array(tasks.dropFirst(page * capacity).prefix(capacity))
 
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: "checklist").font(.system(size: 17, weight: .semibold)).foregroundStyle(plannerPink)
-                Text("Планировщик").font(.system(size: 20, weight: .semibold)).foregroundStyle(ink)
+                Text("Планировщик").font(.system(size: 21, weight: .semibold)).foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.82)
                 Spacer(minLength: 3)
                 Text("\(done)/\(tasks.count)").font(.system(size: 14)).monospacedDigit().foregroundStyle(faded)
@@ -1199,8 +1224,8 @@ private struct DailyTasksWidgetView: View {
                 }
                 .accessibilityLabel("Добавить дело")
             }
-            Text(weekRange).font(.system(size: 12, weight: .semibold)).foregroundStyle(ink)
-                .frame(maxWidth: .infinity).frame(height: 19)
+            Text("Эта неделя · " + weekRange).font(.system(size: 13, weight: .semibold)).foregroundStyle(ink)
+                .frame(maxWidth: .infinity).frame(height: 23)
                 .background(RoundedRectangle(cornerRadius: 8).fill(plannerTint))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(plannerBorder))
             HStack(spacing: 4) {
@@ -1224,17 +1249,46 @@ private struct DailyTasksWidgetView: View {
                 .frame(height: 5)
                 .accessibilityLabel("Выполнено \(done) из \(tasks.count)")
 
-                widgetTaskSection("Ежедневные задачи", tasks: recurring, date: date, limit: recurringLimit)
-                widgetTaskSection("Отдельные задачи", tasks: oneOff, date: date, limit: oneOffLimit)
+                if visibleTasks.isEmpty {
+                    Text("На этот день дел нет").font(.system(size: 13)).foregroundStyle(faded)
+                        .padding(.vertical, 8)
+                } else {
+                    VStack(spacing: 4) {
+                        ForEach(visibleTasks) { task in
+                            if date < todayKey || task.tappable == false {
+                                weekTask(task, height: rowHeight)
+                            } else {
+                                Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: task.day ?? date)) {
+                                    weekTask(task, height: rowHeight).contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 6) {
+                    if pageCount > 1 {
+                        plannerPageArrow(date, page: page - 1, enabled: page > 0, forward: false)
+                        Text("\(page + 1) из \(pageCount)").font(.system(size: 11, weight: .medium))
+                            .monospacedDigit().foregroundStyle(faded)
+                        plannerPageArrow(date, page: page + 1, enabled: page + 1 < pageCount, forward: true)
+                    }
+                    Spacer(minLength: 0)
+                    Link(destination: voiceURL(date)) {
+                        Image(systemName: "mic.fill").font(.system(size: 20.7, weight: .semibold))
+                            .foregroundStyle(plannerPink).frame(width: 40, height: 31)
+                            .overlay(RoundedRectangle(cornerRadius: 9)
+                                .strokeBorder(plannerPink.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                    }
+                    .accessibilityLabel("Надиктовать дело на выбранный день")
+                }
+                .frame(height: 31)
             }
             .padding(6)
             .background(RoundedRectangle(cornerRadius: 13).fill(.white))
             .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(plannerBorder))
-            Spacer(minLength: 0)
-            HStack {
-                Spacer()
-                micLink(date, size: 20.7).accessibilityLabel("Надиктовать дело на выбранный день")
-            }
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
@@ -1272,56 +1326,44 @@ private struct DailyTasksWidgetView: View {
         .accessibilityLabel("\(day.label), \(Int(day.date.suffix(2)) ?? 0), выполнено \(done) из \(count)")
     }
 
-    private func widgetTaskSection(_ title: String, tasks: [DailyTaskItem], date: String, limit: Int) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Text(title).font(.system(size: 14, weight: .bold)).foregroundStyle(ink).lineLimit(1)
-                Spacer(minLength: 2)
-                if tasks.count > limit {
-                    Link(destination: dayURL(date)) {
-                        Text("Ещё \(tasks.count - limit)").font(.system(size: 10, weight: .semibold)).foregroundStyle(plannerPink)
-                    }
-                }
+    @ViewBuilder
+    private func plannerPageArrow(_ date: String, page: Int, enabled: Bool, forward: Bool) -> some View {
+        let icon = Image(systemName: forward ? "chevron.right" : "chevron.left")
+            .font(.system(size: 12, weight: .semibold))
+            .frame(width: 32, height: 27)
+            .background(RoundedRectangle(cornerRadius: 8).fill(plannerTint))
+        if enabled {
+            Button(intent: SelectPlannerTaskPageIntent(dateKey: date, page: page)) {
+                icon.foregroundStyle(plannerPink)
             }
-            if tasks.isEmpty {
-                Text("Нет задач").font(.system(size: 11)).foregroundStyle(faded)
-            } else {
-                ForEach(Array(tasks.prefix(limit))) { task in
-                    if date < todayKey || task.tappable == false {
-                        weekTask(task)
-                    } else {
-                        Button(intent: ToggleDailyTaskIntent(taskId: task.id, dateKey: task.day ?? date)) {
-                            weekTask(task).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(forward ? "Следующие задачи" : "Предыдущие задачи")
+        } else {
+            icon.foregroundStyle(faded.opacity(0.5)).accessibilityHidden(true)
         }
-        .padding(.top, 2)
     }
 
-    private func weekTask(_ task: DailyTaskItem) -> some View {
+    private func weekTask(_ task: DailyTaskItem, height: CGFloat) -> some View {
         let status = state(task)
         let inactive = task.done || status == "missed"
-        return HStack(spacing: 8) {
-            mark(status, size: 18, accent: plannerPink)
+        return HStack(spacing: 9) {
+            mark(status, size: 20, accent: plannerPink)
             VStack(alignment: .leading, spacing: 0) {
                 if let time = task.time, !time.isEmpty {
                     Text(time).font(.system(size: 10, weight: .semibold)).monospacedDigit()
                         .foregroundStyle(inactive ? faded : plannerPink).lineLimit(1)
                 }
-                Text(task.title).font(.system(size: 13))
+                Text(task.title).font(.system(size: 14))
                     .foregroundStyle(inactive ? faded : ink)
-                    .lineLimit(task.time?.isEmpty != false ? 2 : 1)
+                    .lineLimit(2)
             }
             .strikethrough(task.done)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
-        .frame(height: 36)
-        .background(RoundedRectangle(cornerRadius: 10).fill(.white))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(plannerBorder))
+        .padding(.horizontal, 9)
+        .frame(height: height)
+        .background(RoundedRectangle(cornerRadius: 11).fill(.white))
+        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(plannerBorder))
     }
 
     private func dayTile(_ day: DailyTaskDay) -> some View {
