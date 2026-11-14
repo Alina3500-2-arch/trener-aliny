@@ -1186,10 +1186,10 @@ private struct DailyTasksWidgetView: View {
         let to = cal.date(byAdding: .day, value: 6, to: from) ?? from
         let format = DateFormatter()
         format.locale = Locale(identifier: "ru_RU")
-        format.dateFormat = cal.isDate(from, equalTo: to, toGranularity: .month) ? "d" : "d MMM"
-        let start = format.string(from: from)
+        // Same wording as the app: «9 нояб – 15 нояб».
         format.dateFormat = "d MMM"
-        return start + "–" + format.string(from: to)
+        let short = { (d: Date) in format.string(from: d).replacingOccurrences(of: ".", with: "") }
+        return short(from) + " – " + short(to)
     }
 
     private let plannerPink = Color(red: 0.94, green: 0.36, blue: 0.58)
@@ -1262,32 +1262,29 @@ private struct DailyTasksWidgetView: View {
                         }
                     }
                 }
-                HStack(spacing: 5) {
-                    Link(destination: addURL(date)) {
-                        Text("+ Добавить дело").font(.system(size: 13))
-                            .foregroundStyle(plannerPink).frame(maxWidth: .infinity).frame(height: 29)
-                            .overlay(dashedPlannerBorder)
+                Spacer(minLength: 0)
+                // Pager and mic share one bottom line so the task list gets the rest of the card.
+                HStack(spacing: 7) {
+                    if pageCount > 1 {
+                        plannerPageArrow(date, page: page - 1, enabled: page > 0, forward: false)
+                        Text("\(page + 1) из \(pageCount)").font(.system(size: 11, weight: .medium))
+                            .monospacedDigit().foregroundStyle(faded)
+                        plannerPageArrow(date, page: page + 1, enabled: page + 1 < pageCount, forward: true)
                     }
+                    Spacer(minLength: 0)
                     Link(destination: voiceURL(date)) {
-                        Image(systemName: "mic").font(.system(size: 20.7, weight: .semibold))
-                            .foregroundStyle(plannerPink).frame(width: 41, height: 29)
+                        Image(systemName: "mic.fill").font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(plannerPink).frame(width: 34, height: 24)
                             .overlay(dashedPlannerBorder)
                     }
                     .accessibilityLabel("Надиктовать дело на выбранный день")
                 }
+                .frame(height: 24)
             }
             .padding(8)
+            .frame(maxHeight: .infinity, alignment: .top)
             .background(RoundedRectangle(cornerRadius: 17).fill(.white))
             .overlay(RoundedRectangle(cornerRadius: 17).strokeBorder(plannerBorder))
-            if pageCount > 1 {
-                HStack(spacing: 7) {
-                    plannerPageArrow(date, page: page - 1, enabled: page > 0, forward: false)
-                    Text("\(page + 1) из \(pageCount)").font(.system(size: 11, weight: .medium))
-                        .monospacedDigit().foregroundStyle(faded)
-                    plannerPageArrow(date, page: page + 1, enabled: page + 1 < pageCount, forward: true)
-                }
-                .frame(maxWidth: .infinity)
-            }
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .padding(.horizontal, 11)
@@ -1301,8 +1298,8 @@ private struct DailyTasksWidgetView: View {
 
     private func taskPages(_ tasks: [DailyTaskItem], height: CGFloat, rowHeight: CGFloat) -> [[DailyTaskItem]] {
         let ordered = tasks.filter { $0.recurring == true } + tasks.filter { $0.recurring != true }
-        // Fixed height of the header, calendar, summary and add buttons. Page controls are conditional.
-        let available = height - 218
+        // Fixed height of the header, calendar, day summary and the pager/mic line.
+        let available = height - 214
         func pack(_ budget: CGFloat) -> [[DailyTaskItem]] {
             var pages: [[DailyTaskItem]] = []
             var page: [DailyTaskItem] = []
@@ -1323,8 +1320,7 @@ private struct DailyTasksWidgetView: View {
             pages.append(page)
             return pages
         }
-        let pages = pack(available)
-        return pages.count > 1 ? pack(available - 28) : pages
+        return pack(available)
     }
 
     private func plannerSection(_ title: String, tasks: [DailyTaskItem], date: String, rowHeight: CGFloat) -> some View {
@@ -1403,7 +1399,7 @@ private struct DailyTasksWidgetView: View {
                         .foregroundStyle(inactive ? faded : plannerPink).lineLimit(1)
                 }
                 Text(task.title).font(.system(size: 14))
-                    .foregroundStyle(inactive ? faded : ink)
+                    .foregroundStyle(inactive ? faded : status == "overdue" ? late : ink)
                     .lineLimit(2).minimumScaleFactor(0.87)
             }
             .strikethrough(task.done)
