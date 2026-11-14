@@ -1203,19 +1203,26 @@ private struct DailyTasksWidgetView: View {
         // The app includes carried one-off tasks in today's list. Future tasks stay on their date.
         let tasks = day?.tasks ?? []
         let done = tasks.filter(\.done).count
-        let rowHeight: CGFloat = 42
-        let pages = taskPages(tasks, height: height, rowHeight: rowHeight)
-        let pageCount = pages.count
-        let page = min(max(0, entry.taskPage), pageCount - 1)
-        let visibleTasks = pages[page]
+        // No pages: every task of the day is on screen, rows get shorter when the day is busy.
+        let fit = fitTasks(tasks, height: height)
+        let rowHeight = fit.rowHeight
+        let visibleTasks = fit.tasks
+        let hidden = tasks.count - visibleTasks.count
 
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: "checklist").font(.system(size: 17, weight: .semibold)).foregroundStyle(plannerPink)
-                Text("Планировщик").font(.system(size: 21, weight: .semibold)).foregroundStyle(ink)
+                Text("Планировщик").font(.system(size: 19, weight: .semibold)).foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.82)
+                Text(weekRange).font(.system(size: 11, weight: .medium)).foregroundStyle(faded)
+                    .lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 3)
-                Text("\(done)/\(tasks.count)").font(.system(size: 14)).monospacedDigit().foregroundStyle(faded)
+                Link(destination: voiceURL(date)) {
+                    Image(systemName: "mic.fill").font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(plannerPink).frame(width: 26, height: 26)
+                        .background(Circle().fill(plannerTint))
+                }
+                .accessibilityLabel("Надиктовать дело на выбранный день")
                 Link(destination: addURL(date)) {
                     Image(systemName: "plus").font(.system(size: 15, weight: .medium))
                         .foregroundStyle(.white).frame(width: 26, height: 26)
@@ -1223,10 +1230,6 @@ private struct DailyTasksWidgetView: View {
                 }
                 .accessibilityLabel("Добавить дело")
             }
-            Text("Эта неделя · " + weekRange).font(.system(size: 13, weight: .semibold)).foregroundStyle(ink)
-                .frame(maxWidth: .infinity).frame(height: 23)
-                .background(RoundedRectangle(cornerRadius: 8).fill(plannerTint))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(plannerBorder))
             HStack(spacing: 4) {
                 ForEach(week) { day in weekDate(day, selected: day.date == date) }
             }
@@ -1262,24 +1265,11 @@ private struct DailyTasksWidgetView: View {
                         }
                     }
                 }
-                Spacer(minLength: 0)
-                // Pager and mic share one bottom line so the task list gets the rest of the card.
-                HStack(spacing: 7) {
-                    if pageCount > 1 {
-                        plannerPageArrow(date, page: page - 1, enabled: page > 0, forward: false)
-                        Text("\(page + 1) из \(pageCount)").font(.system(size: 11, weight: .medium))
-                            .monospacedDigit().foregroundStyle(faded)
-                        plannerPageArrow(date, page: page + 1, enabled: page + 1 < pageCount, forward: true)
-                    }
-                    Spacer(minLength: 0)
-                    Link(destination: voiceURL(date)) {
-                        Image(systemName: "mic.fill").font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(plannerPink).frame(width: 34, height: 24)
-                            .overlay(dashedPlannerBorder)
-                    }
-                    .accessibilityLabel("Надиктовать дело на выбранный день")
+                if hidden > 0 {
+                    Text("ещё \(hidden) — открыть в приложении").font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(plannerPink).frame(maxWidth: .infinity).frame(height: 16)
                 }
-                .frame(height: 24)
+                Spacer(minLength: 0)
             }
             .padding(8)
             .frame(maxHeight: .infinity, alignment: .top)
@@ -1296,31 +1286,17 @@ private struct DailyTasksWidgetView: View {
             .strokeBorder(plannerPink.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
     }
 
-    private func taskPages(_ tasks: [DailyTaskItem], height: CGFloat, rowHeight: CGFloat) -> [[DailyTaskItem]] {
+    // Widgets can't scroll, so the whole day has to fit: rows shrink from 40 down to 24 pt.
+    private func fitTasks(_ tasks: [DailyTaskItem], height: CGFloat) -> (tasks: [DailyTaskItem], rowHeight: CGFloat) {
         let ordered = tasks.filter { $0.recurring == true } + tasks.filter { $0.recurring != true }
-        // Fixed height of the header, calendar, day summary and the pager/mic line.
-        let available = height - 214
-        func pack(_ budget: CGFloat) -> [[DailyTaskItem]] {
-            var pages: [[DailyTaskItem]] = []
-            var page: [DailyTaskItem] = []
-            var used: CGFloat = 0
-            for task in ordered {
-                let newSection = page.isEmpty || (page.last?.recurring == true) != (task.recurring == true)
-                let rowCost = rowHeight + 4
-                var cost = rowCost + (newSection ? 22 : 0)
-                if !page.isEmpty && used + cost > budget {
-                    pages.append(page)
-                    page = []
-                    used = 0
-                    cost = rowCost + 22
-                }
-                page.append(task)
-                used += cost
-            }
-            pages.append(page)
-            return pages
-        }
-        return pack(available)
+        let sections = (ordered.contains { $0.recurring == true } ? 1 : 0) + (ordered.contains { $0.recurring != true } ? 1 : 0)
+        // Header, small calendar, day line, progress bar and paddings.
+        let available = height - 140 - CGFloat(sections) * 22
+        guard !ordered.isEmpty else { return ([], 40) }
+        let row = min(40, available / CGFloat(ordered.count) - 4)
+        if row >= 24 { return (ordered, row) }
+        let fits = max(1, Int((available - 16) / 28))
+        return (Array(ordered.prefix(fits)), 24)
     }
 
     private func plannerSection(_ title: String, tasks: [DailyTaskItem], date: String, rowHeight: CGFloat) -> some View {
@@ -1354,16 +1330,14 @@ private struct DailyTasksWidgetView: View {
         let empty = count == 0
         return Button(intent: SelectPlannerDayIntent(dateKey: day.date)) {
             VStack(spacing: 0) {
-                Text(day.label).font(.system(size: 11, weight: .semibold))
+                Text(day.label).font(.system(size: 8.5, weight: .semibold))
                     .foregroundStyle(selected ? .white : empty ? faded : ink)
-                Text(String(Int(day.date.suffix(2)) ?? 0)).font(.system(size: 17, weight: .bold))
+                Text(String(Int(day.date.suffix(2)) ?? 0)).font(.system(size: 12, weight: .bold))
                     .foregroundStyle(selected ? .white : empty ? faded : plannerPink)
-                Text(empty ? "·" : done == count ? "✓" : "\(done)/\(count)")
-                    .font(.system(size: 9)).monospacedDigit().foregroundStyle(selected ? .white : faded)
             }
-            .frame(maxWidth: .infinity, minHeight: 51)
-            .background(RoundedRectangle(cornerRadius: 12).fill(selected ? plannerPink : empty ? Color(white: 0.96) : plannerTint))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selected ? Color.clear : plannerBorder))
+            .frame(maxWidth: .infinity, minHeight: 27, maxHeight: 27)
+            .background(RoundedRectangle(cornerRadius: 8).fill(selected ? plannerPink : empty ? Color(white: 0.96) : plannerTint))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Color.clear : plannerBorder))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1371,36 +1345,21 @@ private struct DailyTasksWidgetView: View {
         .accessibilityLabel("\(day.label), \(Int(day.date.suffix(2)) ?? 0), выполнено \(done) из \(count)")
     }
 
-    @ViewBuilder
-    private func plannerPageArrow(_ date: String, page: Int, enabled: Bool, forward: Bool) -> some View {
-        let icon = Image(systemName: forward ? "chevron.right" : "chevron.left")
-            .font(.system(size: 12, weight: .semibold))
-            .frame(width: 32, height: 22)
-            .background(RoundedRectangle(cornerRadius: 8).fill(plannerTint))
-        if enabled {
-            Button(intent: SelectPlannerTaskPageIntent(dateKey: date, page: page)) {
-                icon.foregroundStyle(plannerPink)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(forward ? "Следующие задачи" : "Предыдущие задачи")
-        } else {
-            icon.foregroundStyle(faded.opacity(0.5)).accessibilityHidden(true)
-        }
-    }
-
     private func weekTask(_ task: DailyTaskItem, height: CGFloat) -> some View {
         let status = state(task)
         let inactive = task.done || status == "missed"
+        let compact = height < 34
         return HStack(spacing: 9) {
-            mark(status, size: 20, accent: plannerPink)
+            mark(status, size: compact ? 16 : 20, accent: plannerPink)
             VStack(alignment: .leading, spacing: 0) {
-                if let time = task.time, !time.isEmpty {
+                if let time = task.time, !time.isEmpty, !compact {
                     Text(time).font(.system(size: 10, weight: .semibold)).monospacedDigit()
                         .foregroundStyle(inactive ? faded : plannerPink).lineLimit(1)
                 }
-                Text(task.title).font(.system(size: 14))
+                Text((compact ? task.time.map { $0.isEmpty ? "" : $0 + "  " } ?? "" : "") + task.title)
+                    .font(.system(size: compact ? 12.5 : 14))
                     .foregroundStyle(inactive ? faded : status == "overdue" ? late : ink)
-                    .lineLimit(2).minimumScaleFactor(0.87)
+                    .lineLimit(compact ? 1 : 2).minimumScaleFactor(0.87)
             }
             .strikethrough(task.done)
             Spacer(minLength: 0)
