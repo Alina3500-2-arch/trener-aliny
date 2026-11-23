@@ -153,6 +153,7 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .month-dialog{width:min(calc(100% - 24px),430px);max-height:calc(100% - 24px);overflow:auto;border:1px solid #f1dfe7;border-radius:20px;padding:16px;background:#fff;color:var(--ink)}
 .month-dialog::backdrop{background:#20151d55}
 .month-dialog h2{font-size:18px;margin:0 0 12px;overflow-wrap:anywhere}
+.dialog .danger{background:#fdecef;color:#e5484d}
 .month-nav{display:flex;justify-content:space-between;align-items:center;gap:6px}
 .month-nav button,.month-close{border:0;border-radius:10px;background:#fbedf3;color:#9f4469;font:inherit;padding:8px 13px}
 .month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:10px 0}
@@ -345,11 +346,19 @@ if(repeat){
 }
 if(rule){
  const remove=whole=>{
-  if(whole&&!confirm("Прекратить повторение с "+longDate(date)+"?"))return;
   reloadDb();PlannerCore.removeOccurrence(db,date,cur.id,whole);persist();closeIt();
  };
+ $("dialog-root").insertAdjacentHTML("beforeend",
+  '<dialog class="dialog month-dialog" id="stop-series-dialog" aria-labelledby="stop-series-title">'+
+  '<h2 id="stop-series-title">Прекратить повторение?</h2>'+
+  '<p>Задача исчезнет из расписания с '+longDate(date)+'. Предыдущие даты сохранятся.</p>'+
+  '<div class="actions"><button type="button" class="cancel" id="stop-series-cancel" autofocus>Отмена</button>'+
+  '<button type="button" class="danger" id="stop-series-confirm">Прекратить</button></div></dialog>');
+ const confirmation=$("stop-series-dialog");
  $("delete-occurrence").onclick=()=>remove(false);
- $("delete-series").onclick=()=>remove(true);
+ $("delete-series").onclick=()=>confirmation.showModal();
+ $("stop-series-cancel").onclick=()=>confirmation.close();
+ $("stop-series-confirm").onclick=()=>{confirmation.close();remove(true)};
 }
 $("task-dialog").onsubmit=e=>{
  e.preventDefault();stopVoice(true);

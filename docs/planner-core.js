@@ -66,8 +66,12 @@ window.PlannerCore = (function () {
     var rules = series(db), rule = rules[id];
     if (!rule) return;
     if (wholeSeries) {
-      if (day <= rule.from) delete rules[id];
-      else rule.until = day;
+      var historyId = rule.historyId || rule.id;
+      Object.entries(rules).forEach(function ([versionId, version]) {
+        if ((version.historyId || version.id) !== historyId) return;
+        if (version.from >= day) delete rules[versionId];
+        else if (!version.until || version.until > day) version.until = day;
+      });
     } else {
       (rule.skipped ||= {})[day] = true;
     }
