@@ -747,7 +747,16 @@ function render(){
     else if(ui.tab==='routine') html='<iframe title="Мой режим — трекер привычек" src="routine.html" id="routine-frame" loading="eager"></iframe>';
     else if(ui.tab==='goals') html='<iframe title="Цели" src="goals-projects.html?view=goals" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#ffffff"></iframe>';
     else if(ui.tab==='projects') html='<iframe title="Проекты" src="goals-projects.html?view=projects" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;background:#ffffff"></iframe>';
-    else if(ui.tab==='tasks') html='<iframe title="Мои дела на день" src="tasks.html'+(new URLSearchParams(location.search).get("day")?"?day="+encodeURIComponent(new URLSearchParams(location.search).get("day"))+(new URLSearchParams(location.search).get("voice")==="1"?"&voice=1":"")+(new URLSearchParams(location.search).get("view")==="day"?"&view=day":""):"")+'" id="tasks-frame" loading="eager"></iframe>';
+    else if(ui.tab==='tasks') {
+      var currentQuery=new URLSearchParams(location.search);
+      var tasksQuery=new URLSearchParams({v:"2"});
+      if(currentQuery.get("day")){
+        tasksQuery.set("day",currentQuery.get("day"));
+        if(currentQuery.get("voice")==="1")tasksQuery.set("voice","1");
+        if(currentQuery.get("view")==="day")tasksQuery.set("view","day");
+      }
+      html='<iframe title="Мои дела на день" src="tasks.html?'+tasksQuery.toString().replace(/&/g,"&amp;")+'" id="tasks-frame" loading="eager"></iframe>';
+    }
     else if(ui.tab==='notes') html='<iframe title="Заметки" src="notes.html" id="notes-frame" loading="eager"></iframe>';
     else if(ui.tab==='result') html='<iframe title="Режим результата" src="result.html" id="result-frame" loading="eager" style="width:100%;height:calc(var(--vvh,100dvh) - 76px);border:0;display:block;background:#ffffff"></iframe>';
     app.innerHTML=html;

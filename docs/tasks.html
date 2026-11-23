@@ -146,6 +146,9 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .repeat-options input:checked+span{background:#f9dce8;color:#892d54;font-weight:700}
 .repeat-options input:focus-visible+span{outline:2px solid #892d54}
 .dialog .del{width:100%;padding:10px;margin-top:7px}
+.stop-series-panel{margin-top:7px;padding:12px;background:#fff7f9;border-radius:14px}
+.stop-series-panel p{margin:0;color:#7d3f55;line-height:1.4}
+.stop-series-panel .danger{background:#fdecef;color:#e5484d}
 
 .task-status,.task-history{background:transparent;color:inherit;border:0;padding:0;text-align:left;font:inherit}
 .task-status{align-self:stretch;display:grid;place-items:center;flex:none;min-width:28px}
@@ -153,7 +156,6 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .month-dialog{width:min(calc(100% - 24px),430px);max-height:calc(100% - 24px);overflow:auto;border:1px solid #f1dfe7;border-radius:20px;padding:16px;background:#fff;color:var(--ink)}
 .month-dialog::backdrop{background:#20151d55}
 .month-dialog h2{font-size:18px;margin:0 0 12px;overflow-wrap:anywhere}
-.dialog .danger{background:#fdecef;color:#e5484d}
 .month-nav{display:flex;justify-content:space-between;align-items:center;gap:6px}
 .month-nav button,.month-close{border:0;border-radius:10px;background:#fbedf3;color:#9f4469;font:inherit;padding:8px 13px}
 .month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:10px 0}
@@ -164,7 +166,7 @@ body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-ser
 .month-cell.open{background:#fff;border:1px solid #efc3d4;color:#9f4469}
 .month-cell.none{color:#857985}
 .month-count{color:#786b75;font-size:13px;line-height:1.4;margin:8px 0 12px}
-</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Кружок — отметить · название ежедневной задачи — история · свайп — изменить или удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><dialog class="month-dialog" id="month-history" aria-labelledby="month-task"></dialog><script src="planner-core.js"></script><script>
+</style></head><body><header><div class="hrow"><svg class="hicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6.5 1.5 1.5 3-3"/><path d="m3.5 13.5 1.5 1.5 3-3"/><circle cx="5.5" cy="19.5" r="1.5"/><path d="M11 6.5h10M11 13.5h10M11 19.5h10"/></svg><h1>Планировщик</h1><span class="hcount" id="hcount"></span><button class="hplus" id="add-today" aria-label="Добавить дело">+</button></div><button id="siri-import" class="siri">↻ Подтянуть из Напоминаний</button><button id="mode-toggle" class="siri" style="margin-left:16px"></button></header><div class="weeknav" id="weeknav"><button id="wk-prev" aria-label="Прошлая неделя">‹</button><button id="wk-title"></button><button id="wk-next" aria-label="Следующая неделя">›</button></div><div class="diary" id="diary"></div><div class="hint-line">Кружок — отметить · название ежедневной задачи — история · свайп — изменить или удалить · <span style="color:#e5484d">✕</span> не сделано в срок</div><div id="dialog-root"></div><dialog class="month-dialog" id="month-history" aria-labelledby="month-task"></dialog><script src="planner-core.js?v=2"></script><script>
 "use strict";
 const MIC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 const KEY=PlannerCore.KEY, $=id=>document.getElementById(id),dateKey=PlannerCore.key;
@@ -348,17 +350,23 @@ if(rule){
  const remove=whole=>{
   reloadDb();PlannerCore.removeOccurrence(db,date,cur.id,whole);persist();closeIt();
  };
- $("dialog-root").insertAdjacentHTML("beforeend",
-  '<dialog class="dialog month-dialog" id="stop-series-dialog" aria-labelledby="stop-series-title">'+
-  '<h2 id="stop-series-title">Прекратить повторение?</h2>'+
-  '<p>Задача исчезнет из расписания с '+longDate(date)+'. Предыдущие даты сохранятся.</p>'+
-  '<div class="actions"><button type="button" class="cancel" id="stop-series-cancel" autofocus>Отмена</button>'+
-  '<button type="button" class="danger" id="stop-series-confirm">Прекратить</button></div></dialog>');
- const confirmation=$("stop-series-dialog");
+ const stopButton=$("delete-series");
+ stopButton.insertAdjacentHTML("afterend",
+  '<section class="stop-series-panel" id="stop-series-panel" hidden>'+
+  '<p>Убрать задачу с '+longDate(date)+' и всех следующих дат?</p>'+
+  '<div class="actions"><button type="button" class="cancel" id="stop-series-cancel">Отмена</button>'+
+  '<button type="button" class="danger" id="stop-series-confirm">Прекратить</button></div></section>');
+ const confirmation=$("stop-series-panel"),cancel=$("stop-series-cancel");
+ const setConfirming=show=>{
+  confirmation.hidden=!show;
+  stopButton.hidden=show;
+  if(show)confirmation.scrollIntoView({block:"nearest"});
+  (show?cancel:stopButton).focus({preventScroll:true});
+ };
  $("delete-occurrence").onclick=()=>remove(false);
- $("delete-series").onclick=()=>confirmation.showModal();
- $("stop-series-cancel").onclick=()=>confirmation.close();
- $("stop-series-confirm").onclick=()=>{confirmation.close();remove(true)};
+ stopButton.onclick=()=>setConfirming(true);
+ cancel.onclick=()=>setConfirming(false);
+ $("stop-series-confirm").onclick=()=>remove(true);
 }
 $("task-dialog").onsubmit=e=>{
  e.preventDefault();stopVoice(true);
